@@ -1,10 +1,10 @@
 import { Component, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs';
 
-import { GuestIdentityService } from './services/guest-identity.service';
-import { Idea, MindsparkService, Room } from './services/mindspark.service';
+import { MindsparkService, Room } from './services/mindspark.service';
 
 @Component({
   imports: [DecimalPipe, FormsModule, RouterOutlet],
@@ -14,11 +14,10 @@ import { Idea, MindsparkService, Room } from './services/mindspark.service';
 })
 export class App {
   private readonly mindspark = inject(MindsparkService);
-  private readonly guestIdentity = inject(GuestIdentityService);
+  private readonly router = inject(Router);
 
   protected readonly rooms = signal<Room[]>([]);
-  protected readonly ideas = signal<Idea[]>([]);
-  protected readonly activeRoom = signal<Room | null>(null);
+  protected readonly isRoomRoute = signal(false);
   protected readonly roomName = signal('');
   protected readonly invitationCode = signal('');
   protected readonly ideaText = signal('');
@@ -29,6 +28,10 @@ export class App {
   protected readonly loading = signal(false);
 
   constructor() {
+    this.isRoomRoute.set(this.router.url.startsWith('/room/'));
+    this.router.events.pipe(filter(event => event instanceof NavigationEnd)).subscribe(event => {
+      this.isRoomRoute.set((event as NavigationEnd).urlAfterRedirects.startsWith('/room/'));
+    });
     this.refreshRooms();
     this.mindspark.health().subscribe({
       next: () => this.status.set('Connected to the workshop server'),
@@ -65,45 +68,8 @@ export class App {
   }
 
   protected openRoom(room: Room): void {
-    this.activeRoom.set(room);
-    this.loadIdeas(room.id);
+    void this.router.navigate(['/room', room.id]);
   }
 
-  protected leaveRoom(): void {
-    const room = this.activeRoom();
-    if (!room) return;
-    this.mindspark.leaveRoom(room.id).subscribe({
-      next: () => { this.activeRoom.set(null); this.ideas.set([]); this.refreshRooms(); this.status.set('You left the room'); },
-      error: () => this.showError('Could not leave the room')
-    });
-  }
-
-  protected addIdea(): void {
-    const room = this.activeRoom();
-    const text = this.ideaText().trim();
-    if (!room || !text) return;
-    this.mindspark.createIdea(room.id, text).subscribe({ next: () => { this.ideaText.set(''); this.loadIdeas(room.id); }, error: () => this.showError('Could not add the idea') });
-  }
-
-  protected startEditing(idea: Idea): void { this.editingIdeaId.set(idea.id); this.editingText.set(idea.text); }
-
-  protected saveIdea(idea: Idea): void {
-    this.mindspark.updateIdea(idea.id, this.editingText().trim()).subscribe({ next: () => { this.cancelEditing(); this.loadIdeas(idea.roomId); }, error: () => this.showError('Could not update the idea') });
-  }
-
-  protected deleteIdea(idea: Idea): void {
-    this.mindspark.deleteIdea(idea.id).subscribe({ next: () => this.loadIdeas(idea.roomId), error: () => this.showError('Only the idea author can delete it') });
-  }
-
-  protected toggleVote(idea: Idea): void {
-    const request = idea.voted ? this.mindspark.removeVote(idea.id) : this.mindspark.vote(idea.id);
-    request.subscribe({ next: () => this.loadIdeas(idea.roomId), error: () => this.showError('Only room members can vote') });
-  }
-
-  protected cancelEditing(): void { this.editingIdeaId.set(null); this.editingText.set(''); }
-
-  protected isOwner(room: Room): boolean { return room.ownerGuestId === this.guestIdentity.id; }
-
-  private loadIdeas(roomId: string): void { this.mindspark.listIdeas(roomId).subscribe({ next: ideas => this.ideas.set(ideas), error: () => this.showError('Could not load ideas') }); }
   private showError(message: string): void { this.error.set(message); this.status.set(''); }
 }

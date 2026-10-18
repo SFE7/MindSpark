@@ -38,13 +38,15 @@ public class IdeaController {
     @PostMapping("/rooms/{roomId}/ideas")
     public IdeaResponse create(@PathVariable UUID roomId, @RequestHeader("X-Guest-Id") UUID guestId,
                                @RequestBody IdeaRequest request) {
-        return response(ideaService.create(roomId, request.text(), guestId), guestId);
+        return response(ideaService.create(roomId, request.text(), request.title(), request.description(),
+                request.x(), request.y(), request.color(), guestId), guestId);
     }
 
     @PutMapping("/ideas/{ideaId}")
     public IdeaResponse update(@PathVariable UUID ideaId, @RequestHeader("X-Guest-Id") UUID guestId,
                                @RequestBody IdeaRequest request) {
-        return response(ideaService.update(ideaId, request.text(), guestId), guestId);
+        return response(ideaService.update(ideaId, request.text(), request.title(), request.description(),
+                request.x(), request.y(), request.color(), guestId), guestId);
     }
 
     @DeleteMapping("/ideas/{ideaId}")
@@ -66,6 +68,7 @@ public class IdeaController {
 
     private IdeaResponse response(Idea idea, UUID guestId) {
         return new IdeaResponse(idea.getId(), idea.getRoomId(), idea.getAuthorGuestId(), idea.getText(),
+                idea.getTitle(), idea.getDescription(), idea.getX(), idea.getY(), idea.getColor(),
                 idea.getCreatedAt(), idea.getUpdatedAt(), voteService.count(idea.getId()),
                 voteService.voted(idea.getId(), guestId));
     }

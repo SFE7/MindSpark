@@ -26,17 +26,63 @@ public class IdeaService {
     }
 
     public Idea create(UUID roomId, String text, UUID guestId) {
+        return create(roomId, text, text, null, null, null, null, guestId);
+    }
+
+    public Idea create(UUID roomId, String text, String title, String description, Double x, Double y, String color, UUID guestId) {
         roomService.memberRoom(roomId, guestId);
-        validateText(text);
-        return ideaRepository.save(new Idea(roomId, guestId, text.trim()));
+        String effectiveTitle = title != null && !title.isBlank() ? title.trim() : (text != null ? text.trim() : "");
+        if (effectiveTitle.isEmpty() || effectiveTitle.length() > 200) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idea title or text is required");
+        }
+        if (description != null && description.length() > 2000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idea description is too long");
+        }
+        return ideaRepository.save(new Idea(roomId, guestId, text, effectiveTitle, description, x, y, color));
     }
 
     public Idea update(UUID ideaId, String text, UUID guestId) {
+        return update(ideaId, text, text, null, null, null, null, guestId);
+    }
+
+    public Idea update(UUID ideaId, String text, String title, String description, UUID guestId) {
+        return update(ideaId, text, title, description, null, null, null, guestId);
+    }
+
+    public Idea update(UUID ideaId, String text, String title, String description, Double x, Double y, String color, UUID guestId) {
         Idea idea = find(ideaId);
         roomService.memberRoom(idea.getRoomId(), guestId);
-        requireAuthor(idea, guestId);
-        validateText(text);
-        idea.updateText(text.trim());
+
+        String currentTitle = idea.getTitle() != null ? idea.getTitle() : (idea.getText() != null ? idea.getText() : "");
+        String currentDesc = idea.getDescription() != null ? idea.getDescription() : "";
+        String currentColor = idea.getColor() != null ? idea.getColor() : "";
+
+        boolean titleChanged = title != null && !title.isBlank() && !title.trim().equals(currentTitle.trim());
+        boolean textChanged = text != null && !text.isBlank() && !text.trim().equals(idea.getText() != null ? idea.getText().trim() : "");
+        boolean descChanged = description != null && !description.trim().equals(currentDesc.trim());
+        boolean colorChanged = color != null && !color.isBlank() && !color.equalsIgnoreCase(currentColor);
+
+        if (titleChanged || textChanged || descChanged || colorChanged) {
+            requireAuthor(idea, guestId);
+        }
+
+        String existingTitle = idea.getTitle() != null ? idea.getTitle() : (idea.getText() != null ? idea.getText() : "");
+        String effectiveTitle = title != null && !title.isBlank() ? title.trim() : (text != null && !text.isBlank() ? text.trim() : existingTitle);
+        String effectiveDescription = description != null ? description.trim() : (idea.getDescription() != null ? idea.getDescription() : "");
+        String effectiveText = text != null && !text.isBlank() ? text.trim() : (idea.getText() != null ? idea.getText() : effectiveTitle);
+
+        if (effectiveTitle != null && effectiveTitle.length() > 200) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idea title is too long");
+        }
+        if (effectiveDescription != null && effectiveDescription.length() > 2000) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Idea description is too long");
+        }
+
+        Double newX = x != null ? x : idea.getX();
+        Double newY = y != null ? y : idea.getY();
+        String newColor = color != null && !color.isBlank() ? color : idea.getColor();
+
+        idea.update(effectiveText, effectiveTitle, effectiveDescription, newX, newY, newColor);
         return ideaRepository.save(idea);
     }
 

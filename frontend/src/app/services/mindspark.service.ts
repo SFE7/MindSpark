@@ -15,11 +15,25 @@ export interface Idea {
   id: string;
   roomId: string;
   authorGuestId: string;
-  text: string;
+  text?: string;
+  title?: string;
+  description?: string;
+  x?: number;
+  y?: number;
+  color?: string;
   createdAt: string;
   updatedAt: string;
   voteCount: number;
   voted: boolean;
+}
+
+export interface IdeaPayload {
+  title?: string;
+  description?: string;
+  text?: string;
+  x?: number;
+  y?: number;
+  color?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -32,6 +46,10 @@ export class MindsparkService {
 
   listRooms() {
     return this.http.get<Room[]>('/api/rooms');
+  }
+
+  getRoom(roomId: string) {
+    return this.http.get<Room>(`/api/rooms/${roomId}`);
   }
 
   createRoom(name: string) {
@@ -54,12 +72,22 @@ export class MindsparkService {
     return this.http.get<Idea[]>(`/api/rooms/${roomId}/ideas`);
   }
 
-  createIdea(roomId: string, text: string) {
-    return this.http.post<Idea>(`/api/rooms/${roomId}/ideas`, { text });
+  createIdea(roomId: string, payload: string | IdeaPayload) {
+    const body = typeof payload === 'string' ? { text: payload, title: payload } : {
+      ...payload,
+      text: payload.text || payload.title,
+      title: payload.title || payload.text,
+    };
+    return this.http.post<Idea>(`/api/rooms/${roomId}/ideas`, body);
   }
 
-  updateIdea(ideaId: string, text: string) {
-    return this.http.put<Idea>(`/api/ideas/${ideaId}`, { text });
+  updateIdea(ideaId: string, payload: string | IdeaPayload) {
+    const body = typeof payload === 'string' ? { text: payload, title: payload } : {
+      ...payload,
+      text: payload.text || payload.title,
+      title: payload.title || payload.text,
+    };
+    return this.http.put<Idea>(`/api/ideas/${ideaId}`, body);
   }
 
   deleteIdea(ideaId: string) {
