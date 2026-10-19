@@ -1,10 +1,34 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { signal } from '@angular/core';
+import { of } from 'rxjs';
 import { App } from './app';
+import { KeycloakAuth } from './services/auth/keycloak-auth';
+import { MindsparkService } from './services/mindspark.service';
+import { UserService } from './services/user-service';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
+      providers: [
+        provideRouter([]),
+        { provide: KeycloakAuth, useValue: { isLoggedIn: false } },
+        {
+          provide: MindsparkService,
+          useValue: {
+            health: () => of({ status: 'ok' }),
+            listRooms: () => of([]),
+          },
+        },
+        {
+          provide: UserService,
+          useValue: {
+            currentUser: signal(null),
+            syncUser: () => of({ id: 1, username: 'test', email: 'test@example.com' }),
+          },
+        },
+      ],
     })
       .compileComponents();
   });

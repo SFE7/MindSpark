@@ -1,0 +1,24 @@
+<header class="topbar">
+  <a class="brand" routerLink="/" aria-label="MindSpark home">
+    <span class="brand-mark">M</span>
+    <span class="brand-name">mind<span>spark</span></span>
+  </a>
+
+  <div class="connection-buttons">
+    @if (isLoggedIn) {
+      @if (currentUser(); as user) {
+        <span class="username">{{ user.username }}</span>
+      }
+      <button class="auth-button logout-button" type="button" (click)="logout()">
+        Log out <span aria-hidden="true">↗</span>
+      </button>
+    } @else {
+      <button class="auth-button login-button" type="button" (click)="login()">
+        Log in
+      </button>
+      <button class="auth-button register-button" type="button" (click)="register()">
+        Create account <span aria-hidden="true">↗</span>
+      </button>
+    }
+  </div>
+</header>

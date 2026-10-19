@@ -6,7 +6,17 @@ import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import com.sme.maintenance.entities.User;
+import com.sme.maintenance.idea.Idea;
+
 public interface VoteRepository extends JpaRepository<Vote, UUID> {
-    List<Vote> findByIdeaId(UUID ideaId);
-    Optional<Vote> findByIdeaIdAndGuestId(UUID ideaId, UUID guestId);
+    List<Vote> findByIdea(Idea idea);
+
+    Optional<Vote> findByIdeaAndUser(Idea idea, User user);
+
+    boolean existsByIdeaAndUser(Idea idea, User user);
+
+    void deleteByIdeaAndUser(Idea idea, User user);
+
+    long countByIdea(Idea idea);
 }

@@ -5,7 +5,7 @@ import { Subscription, of, timer } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
 
 import { MindsparkService, Idea, Room } from '../services/mindspark.service';
-import { GuestIdentityService } from '../services/guest-identity.service';
+import { UserService } from '../services/user-service';
 
 type WorkspaceTool = 'pen' | 'highlighter' | 'shapes' | 'idea' | 'eraser';
 type WorkspaceShape = 'triangle' | 'circle' | 'rectangle';
@@ -57,7 +57,7 @@ export interface IdeaItem {
   x: number;
   y: number;
   color: string;
-  creatorId: string;
+  creatorId: number | null;
   title: string;
   description: string;
   voteCount?: number;
@@ -79,7 +79,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   readonly leave = output<void>();
 
   private readonly mindspark = inject(MindsparkService);
-  private readonly guestIdentity = inject(GuestIdentityService);
+  private readonly userService = inject(UserService);
   private readonly router = inject(Router);
 
   protected goHome(): void {
@@ -124,7 +124,6 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   protected readonly ideaList = computed(() => this.items().filter((item): item is IdeaItem => item.kind === 'idea'));
   protected readonly canUndo = computed(() => this.historyIndex() > 0);
   protected readonly canRedo = computed(() => this.historyIndex() < this.history.length - 1);
-  protected readonly guestId = computed(() => this.guestIdentity.id);
   protected readonly draggingIdea = signal<IdeaItem | null>(null);
 
   private nextItemId = 1;
@@ -249,7 +248,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         x,
         y,
         color: idea.color || '#9fc9a9',
-        creatorId: idea.authorGuestId,
+        creatorId: idea.author.id,
         title: idea.title || idea.text || 'Untitled Idea',
         description: idea.description || '',
         voteCount: idea.voteCount ?? 0,
@@ -270,6 +269,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
           ci.x !== si.x ||
           ci.y !== si.y ||
           ci.color !== si.color ||
+          ci.creatorId !== si.creatorId ||
           ci.voteCount !== si.voteCount ||
           ci.voted !== si.voted
         );
@@ -521,7 +521,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
           x: draft.x,
           y: draft.y,
           color: this.selectedColor(),
-          creatorId: this.guestIdentity.id,
+          creatorId: this.userService.currentUser()?.id ?? null,
           title,
           description,
           voteCount: 0,
@@ -551,7 +551,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
               x: newIdea.x ?? draft.x,
               y: newIdea.y ?? draft.y,
               color: newIdea.color || this.selectedColor(),
-              creatorId: newIdea.authorGuestId,
+              creatorId: newIdea.author.id,
               title: newIdea.title || newIdea.text || title,
               description: newIdea.description || description,
               voteCount: newIdea.voteCount ?? 0,
@@ -604,13 +604,14 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected editIdea(idea: IdeaItem): void {
-    if (idea.creatorId !== this.guestIdentity.id) return;
+    if (!this.isCreator(idea)) return;
     this.ideaDraft.set({ id: idea.id, x: idea.x, y: idea.y, title: idea.title, description: idea.description });
     this.ideaError.set('');
   }
 
   protected isCreator(idea: IdeaItem): boolean {
-    return idea.creatorId === this.guestIdentity.id;
+    const currentUserId = this.userService.currentUser()?.id;
+    return currentUserId !== undefined && idea.creatorId === currentUserId;
   }
 
   protected cancelIdea(): void {

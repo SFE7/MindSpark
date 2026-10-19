@@ -1,3 +1,4 @@
+
 package com.sme.maintenance.room;
 
 import java.time.Instant;
@@ -9,11 +10,16 @@ import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+
+import com.sme.maintenance.entities.User;
 
 @Entity
 @Table(name = "rooms")
@@ -29,32 +35,62 @@ public class Room {
     @Column(nullable = false, unique = true, length = 8)
     private String invitationCode;
 
-    @Column(nullable = false)
-    private UUID ownerGuestId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "owner_id", nullable = false)
+    private User owner;
 
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
     @ElementCollection
-    @CollectionTable(name = "room_members", joinColumns = @JoinColumn(name = "room_id"))
-    @Column(name = "guest_id", nullable = false)
-    private Set<UUID> memberGuestIds = new HashSet<>();
+    @CollectionTable(
+        name = "room_members",
+        joinColumns = @JoinColumn(name = "room_id"),
+        uniqueConstraints = @UniqueConstraint(
+            columnNames = {"room_id", "user_id"}
+        )
+    )
+    @Column(name = "user_id", nullable = false)
+    private Set<Long> memberUserIds = new HashSet<>();
 
-    protected Room() {
-    }
+    protected Room() {}
 
-    public Room(String name, String invitationCode, UUID ownerGuestId) {
+    public Room(String name, String invitationCode, User owner) {
         this.name = name;
         this.invitationCode = invitationCode;
-        this.ownerGuestId = ownerGuestId;
+        this.owner = owner;
         this.createdAt = Instant.now();
-        this.memberGuestIds.add(ownerGuestId);
+
+        if (owner.getId() != null) {
+            this.memberUserIds.add(owner.getId());
+        }
     }
 
-    public UUID getId() { return id; }
-    public String getName() { return name; }
-    public String getInvitationCode() { return invitationCode; }
-    public UUID getOwnerGuestId() { return ownerGuestId; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Set<UUID> getMemberGuestIds() { return memberGuestIds; }
+    public UUID getId() {
+        return id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getInvitationCode() {
+        return invitationCode;
+    }
+
+    public User getOwner() {
+        return owner;
+    }
+
+    public Long getOwnerId() {
+        return owner.getId();
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Set<Long> getMemberIds() {
+        return memberUserIds;
+    }
 }

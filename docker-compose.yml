@@ -32,9 +32,6 @@ services:
     command: start-dev
     ports:
       - "8180:8080"
-    volumes:
-      - keycloak_data:/opt/keycloak/data
-      - ./keycloak/providers:/opt/keycloak/providers
     env_file:
       - .env
     networks:
