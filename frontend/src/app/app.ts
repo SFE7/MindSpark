@@ -5,9 +5,9 @@ import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 
 import { MindsparkService, Room } from './services/mindspark.service';
-import { KeycloakAuth } from './services/auth/keycloak-auth';
-import { Header } from './components/header/header';
-import { UserService } from './services/user-service';
+import { KeycloakAuth } from './core/auth/keycloak-auth';
+import { Header } from './layout/header/header';
+import { UserService } from './core/user-service';
 
 @Component({
   imports: [DecimalPipe, FormsModule, RouterOutlet,Header],

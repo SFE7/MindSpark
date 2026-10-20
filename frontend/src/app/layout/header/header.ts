@@ -1,6 +1,6 @@
 import { Component, inject } from '@angular/core';
-import { KeycloakAuth } from '../../services/auth/keycloak-auth';
-import { UserService } from '../../services/user-service';
+import { KeycloakAuth } from '../../core/auth/keycloak-auth';
+import { UserService } from '../../core/user-service';
 
 @Component({
   imports: [],

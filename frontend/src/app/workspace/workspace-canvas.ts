@@ -5,7 +5,7 @@ import { Subscription, of, timer } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
 
 import { MindsparkService, Idea, Room } from '../services/mindspark.service';
-import { UserService } from '../services/user-service';
+import { UserService } from '../core/user-service';
 
 type WorkspaceTool = 'pen' | 'highlighter' | 'shapes' | 'idea' | 'eraser';
 type WorkspaceShape = 'triangle' | 'circle' | 'rectangle';

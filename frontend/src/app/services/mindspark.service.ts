@@ -2,8 +2,8 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, switchMap } from 'rxjs';
-import { User } from '../models/User';
-import { UserService } from './user-service';
+import { User } from '../core/models/User';
+import { UserService } from '../core/user-service';
 
 // Room response now contains full owner and member objects
 export interface Room {

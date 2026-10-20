@@ -3,9 +3,9 @@ import { provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { of } from 'rxjs';
 import { App } from './app';
-import { KeycloakAuth } from './services/auth/keycloak-auth';
+import { KeycloakAuth } from './core/auth/keycloak-auth';
 import { MindsparkService } from './services/mindspark.service';
-import { UserService } from './services/user-service';
+import { UserService } from './core/user-service';
 
 describe('App', () => {
   beforeEach(async () => {
