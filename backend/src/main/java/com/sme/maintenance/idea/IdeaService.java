@@ -43,7 +43,7 @@ public class IdeaService {
 
         return ideaRepository.findByRoomOrderByCreatedAtAsc(room);
     }
-
+// I can create an idea in a room I belong to
     public Idea create(UUID roomId, String text, Long userId) {
         return create(
                 roomId, text, text, null,
@@ -236,7 +236,7 @@ public class IdeaService {
 
         return ideaRepository.save(idea);
     }
-
+// I can delete my own ideas
     public void delete(UUID ideaId, Long userId) {
         Idea idea = find(ideaId);
 
