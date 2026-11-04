@@ -59,7 +59,7 @@ public class RoomService {
         room.getMemberIds().add(userId);
         return roomRepository.save(room);
     }
-
+//As a client, I can leave a brainstorming room.
     public Room leave(UUID roomId, Long userId) {
         Room room = find(roomId);
         requireMember(room, userId);

@@ -31,7 +31,7 @@ public class VoteService {
         this.roomService = roomService;
         this.userRepository = userRepository;
     }
-
+//As a client, I can vote for an idea.
     public void add(UUID ideaId, Long userId) {
         Idea idea = ideaService.find(ideaId);
         roomService.memberRoom(idea.getRoom().getId(), userId);
