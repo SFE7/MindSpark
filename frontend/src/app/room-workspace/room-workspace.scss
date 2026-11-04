@@ -1,0 +1,62 @@
+:host {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.room-page {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #f3f6ee;
+}
+
+.workspace-error {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  border-radius: 999px;
+  background: #ffe7dd;
+  border: 1px solid #f2c0ad;
+  padding: 8px 20px;
+  color: #9a5846;
+  font-size: 0.85rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.room-page {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #f3f6ee;
+}
+
+.workspace-error {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  border-radius: 999px;
+  background: #ffe7dd;
+  border: 1px solid #f2c0ad;
+  padding: 8px 20px;
+  color: #9a5846;
+  font-size: 0.85rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+

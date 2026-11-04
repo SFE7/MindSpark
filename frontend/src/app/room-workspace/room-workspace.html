@@ -1,0 +1,12 @@
+<main class="room-page">
+  @if (room(); as currentRoom) {
+    <app-workspace-canvas
+      [roomId]="currentRoom.id"
+      [room]="currentRoom"
+      (leave)="leaveRoom()"
+    />
+  }
+  @if (error()) {
+    <div class="workspace-error" role="alert">{{ error() }}</div>
+  }
+</main>

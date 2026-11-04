@@ -1,0 +1,46 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - frontend_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - keycloak
+    networks:
+      - frontend_net
+      - backend_net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4.0
+    command: start-dev
+    ports:
+      - "8180:8080"
+    env_file:
+      - .env
+    networks:
+      - frontend_net
+      - backend_net
+
+volumes:
+  keycloak_data:
+
+networks:
+  frontend_net:
+  backend_net:

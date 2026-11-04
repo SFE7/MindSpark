@@ -1,0 +1,304 @@
+<section class="workspace-viewport" aria-label="Brainstorming workspace">
+  <!-- Dotted Canvas Stage -->
+  <div
+    class="canvas-stage"
+    [class.eraser-active]="selectedTool() === 'eraser'"
+    [class.idea-active]="selectedTool() === 'idea'"
+    [class.is-dragging]="draggingIdea() !== null"
+  >
+    <!-- SVG Drawing Layer -->
+    <svg
+      class="canvas-surface"
+      viewBox="0 0 1000 500"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      (pointerdown)="onPointerDown($event)"
+      (pointermove)="onPointerMove($event)"
+      (pointerup)="onPointerUp($event)"
+      (pointercancel)="onPointerUp($event)"
+    >
+      @for (item of items(); track item.id) {
+        @if (isStroke(item)) {
+          <path
+            [attr.d]="strokePath(item.points)"
+            [attr.stroke]="item.color"
+            [attr.stroke-width]="item.width"
+            [attr.opacity]="item.opacity"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        } @else if (isShape(item)) {
+          @if (item.shape === 'circle') {
+            <ellipse
+              [attr.cx]="item.x + item.width / 2"
+              [attr.cy]="item.y + item.height / 2"
+              [attr.rx]="item.width / 2"
+              [attr.ry]="item.height / 2"
+              [attr.stroke]="item.color"
+            />
+          } @else if (item.shape === 'triangle') {
+            <polygon [attr.points]="trianglePoints(item)" [attr.stroke]="item.color" />
+          } @else {
+            <rect
+              [attr.x]="item.x"
+              [attr.y]="item.y"
+              [attr.width]="item.width"
+              [attr.height]="item.height"
+              [attr.stroke]="item.color"
+            />
+          }
+        }
+      }
+      @if (preview(); as currentPreview) {
+        @if (isStroke(currentPreview)) {
+          <path
+            [attr.d]="strokePath(currentPreview.points)"
+            [attr.stroke]="currentPreview.color"
+            [attr.stroke-width]="currentPreview.width"
+            [attr.opacity]="currentPreview.opacity"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        } @else if (isShape(currentPreview) && currentPreview.shape === 'circle') {
+          <ellipse
+            [attr.cx]="currentPreview.x + currentPreview.width / 2"
+            [attr.cy]="currentPreview.y + currentPreview.height / 2"
+            [attr.rx]="currentPreview.width / 2"
+            [attr.ry]="currentPreview.height / 2"
+            [attr.stroke]="currentPreview.color"
+          />
+        } @else if (isShape(currentPreview) && currentPreview.shape === 'triangle') {
+          <polygon [attr.points]="trianglePoints(currentPreview)" [attr.stroke]="currentPreview.color" />
+        } @else if (isShape(currentPreview)) {
+          <rect
+            [attr.x]="currentPreview.x"
+            [attr.y]="currentPreview.y"
+            [attr.width]="currentPreview.width"
+            [attr.height]="currentPreview.height"
+            [attr.stroke]="currentPreview.color"
+          />
+        }
+      }
+    </svg>
+
+    <!-- Canvas Idea Layer -->
+    <div class="canvas-idea-layer">
+      @for (idea of ideaList(); track idea.id) {
+        <article
+          class="idea-card"
+          [class.editable]="isCreator(idea)"
+          [class.dragging]="draggingIdea()?.id === idea.id"
+          [style.left]="percentX(idea.x)"
+          [style.top]="percentY(idea.y)"
+          [style.--idea-color]="idea.color"
+          (pointerdown)="onIdeaPointerDown($event, idea)"
+          (pointermove)="onIdeaPointerMove($event)"
+          (pointerup)="onIdeaPointerUp($event)"
+          (pointercancel)="onIdeaPointerUp($event)"
+          (keydown.enter)="editIdea(idea)"
+          [attr.tabindex]="isCreator(idea) ? 0 : null"
+        >
+          <h3 class="idea-title">{{ idea.title }}</h3>
+          @if (idea.description) {
+            <p class="idea-desc">{{ idea.description }}</p>
+          }
+          <div class="idea-card-footer">
+            <button
+              type="button"
+              class="idea-vote-badge"
+              [class.voted]="idea.voted"
+              (click)="toggleVote($event, idea)"
+              (pointerdown)="$event.stopPropagation()"
+              [attr.aria-label]="idea.voted ? 'Remove vote' : 'Vote for idea'"
+            >
+              <span class="vote-icon">&#9650;</span>
+              <span class="vote-count">{{ idea.voteCount || 0 }}</span>
+            </button>
+            @if (isCreator(idea)) {
+              <span class="idea-edit-hint">Edit</span>
+            }
+          </div>
+        </article>
+      }
+    </div>
+
+    <!-- Idea Draft Editor Modal Overlay -->
+    @if (ideaDraft(); as draft) {
+      <form
+        class="idea-editor"
+        [style.left]="percentX(draft.x)"
+        [style.top]="percentY(draft.y)"
+        (ngSubmit)="saveIdea()"
+        (pointerdown)="$event.stopPropagation()"
+      >
+        <label for="idea-title">Idea title <span>*</span></label>
+        <input
+          id="idea-title"
+          [ngModel]="draft.title"
+          (ngModelChange)="updateIdeaDraft('title', $event)"
+          name="ideaTitle"
+          maxlength="80"
+          autofocus
+          placeholder="Name your idea"
+        />
+        <label for="idea-description">Description</label>
+        <textarea
+          id="idea-description"
+          [ngModel]="draft.description"
+          (ngModelChange)="updateIdeaDraft('description', $event)"
+          name="ideaDescription"
+          maxlength="280"
+          rows="3"
+          placeholder="Describe the thought"
+        ></textarea>
+        @if (ideaError()) {
+          <p class="idea-error" role="alert">{{ ideaError() }}</p>
+        }
+        <div class="idea-editor-actions">
+          <button type="submit">{{ draft.id ? 'Save changes' : 'Add idea' }}</button>
+          <button type="button" (click)="cancelIdea()">Cancel</button>
+        </div>
+      </form>
+    }
+  </div>
+
+  <!-- Integrated Floating Top Header -->
+  <header class="floating-header">
+    <div class="header-left">
+      <button class="brand-button" type="button" (click)="goHome()" aria-label="Back to rooms">
+        <span class="brand-mark">M</span>
+        <span class="brand-name">mind<span>spark</span></span>
+      </button>
+    </div>
+
+    @if (room(); as currentRoom) {
+      <div class="header-center">
+        <span class="status-pulse"></span>
+        <span class="room-title">{{ currentRoom.name }}</span>
+        <span class="room-separator">·</span>
+        <span class="room-code">{{ currentRoom.invitationCode }}</span>
+      </div>
+    }
+
+    <div class="header-right">
+      <button class="leave-room-btn" type="button" (click)="onLeave()">Leave room</button>
+      <div class="undo-redo-group" aria-label="Undo and redo controls">
+        <button
+          type="button"
+          class="undo-redo-btn"
+          [disabled]="!canUndo()"
+          (click)="undo()"
+          aria-label="Undo"
+          title="Undo"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 14L4 9l5-5"/>
+            <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/>
+          </svg>
+        </button>
+        <div class="undo-redo-sep"></div>
+        <button
+          type="button"
+          class="undo-redo-btn"
+          [disabled]="!canRedo()"
+          (click)="redo()"
+          aria-label="Redo"
+          title="Redo"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 14l5-5-5-5"/>
+            <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Subtle Guide Text Under Logo -->
+  <div class="canvas-guide-text">A shared space for loose thoughts</div>
+
+  <!-- Floating "ROOM IDEAS" Panel (Left Side) -->
+  <aside class="room-ideas-panel" aria-label="Room ideas">
+    <div class="room-ideas-title">ROOM IDEAS</div>
+    <div class="room-ideas-divider"></div>
+    <div class="room-ideas-list">
+      @if (ideaList().length === 0) {
+        <div class="room-ideas-empty">No ideas yet</div>
+      } @else {
+        @for (idea of ideaList(); track idea.id) {
+          <div class="room-idea-chip" (click)="editIdea(idea)" [title]="idea.title">
+            <span class="chip-title">{{ idea.title }}</span>
+            <button
+              type="button"
+              class="chip-vote-btn"
+              [class.voted]="idea.voted"
+              (click)="toggleVote($event, idea)"
+              (pointerdown)="$event.stopPropagation()"
+              [attr.aria-label]="idea.voted ? 'Remove vote' : 'Vote for idea'"
+            >
+              <span class="chip-vote-icon">&#9650;</span>
+              <span class="chip-vote-count">{{ idea.voteCount || 0 }}</span>
+            </button>
+          </div>
+        }
+      }
+    </div>
+  </aside>
+
+  <!-- Floating Drawing Toolbar (Bottom-Right) -->
+  <nav class="floating-toolbar" aria-label="Canvas drawing tools">
+    <div class="tools-cluster">
+      @for (tool of tools; track tool.id) {
+        <button
+          type="button"
+          class="toolbar-tool-btn"
+          [class.selected]="selectedTool() === tool.id"
+          [attr.aria-pressed]="selectedTool() === tool.id"
+          [attr.aria-label]="tool.label"
+          (click)="selectTool(tool.id)"
+        >
+          <img class="tool-icon" [src]="tool.iconPath" [alt]="tool.label + ' tool icon'" />
+          <span class="tool-label">{{ tool.label }}</span>
+        </button>
+      }
+
+      <!-- Shape Popover Menu -->
+      @if (shapesOpen()) {
+        <div class="shapes-popover" aria-label="Shape options">
+          @for (shape of shapes; track shape.id) {
+            <button
+              type="button"
+              class="shape-popover-item"
+              [class.selected]="selectedShape() === shape.id"
+              (click)="selectShape(shape)"
+            >
+              <img class="shape-icon" [src]="shape.iconPath" [alt]="shape.id + ' shape icon'" />
+              <span>{{ shape.id }}</span>
+            </button>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="toolbar-divider"></div>
+
+    <!-- Color Selection -->
+    <div class="colors-cluster" aria-label="Tool colors">
+      <span class="colors-label">Color</span>
+      <div class="color-swatches">
+        @for (color of colors; track color.value) {
+          <button
+            type="button"
+            class="color-dot"
+            [class.selected]="selectedColor() === color.value"
+            [style.--dot-color]="color.value"
+            [attr.aria-label]="color.name"
+            (click)="selectColor(color.value)"
+          ></button>
+        }
+      </div>
+    </div>
+  </nav>
+</section>
