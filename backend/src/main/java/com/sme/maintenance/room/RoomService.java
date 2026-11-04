@@ -25,6 +25,7 @@ public class RoomService {
         this.userRepository = userRepository;
     }
 
+    // i can create a room
     public Room create(String name, Long userId) {
         if (name == null || name.isBlank() || name.trim().length() > 120) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Room name is required");

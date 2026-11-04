@@ -104,6 +104,7 @@ public class IdeaService {
         return ideaRepository.save(idea);
     }
 
+    // i can update my idea 
     public Idea update(UUID ideaId, String text, Long userId) {
         return update(
                 ideaId, text, text, null,
