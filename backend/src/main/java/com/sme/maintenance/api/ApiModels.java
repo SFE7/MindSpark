@@ -12,6 +12,8 @@ public final class ApiModels {
 
     public record CreateRoomRequest(String name) {}
 
+    public record UpdateRoomRequest(String name) {}
+
     public record JoinRoomRequest(String invitationCode) {}
 
     public record IdeaRequest(

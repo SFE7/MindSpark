@@ -2,8 +2,8 @@ import { ApplicationConfig, provideAppInitializer, inject, provideBrowserGlobalE
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { KeycloakAuth } from './services/auth/keycloak-auth';
-import { Interceptor } from './services/auth/interceptor';
+import { KeycloakAuth } from './core/auth/keycloak-auth';
+import { Interceptor } from './core/auth/interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [

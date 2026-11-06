@@ -176,7 +176,32 @@
     @if (room(); as currentRoom) {
       <div class="header-center">
         <span class="status-pulse"></span>
-        <span class="room-title">{{ currentRoom.name }}</span>
+        @if (isEditingRoomName()) {
+          <form class="room-title-edit-form" (ngSubmit)="saveRoomName()">
+            <input
+              class="room-title-input"
+              [ngModel]="editingRoomName()"
+              (ngModelChange)="editingRoomName.set($event)"
+              name="roomName"
+              maxlength="120"
+              autofocus
+            />
+            <button type="submit" class="title-action-btn save" title="Save">✓</button>
+            <button type="button" class="title-action-btn cancel" (click)="cancelEditingRoomName()" title="Cancel">✕</button>
+          </form>
+        } @else {
+          <span
+            class="room-title"
+            [class.editable]="isRoomOwner()"
+            (click)="startEditingRoomName()"
+            [title]="isRoomOwner() ? 'Click to edit room name' : ''"
+          >
+            {{ currentRoom.name }}
+            @if (isRoomOwner()) {
+              <span class="edit-icon" aria-hidden="true">✎</span>
+            }
+          </span>
+        }
         <span class="room-separator">·</span>
         <span class="room-code">{{ currentRoom.invitationCode }}</span>
       </div>

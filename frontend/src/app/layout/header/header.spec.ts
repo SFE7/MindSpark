@@ -1,8 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
-import { KeycloakAuth } from '../../services/auth/keycloak-auth';
-import { UserService } from '../../services/user-service';
+import { KeycloakAuth } from '../../core/auth/keycloak-auth';
+import { UserService } from '../../core/user-service';
 import { Header } from './header';
 
 describe('Header', () => {

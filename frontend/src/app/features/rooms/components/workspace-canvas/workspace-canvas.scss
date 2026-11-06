@@ -335,6 +335,67 @@
 .room-title {
   color: #1e293b;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  &.editable {
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+    transition: border-color 0.15s ease;
+
+    &:hover {
+      border-color: #3553ea;
+      color: #3553ea;
+
+      .edit-icon {
+        opacity: 1;
+      }
+    }
+  }
+
+  .edit-icon {
+    font-size: 0.75rem;
+    opacity: 0.5;
+    transition: opacity 0.15s ease;
+  }
+}
+
+.room-title-edit-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.room-title-input {
+  border: 1px solid #3553ea;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font: 700 0.86rem 'DM Mono', monospace;
+  color: #1e293b;
+  outline: none;
+  background: #ffffff;
+}
+
+.title-action-btn {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  transition: all 0.15s ease;
+
+  &.save {
+    color: #16a34a;
+    &:hover { background: #dcfce7; }
+  }
+
+  &.cancel {
+    color: #dc2626;
+    &:hover { background: #fee2e2; }
+  }
 }
 
 .room-separator {
