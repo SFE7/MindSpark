@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.sme.maintenance.api.ApiModels.CreateRoomRequest;
 import com.sme.maintenance.api.ApiModels.JoinRoomRequest;
 import com.sme.maintenance.api.ApiModels.RoomResponse;
+import com.sme.maintenance.api.ApiModels.UpdateRoomRequest;
 import com.sme.maintenance.api.ApiModels.UserResponse;
 import com.sme.maintenance.entities.User;
 import com.sme.maintenance.room.Room;
@@ -45,6 +47,19 @@ public class RoomController {
         User user = authenticatedUserService.getCurrentUser(jwt);
 
         Room room = roomService.create(request.name(), user.getId());
+
+        return response(room, user.getId());
+    }
+
+    @PutMapping("/{roomId}")
+    public RoomResponse update(
+            @PathVariable UUID roomId,
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody UpdateRoomRequest request) {
+
+        User user = authenticatedUserService.getCurrentUser(jwt);
+
+        Room room = roomService.update(roomId, request.name(), user.getId());
 
         return response(room, user.getId());
     }

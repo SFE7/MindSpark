@@ -43,6 +43,12 @@ export class RoomsService {
     );
   }
 
+  updateRoom(roomId: string, name: string): Observable<Room> {
+    return this.withCurrentUser(() =>
+      this.http.put<Room>(`/api/rooms/${roomId}`, { name })
+    );
+  }
+
   joinRoom(invitationCode: string): Observable<Room> {
     return this.withCurrentUser(() =>
       this.http.post<Room>('/api/rooms/join', { invitationCode })

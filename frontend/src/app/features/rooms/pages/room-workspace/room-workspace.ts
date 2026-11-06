@@ -47,4 +47,8 @@ export class RoomWorkspaceComponent {
     });
   }
 
+  protected updateRoom(updatedRoom: Room): void {
+    this.room.set(updatedRoom);
+  }
+
 }

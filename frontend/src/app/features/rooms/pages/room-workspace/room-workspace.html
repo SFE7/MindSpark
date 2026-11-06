@@ -4,6 +4,7 @@
       [roomId]="currentRoom.id"
       [room]="currentRoom"
       (leave)="leaveRoom()"
+      (roomChanged)="updateRoom($event)"
     />
   }
   @if (error()) {

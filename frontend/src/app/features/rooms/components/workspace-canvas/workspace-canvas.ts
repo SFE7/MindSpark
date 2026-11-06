@@ -2,9 +2,10 @@ import { Component, OnDestroy, computed, effect, inject, input, output, signal }
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription, of, timer } from 'rxjs';
-import { catchError, switchMap } from 'rxjs/operators';
+import { catchError, exhaustMap, timeout } from 'rxjs/operators';
 
 import { IdeasService } from '../../data-access/ideas.service';
+import { RoomsService } from '../../data-access/rooms.service';
 import { Idea } from '../../models/idea.model';
 import { Room } from '../../models/room.model';
 import { UserService } from '../../../../core/user-service';
@@ -79,8 +80,10 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   readonly roomId = input<string>('');
   readonly room = input<Room | null>(null);
   readonly leave = output<void>();
+  readonly roomChanged = output<Room>();
 
   private readonly mindspark = inject(IdeasService);
+  private readonly roomsService = inject(RoomsService);
   private readonly userService = inject(UserService);
   private readonly router = inject(Router);
 
@@ -127,6 +130,54 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   protected readonly canUndo = computed(() => this.historyIndex() > 0);
   protected readonly canRedo = computed(() => this.historyIndex() < this.history.length - 1);
   protected readonly draggingIdea = signal<IdeaItem | null>(null);
+  protected readonly isEditingRoomName = signal(false);
+  protected readonly editingRoomName = signal('');
+  protected readonly roomNameError = signal('');
+
+  protected readonly isRoomOwner = computed(() => {
+    const currentUserId = this.userService.currentUser()?.id;
+    const ownerId = this.room()?.owner?.id;
+    return currentUserId != null && ownerId != null && currentUserId === ownerId;
+  });
+
+  protected startEditingRoomName(): void {
+    if (!this.isRoomOwner()) return;
+    this.editingRoomName.set(this.room()?.name || '');
+    this.roomNameError.set('');
+    this.isEditingRoomName.set(true);
+  }
+
+  protected cancelEditingRoomName(): void {
+    this.isEditingRoomName.set(false);
+    this.roomNameError.set('');
+  }
+
+  protected saveRoomName(): void {
+    if (!this.isRoomOwner()) return;
+    const name = this.editingRoomName().trim();
+    if (!name) {
+      this.roomNameError.set('Room name is required.');
+      return;
+    }
+    if (name.length > 120) {
+      this.roomNameError.set('Room name cannot exceed 120 characters.');
+      return;
+    }
+
+    const currentRoomId = this.roomId();
+    if (!currentRoomId) return;
+
+    this.roomsService.updateRoom(currentRoomId, name).subscribe({
+      next: updatedRoom => {
+        this.roomChanged.emit(updatedRoom);
+        this.isEditingRoomName.set(false);
+        this.roomNameError.set('');
+      },
+      error: () => {
+        this.roomNameError.set('Could not update room name.');
+      },
+    });
+  }
 
   private nextItemId = 1;
   private history: CanvasItem[][] = [[]];
@@ -183,8 +234,9 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     // Fetch immediately, then poll every 2000ms so new ideas appear to all participants
     this.pollSub = timer(0, 2000)
       .pipe(
-        switchMap(() =>
+        exhaustMap(() =>
           this.mindspark.listIdeas(currentRoomId).pipe(
+            timeout(10000),
             catchError(err => {
               console.error('Error fetching room ideas:', err);
               return of(null);

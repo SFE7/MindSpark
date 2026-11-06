@@ -37,6 +37,18 @@ public class RoomService {
         return roomRepository.save(new Room(name, code, user));
     }
 
+    public Room update(UUID roomId, String name, Long userId) {
+        Room room = find(roomId);
+        requireOwner(room, userId);
+
+        if (name == null || name.isBlank() || name.trim().length() > 120) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Room name is required");
+        }
+
+        room.setName(name.trim());
+        return roomRepository.save(room);
+    }
+
     @Transactional(readOnly = true)
     public List<Room> ownedBy(Long userId) {
         return roomRepository.findByOwnerOrderByCreatedAtDesc(getUser(userId));
@@ -92,7 +104,7 @@ public class RoomService {
 
     private void requireOwner(Room room, Long userId) {
         if (!room.getOwnerId().equals(userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the room owner can reopen it");
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the room owner can do this");
         }
     }
 
