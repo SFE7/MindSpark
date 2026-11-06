@@ -9,3 +9,4 @@ import { Header } from '../header/header';
   templateUrl: './layout-shell.html',
 })
 export class LayoutShellComponent {}
+

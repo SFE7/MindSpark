@@ -1,8 +1,9 @@
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 
-import { MindsparkService, Room } from '../services/mindspark.service';
-import { WorkspaceCanvasComponent } from '../workspace/workspace-canvas';
+import { RoomsService } from '../../data-access/rooms.service';
+import { Room } from '../../models/room.model';
+import { WorkspaceCanvasComponent } from '../../components/workspace-canvas/workspace-canvas';
 
 @Component({
   selector: 'app-room-workspace',
@@ -14,7 +15,7 @@ import { WorkspaceCanvasComponent } from '../workspace/workspace-canvas';
 export class RoomWorkspaceComponent {
   private readonly route = inject(ActivatedRoute);
   protected readonly router = inject(Router);
-  private readonly mindspark = inject(MindsparkService);
+  private readonly mindspark = inject(RoomsService);
 
   protected readonly room = signal<Room | null>(null);
   protected readonly error = signal('');

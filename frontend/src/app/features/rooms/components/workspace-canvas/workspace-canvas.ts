@@ -4,8 +4,10 @@ import { Router } from '@angular/router';
 import { Subscription, of, timer } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
 
-import { MindsparkService, Idea, Room } from '../services/mindspark.service';
-import { UserService } from '../core/user-service';
+import { IdeasService } from '../../data-access/ideas.service';
+import { Idea } from '../../models/idea.model';
+import { Room } from '../../models/room.model';
+import { UserService } from '../../../../core/user-service';
 
 type WorkspaceTool = 'pen' | 'highlighter' | 'shapes' | 'idea' | 'eraser';
 type WorkspaceShape = 'triangle' | 'circle' | 'rectangle';
@@ -78,7 +80,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   readonly room = input<Room | null>(null);
   readonly leave = output<void>();
 
-  private readonly mindspark = inject(MindsparkService);
+  private readonly mindspark = inject(IdeasService);
   private readonly userService = inject(UserService);
   private readonly router = inject(Router);
 
