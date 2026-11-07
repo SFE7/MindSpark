@@ -126,7 +126,7 @@ public class RoomController {
 
         return response(room, user.getId());
     }
-
+//As a room owner, I can remove a member from the room.
     @DeleteMapping("/{roomId}/members/{memberId}")
     public RoomResponse removeMember(
             @PathVariable UUID roomId,
@@ -139,7 +139,7 @@ public class RoomController {
 
         return response(room, user.getId());
     }
-
+//As a room owner, I can close the room to prevent new members from joining
     @PostMapping("/{roomId}/close")
     public RoomResponse close(
             @PathVariable UUID roomId,
@@ -163,7 +163,7 @@ public class RoomController {
 
         return response(room, user.getId());
     }
-
+//As a room owner, I can delete the room and all its ideas and votes
     @DeleteMapping("/{roomId}")
     public void delete(
             @PathVariable UUID roomId,
@@ -173,7 +173,7 @@ public class RoomController {
 
         roomService.delete(roomId, user.getId());
     }
-
+//As a room owner, I can remove a member from the room
     private RoomResponse response(Room room, Long userId) {
 
         List<UserResponse> members = roomService.members(room.getId())
