@@ -62,6 +62,7 @@ public class IdeaService {
             Long userId) {
 
         Room room = roomService.memberRoom(roomId, userId);
+        roomService.requireOpen(room);
         User author = getUser(userId);
 
         String effectiveTitle =
@@ -138,6 +139,7 @@ public class IdeaService {
         Idea idea = find(ideaId);
 
         roomService.memberRoom(idea.getRoom().getId(), userId);
+        roomService.requireOpen(idea.getRoom());
 
         String currentTitle = idea.getTitle() != null
                 ? idea.getTitle()
@@ -242,8 +244,8 @@ public class IdeaService {
         Idea idea = find(ideaId);
 
         roomService.memberRoom(idea.getRoom().getId(), userId);
-
         requireAuthor(idea, userId);
+        roomService.requireOpen(idea.getRoom());
 
         ideaRepository.delete(idea);
     }

@@ -35,6 +35,7 @@ public class VoteService {
     public void add(UUID ideaId, Long userId) {
         Idea idea = ideaService.find(ideaId);
         roomService.memberRoom(idea.getRoom().getId(), userId);
+        roomService.requireOpen(idea.getRoom());
 
         User user = getUser(userId);
 
@@ -46,6 +47,7 @@ public class VoteService {
     public void remove(UUID ideaId, Long userId) {
         Idea idea = ideaService.find(ideaId);
         roomService.memberRoom(idea.getRoom().getId(), userId);
+        roomService.requireOpen(idea.getRoom());
 
         User user = getUser(userId);
 

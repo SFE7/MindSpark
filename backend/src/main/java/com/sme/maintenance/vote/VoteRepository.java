@@ -19,4 +19,8 @@ public interface VoteRepository extends JpaRepository<Vote, UUID> {
     void deleteByIdeaAndUser(Idea idea, User user);
 
     long countByIdea(Idea idea);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM Vote v WHERE v.idea.room = :room")
+    void deleteByRoom(@org.springframework.data.repository.query.Param("room") com.sme.maintenance.room.Room room);
 }

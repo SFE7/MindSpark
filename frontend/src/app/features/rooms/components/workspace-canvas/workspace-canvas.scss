@@ -804,3 +804,227 @@
   }
 }
 
+/* ==========================================================================
+   9. Participants Panel & Batch 2 Actions / Badges
+   ========================================================================== */
+
+.closed-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  font: 600 0.72rem 'DM Mono', monospace;
+  letter-spacing: 0.02em;
+  margin-left: 8px;
+}
+
+.header-action-btn {
+  border: 1px solid #d9ddd5;
+  background: #fff;
+  color: #233b3b;
+  font: 600 0.75rem 'DM Mono', monospace;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: #f3f5ef;
+    border-color: #9bb1a1;
+  }
+
+  &.close-btn {
+    color: #92400e;
+    border-color: #fde68a;
+    background: #fffbeb;
+    &:hover { background: #fef3c7; }
+  }
+
+  &.reopen-btn {
+    color: #166534;
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    &:hover { background: #dcfce7; }
+  }
+
+  &.delete-btn {
+    color: #b91c1c;
+    border-color: #fecaca;
+    background: #fef2f2;
+    &:hover { background: #fee2e2; }
+  }
+}
+
+.participants-btn {
+  border: 1px solid #d9ddd5;
+  background: #fff;
+  color: #233b3b;
+  font: 600 0.75rem 'DM Mono', monospace;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &:hover {
+    background: #f3f5ef;
+    border-color: #9bb1a1;
+  }
+}
+
+.participants-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 105;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.participants-panel {
+  position: fixed;
+  top: 72px;
+  right: 20px;
+  width: 320px;
+  max-width: calc(100vw - 40px);
+  max-height: 400px;
+  background: #ffffff;
+  border: 1px solid #d9ddd5;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.participants-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eef2ed;
+  background: #fafbfa;
+
+  .panel-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .participants-title {
+    font: 600 0.85rem 'DM Mono', monospace;
+    color: #233b3b;
+  }
+
+  .participants-count-tag {
+    font: 600 0.7rem 'DM Mono', monospace;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #e5f0e7;
+    color: #233b3b;
+  }
+
+  .close-panel-btn {
+    border: 0;
+    background: transparent;
+    font-size: 0.9rem;
+    color: #71807a;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    &:hover { background: #eef2ed; color: #233b3b; }
+  }
+}
+
+.participants-list {
+  padding: 8px 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.participant-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid #f6f8f5;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  .participant-details {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .participant-name {
+    font-size: 0.82rem;
+    color: #233b3b;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .participant-id {
+    font: 0.72rem 'DM Mono', monospace;
+    color: #9bb1a1;
+  }
+
+  .creator-badge {
+    font: 600 0.65rem 'DM Mono', monospace;
+    padding: 2px 5px;
+    background: #e9784d;
+    color: #ffffff;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .remove-participant-btn {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #dc2626;
+    font: 600 0.7rem 'DM Mono', monospace;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    &:hover { background: #fee2e2; }
+  }
+}
+
+.idea-card.read-only {
+  cursor: default;
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+}
+
+.idea-vote-badge:disabled,
+.chip-vote-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.room-idea-chip.chip-read-only {
+  cursor: default;
+  &:hover {
+    border-color: #d9ddd5;
+  }
+}
+
+.toolbar-tool-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: grayscale(0.8);
+}
+
+

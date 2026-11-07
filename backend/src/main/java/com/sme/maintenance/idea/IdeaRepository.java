@@ -16,4 +16,8 @@ public interface IdeaRepository extends JpaRepository<Idea, UUID> {
 
     @EntityGraph(attributePaths = {"room.owner", "author"})
     List<Idea> findByRoomOrderByCreatedAtAsc(Room room);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM Idea i WHERE i.room = :room")
+    void deleteByRoom(@org.springframework.data.repository.query.Param("room") Room room);
 }

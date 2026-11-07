@@ -185,4 +185,281 @@ class BackendApplicationTests {
             .andExpect(jsonPath("$[0].x").value(750.0))
             .andExpect(jsonPath("$[0].y").value(400.0));
     }
+
+    @Test
+    void ownerCanRemoveParticipantAndRemovedUserIsForbidden() throws Exception {
+        String ownerSub = "owner-1111-1111-1111-111111111111";
+        String memberSub = "member-2222-2222-2222-222222222222";
+        String nonOwnerSub = "other-3333-3333-3333-333333333333";
+
+        // Owner creates room
+        String room = mockMvc.perform(post("/api/rooms")
+                .with(authenticatedAs(ownerSub))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Removal Test Room\"}"))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+
+        String code = JsonPath.read(room, "$.invitationCode").toString();
+        String roomId = JsonPath.read(room, "$.id").toString();
+        Number ownerIdNum = JsonPath.read(room, "$.owner.id");
+        Long ownerId = ownerIdNum.longValue();
+
+        // Member joins room
+        String joinedRoom = mockMvc.perform(post("/api/rooms/join")
+                .with(authenticatedAs(memberSub))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"invitationCode\":\"" + code + "\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.memberCount").value(2))
+            .andReturn().getResponse().getContentAsString();
+
+        // Find member ID from members list
+        net.minidev.json.JSONArray membersArray = JsonPath.read(joinedRoom, "$.members[?(@.id != " + ownerId + ")].id");
+        Long memberId = ((Number) membersArray.get(0)).longValue();
+
+        // Member creates an idea
+        String ideaResp = mockMvc.perform(post("/api/rooms/" + roomId + "/ideas")
+                .with(authenticatedAs(memberSub))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Persistent Idea\",\"description\":\"Should remain after removal\"}"))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        String ideaId = JsonPath.read(ideaResp, "$.id").toString();
+
+        // Member votes on idea
+        mockMvc.perform(post("/api/ideas/" + ideaId + "/vote")
+                .with(authenticatedAs(memberSub)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.voteCount").value(1));
+
+        // Owner cannot remove themselves (400)
+        mockMvc.perform(delete("/api/rooms/" + roomId + "/members/" + ownerId)
+                .with(authenticatedAs(ownerSub)))
+            .andExpect(status().isBadRequest());
+
+        // Target must be a member (404 otherwise)
+        mockMvc.perform(delete("/api/rooms/" + roomId + "/members/999999")
+                .with(authenticatedAs(ownerSub)))
+            .andExpect(status().isNotFound());
+
+        // Non-owner cannot remove anyone (403)
+        mockMvc.perform(delete("/api/rooms/" + roomId + "/members/" + memberId)
+                .with(authenticatedAs(nonOwnerSub)))
+            .andExpect(status().isForbidden());
+
+        // Owner removes member successfully
+        mockMvc.perform(delete("/api/rooms/" + roomId + "/members/" + memberId)
+                .with(authenticatedAs(ownerSub)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.memberCount").value(1));
+
+        // Removed member gets 403 on get room
+        mockMvc.perform(get("/api/rooms/" + roomId)
+                .with(authenticatedAs(memberSub)))
+            .andExpect(status().isForbidden());
+
+        // Removed member gets 403 on list ideas
+        mockMvc.perform(get("/api/rooms/" + roomId + "/ideas")
+                .with(authenticatedAs(memberSub)))
+            .andExpect(status().isForbidden());
+
+        // Removed member gets 403 on create idea
+        mockMvc.perform(post("/api/rooms/" + roomId + "/ideas")
+                .with(authenticatedAs(memberSub))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Blocked Idea\"}"))
+            .andExpect(status().isForbidden());
+
+        // Removed member gets 403 on voting
+        mockMvc.perform(post("/api/ideas/" + ideaId + "/vote")
+                .with(authenticatedAs(memberSub)))
+            .andExpect(status().isForbidden());
+
+        // Removed user's ideas and votes REMAIN
+        mockMvc.perform(get("/api/rooms/" + roomId + "/ideas")
+                .with(authenticatedAs(ownerSub)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].title").value("Persistent Idea"))
+            .andExpect(jsonPath("$[0].voteCount").value(1));
+    }
+
+    @Test
+    void closedRoomBlocksMutationsAndAllowsOwnerManagement() throws Exception {
+        String owner = "owner-close-1111";
+        String member = "member-close-2222";
+        String outsider = "outsider-close-3333";
+
+        // Owner creates room
+        String room = mockMvc.perform(post("/api/rooms")
+                .with(authenticatedAs(owner))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Active Room\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.closed").value(false))
+            .andReturn().getResponse().getContentAsString();
+
+        String code = JsonPath.read(room, "$.invitationCode").toString();
+        String roomId = JsonPath.read(room, "$.id").toString();
+
+        // Member joins room
+        String joined = mockMvc.perform(post("/api/rooms/join")
+                .with(authenticatedAs(member))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"invitationCode\":\"" + code + "\"}"))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+
+        Number ownerIdNum = JsonPath.read(joined, "$.owner.id");
+        net.minidev.json.JSONArray membersArray = JsonPath.read(joined, "$.members[?(@.id != " + ownerIdNum + ")].id");
+        Long memberId = ((Number) membersArray.get(0)).longValue();
+
+        // Member creates idea
+        String ideaResp = mockMvc.perform(post("/api/rooms/" + roomId + "/ideas")
+                .with(authenticatedAs(member))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Pre-close Idea\",\"description\":\"Created before close\"}"))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        String ideaId = JsonPath.read(ideaResp, "$.id").toString();
+
+        // Non-owner cannot close room (403)
+        mockMvc.perform(post("/api/rooms/" + roomId + "/close")
+                .with(authenticatedAs(member)))
+            .andExpect(status().isForbidden());
+
+        // Owner closes room
+        mockMvc.perform(post("/api/rooms/" + roomId + "/close")
+                .with(authenticatedAs(owner)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.closed").value(true));
+
+        // When room is closed:
+        // 1. Join is blocked with 400
+        mockMvc.perform(post("/api/rooms/join")
+                .with(authenticatedAs(outsider))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"invitationCode\":\"" + code + "\"}"))
+            .andExpect(status().isBadRequest());
+
+        // 2. Room rename/update is blocked with 403
+        mockMvc.perform(put("/api/rooms/" + roomId)
+                .with(authenticatedAs(owner))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Renamed Closed Room\"}"))
+            .andExpect(status().isForbidden());
+
+        // 3. Idea creation is blocked with 403
+        mockMvc.perform(post("/api/rooms/" + roomId + "/ideas")
+                .with(authenticatedAs(member))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Should fail\"}"))
+            .andExpect(status().isForbidden());
+
+        // 4. Idea update is blocked with 403
+        mockMvc.perform(put("/api/ideas/" + ideaId)
+                .with(authenticatedAs(member))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Updated title\"}"))
+            .andExpect(status().isForbidden());
+
+        // 5. Idea voting add is blocked with 403
+        mockMvc.perform(post("/api/ideas/" + ideaId + "/vote")
+                .with(authenticatedAs(member)))
+            .andExpect(status().isForbidden());
+
+        // 6. Idea voting remove is blocked with 403
+        mockMvc.perform(delete("/api/ideas/" + ideaId + "/vote")
+                .with(authenticatedAs(member)))
+            .andExpect(status().isForbidden());
+
+        // 7. Idea deletion is blocked with 403
+        mockMvc.perform(delete("/api/ideas/" + ideaId)
+                .with(authenticatedAs(member)))
+            .andExpect(status().isForbidden());
+
+        // STILL ALLOWED for owner in closed room:
+        // A. Owner reopen (re-enter) room
+        mockMvc.perform(post("/api/rooms/" + roomId + "/reopen")
+                .with(authenticatedAs(owner)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.closed").value(true));
+
+        // B. Owner remove member
+        mockMvc.perform(delete("/api/rooms/" + roomId + "/members/" + memberId)
+                .with(authenticatedAs(owner)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.memberCount").value(1));
+
+        // Owner opens room again
+        mockMvc.perform(post("/api/rooms/" + roomId + "/open")
+                .with(authenticatedAs(owner)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.closed").value(false));
+
+        // Owner can now rename room
+        mockMvc.perform(put("/api/rooms/" + roomId)
+                .with(authenticatedAs(owner))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Reopened Room\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.name").value("Reopened Room"));
+    }
+
+    @Test
+    void ownerCanDeleteRoomAndCascadeVotesAndIdeas() throws Exception {
+        String owner = "owner-del-1111";
+        String member = "member-del-2222";
+
+        // Create room
+        String room = mockMvc.perform(post("/api/rooms")
+                .with(authenticatedAs(owner))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"To Delete Room\"}"))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+
+        String code = JsonPath.read(room, "$.invitationCode").toString();
+        String roomId = JsonPath.read(room, "$.id").toString();
+
+        // Member joins and posts idea with vote
+        mockMvc.perform(post("/api/rooms/join")
+                .with(authenticatedAs(member))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"invitationCode\":\"" + code + "\"}"))
+            .andExpect(status().isOk());
+
+        String idea = mockMvc.perform(post("/api/rooms/" + roomId + "/ideas")
+                .with(authenticatedAs(member))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\":\"Idea To Be Deleted\"}"))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+        String ideaId = JsonPath.read(idea, "$.id").toString();
+
+        mockMvc.perform(post("/api/ideas/" + ideaId + "/vote")
+                .with(authenticatedAs(member)))
+            .andExpect(status().isOk());
+
+        // Non-owner cannot delete room (403)
+        mockMvc.perform(delete("/api/rooms/" + roomId)
+                .with(authenticatedAs(member)))
+            .andExpect(status().isForbidden());
+
+        // Owner deletes room (200)
+        mockMvc.perform(delete("/api/rooms/" + roomId)
+                .with(authenticatedAs(owner)))
+            .andExpect(status().isOk());
+
+        // Getting deleted room returns 404
+        mockMvc.perform(get("/api/rooms/" + roomId)
+                .with(authenticatedAs(owner)))
+            .andExpect(status().isNotFound());
+
+        // Listing ideas for deleted room returns 404
+        mockMvc.perform(get("/api/rooms/" + roomId + "/ideas")
+                .with(authenticatedAs(owner)))
+            .andExpect(status().isNotFound());
+    }
 }

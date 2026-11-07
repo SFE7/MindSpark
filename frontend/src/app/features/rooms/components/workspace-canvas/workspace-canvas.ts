@@ -8,6 +8,7 @@ import { IdeasService } from '../../data-access/ideas.service';
 import { RoomsService } from '../../data-access/rooms.service';
 import { Idea } from '../../models/idea.model';
 import { Room } from '../../models/room.model';
+import { User } from '../../../../core/models/User';
 import { UserService } from '../../../../core/user-service';
 
 type WorkspaceTool = 'pen' | 'highlighter' | 'shapes' | 'idea' | 'eraser';
@@ -133,6 +134,58 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   protected readonly isEditingRoomName = signal(false);
   protected readonly editingRoomName = signal('');
   protected readonly roomNameError = signal('');
+  protected readonly participantsOpen = signal(false);
+
+  protected toggleParticipants(): void {
+    this.participantsOpen.update(v => !v);
+  }
+
+  protected toggleRoomClosed(): void {
+    const currentRoomId = this.roomId();
+    const current = this.room();
+    if (!currentRoomId || !this.isRoomOwner() || !current) return;
+
+    if (!current.closed) {
+      const confirmed = window.confirm('This room will become read-only for everyone');
+      if (!confirmed) return;
+      this.roomsService.closeRoom(currentRoomId).subscribe({
+        next: updatedRoom => this.roomChanged.emit(updatedRoom),
+      });
+    } else {
+      this.roomsService.openRoom(currentRoomId).subscribe({
+        next: updatedRoom => this.roomChanged.emit(updatedRoom),
+      });
+    }
+  }
+
+  protected deleteRoom(): void {
+    const currentRoomId = this.roomId();
+    if (!currentRoomId || !this.isRoomOwner()) return;
+
+    const confirmed = window.confirm('Permanently delete this room? All ideas and votes will be lost.');
+    if (!confirmed) return;
+
+    this.roomsService.deleteRoom(currentRoomId).subscribe({
+      next: () => void this.router.navigate(['/']),
+    });
+  }
+
+  protected removeParticipant(member: User): void {
+    const currentRoomId = this.roomId();
+    if (!currentRoomId || !this.isRoomOwner()) return;
+
+    const confirmed = window.confirm(`Remove ${member.username || 'this user'} from the room?`);
+    if (!confirmed) return;
+
+    this.roomsService.removeMember(currentRoomId, member.id).subscribe({
+      next: updatedRoom => {
+        this.roomChanged.emit(updatedRoom);
+      },
+      error: () => {
+        this.roomsService.getRoom(currentRoomId).subscribe(refreshed => this.roomChanged.emit(refreshed));
+      },
+    });
+  }
 
   protected readonly isRoomOwner = computed(() => {
     const currentUserId = this.userService.currentUser()?.id;
@@ -141,7 +194,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   });
 
   protected startEditingRoomName(): void {
-    if (!this.isRoomOwner()) return;
+    if (!this.isRoomOwner() || this.room()?.closed) return;
     this.editingRoomName.set(this.room()?.name || '');
     this.roomNameError.set('');
     this.isEditingRoomName.set(true);
@@ -153,7 +206,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected saveRoomName(): void {
-    if (!this.isRoomOwner()) return;
+    if (!this.isRoomOwner() || this.room()?.closed) return;
     const name = this.editingRoomName().trim();
     if (!name) {
       this.roomNameError.set('Room name is required.');
@@ -202,6 +255,12 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         this.startSync(currentRoomId);
       } else {
         this.stopSync();
+      }
+    });
+
+    effect(() => {
+      if (this.room()?.closed && this.selectedTool() === 'idea') {
+        this.selectedTool.set('pen');
       }
     });
   }
@@ -335,6 +394,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected selectTool(tool: WorkspaceTool): void {
+    if (tool === 'idea' && this.room()?.closed) return;
     this.selectedTool.set(tool);
     this.shapesOpen.set(tool === 'shapes');
   }
@@ -372,6 +432,10 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     this.actionStartItems = this.items();
 
     if (this.selectedTool() === 'idea') {
+      if (this.room()?.closed) {
+        this.finishPointer(surface);
+        return;
+      }
       this.ideaDraft.set({ x: point.x, y: point.y, title: '', description: '' });
       this.ideaError.set('');
       this.finishPointer(surface);
@@ -421,6 +485,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected onIdeaPointerDown(event: PointerEvent, idea: IdeaItem): void {
+    if (this.room()?.closed) return;
     if (event.button !== 0) return;
 
     if (this.selectedTool() === 'eraser') {
@@ -442,7 +507,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected onIdeaPointerMove(event: PointerEvent): void {
-    if (this.activeDragPointerId !== event.pointerId || !this.draggingIdea()) return;
+    if (this.room()?.closed || this.activeDragPointerId !== event.pointerId || !this.draggingIdea()) return;
 
     const dxPixels = event.clientX - this.dragStartPointer.x;
     const dyPixels = event.clientY - this.dragStartPointer.y;
@@ -523,6 +588,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   private eraseIdea(idea: IdeaItem): void {
+    if (this.room()?.closed) return;
     this.localPositions.delete(idea.id);
     this.saveLocalPositions();
 
@@ -557,7 +623,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   protected saveIdea(): void {
     const draft = this.ideaDraft();
-    if (!draft) return;
+    if (!draft || this.room()?.closed) return;
     const title = draft.title.trim();
     if (!title) {
       this.ideaError.set('A title is required.');
@@ -658,7 +724,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected editIdea(idea: IdeaItem): void {
-    if (!this.isCreator(idea)) return;
+    if (this.room()?.closed || !this.isCreator(idea)) return;
     this.ideaDraft.set({ id: idea.id, x: idea.x, y: idea.y, title: idea.title, description: idea.description });
     this.ideaError.set('');
   }
@@ -679,7 +745,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   protected toggleVote(event: Event, idea: IdeaItem): void {
     event.stopPropagation();
-    if (!idea.id || !this.roomId()) return;
+    if (this.room()?.closed || !idea.id || !this.roomId()) return;
 
     const request$ = idea.voted ? this.mindspark.removeVote(idea.id) : this.mindspark.vote(idea.id);
 
@@ -733,6 +799,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   private eraseAt(point: CanvasPoint): void {
+    if (this.room()?.closed) return;
     const currentRoomId = this.roomId();
     const erasedIdeas = this.items().filter(
       (item): item is IdeaItem => item.kind === 'idea' && this.isNear(item, point) && this.isCreator(item)

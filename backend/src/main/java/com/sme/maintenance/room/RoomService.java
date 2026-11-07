@@ -10,7 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.sme.maintenance.entities.User;
+import com.sme.maintenance.idea.IdeaRepository;
 import com.sme.maintenance.repositories.UserRepository;
+import com.sme.maintenance.vote.VoteRepository;
 
 @Service
 @Transactional
@@ -19,10 +21,18 @@ public class RoomService {
     private final SecureRandom random = new SecureRandom();
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
+    private final IdeaRepository ideaRepository;
+    private final VoteRepository voteRepository;
 
-    public RoomService(RoomRepository roomRepository, UserRepository userRepository) {
+    public RoomService(
+            RoomRepository roomRepository,
+            UserRepository userRepository,
+            IdeaRepository ideaRepository,
+            VoteRepository voteRepository) {
         this.roomRepository = roomRepository;
         this.userRepository = userRepository;
+        this.ideaRepository = ideaRepository;
+        this.voteRepository = voteRepository;
     }
 
     // i can create a room
@@ -41,6 +51,7 @@ public class RoomService {
     public Room update(UUID roomId, String name, Long userId) {
         Room room = find(roomId);
         requireOwner(room, userId);
+        requireOpen(room);
 
         if (name == null || name.isBlank() || name.trim().length() > 120) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Room name is required");
@@ -61,9 +72,36 @@ public class RoomService {
         }
         Room room = roomRepository.findByInvitationCode(invitationCode.trim().toUpperCase())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Room not found"));
+        if (room.isClosed()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot join a closed room");
+        }
         getUser(userId);
         room.getMemberIds().add(userId);
         return roomRepository.save(room);
+    }
+
+    public Room close(UUID roomId, Long userId) {
+        Room room = find(roomId);
+        requireOwner(room, userId);
+        room.setClosed(true);
+        return roomRepository.save(room);
+    }
+
+    public Room open(UUID roomId, Long userId) {
+        Room room = find(roomId);
+        requireOwner(room, userId);
+        room.setClosed(false);
+        return roomRepository.save(room);
+    }
+
+    public void delete(UUID roomId, Long userId) {
+        Room room = find(roomId);
+        requireOwner(room, userId);
+
+        voteRepository.deleteByRoom(room);
+        ideaRepository.deleteByRoom(room);
+        room.getMemberIds().clear();
+        roomRepository.delete(room);
     }
 
     public Room reopen(UUID roomId, Long userId) {
@@ -77,6 +115,23 @@ public class RoomService {
         Room room = find(roomId);
         requireMember(room, userId);
         room.getMemberIds().remove(userId);
+        return roomRepository.save(room);
+    }
+
+    @Transactional
+    public Room removeMember(UUID roomId, Long memberIdToRemove, Long requesterUserId) {
+        Room room = find(roomId);
+        requireOwner(room, requesterUserId);
+
+        if (memberIdToRemove == null || memberIdToRemove.equals(room.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Creator cannot remove themselves");
+        }
+
+        if (!room.getMemberIds().contains(memberIdToRemove)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Target is not a member of this room");
+        }
+
+        room.getMemberIds().remove(memberIdToRemove);
         return roomRepository.save(room);
     }
 
@@ -100,6 +155,12 @@ public class RoomService {
     public void requireMember(Room room, Long userId) {
         if (!room.getMemberIds().contains(userId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Join this room first");
+        }
+    }
+
+    public void requireOpen(Room room) {
+        if (room.isClosed()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This room is closed");
         }
     }
 

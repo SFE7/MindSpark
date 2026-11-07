@@ -64,5 +64,29 @@ export class RoomsService {
   leaveRoom(roomId: string): Observable<Room> {
     return this.withCurrentUser(() => this.http.delete<Room>(`/api/rooms/${roomId}/leave`));
   }
+
+  removeMember(roomId: string, memberId: number): Observable<Room> {
+    return this.withCurrentUser(() =>
+      this.http.delete<Room>(`/api/rooms/${roomId}/members/${memberId}`)
+    );
+  }
+
+  closeRoom(roomId: string): Observable<Room> {
+    return this.withCurrentUser(() =>
+      this.http.post<Room>(`/api/rooms/${roomId}/close`, {})
+    );
+  }
+
+  openRoom(roomId: string): Observable<Room> {
+    return this.withCurrentUser(() =>
+      this.http.post<Room>(`/api/rooms/${roomId}/open`, {})
+    );
+  }
+
+  deleteRoom(roomId: string): Observable<void> {
+    return this.withCurrentUser(() =>
+      this.http.delete<void>(`/api/rooms/${roomId}`)
+    );
+  }
 }
 

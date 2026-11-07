@@ -40,7 +40,8 @@ public final class ApiModels {
             Instant createdAt,
             List<UserResponse> members,
             int memberCount,
-            boolean member
+            boolean member,
+            boolean closed
     ) {}
 
 

@@ -42,6 +42,10 @@ public class Room {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(nullable = false)
+    @org.hibernate.annotations.ColumnDefault("false")
+    private boolean closed = false;
+
     @ElementCollection
     @CollectionTable(
         name = "room_members",
@@ -96,5 +100,13 @@ public class Room {
 
     public Set<Long> getMemberIds() {
         return memberUserIds;
+    }
+
+    public boolean isClosed() {
+        return closed;
+    }
+
+    public void setClosed(boolean closed) {
+        this.closed = closed;
     }
 }

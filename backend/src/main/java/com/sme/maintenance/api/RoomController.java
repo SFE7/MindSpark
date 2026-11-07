@@ -127,6 +127,53 @@ public class RoomController {
         return response(room, user.getId());
     }
 
+    @DeleteMapping("/{roomId}/members/{memberId}")
+    public RoomResponse removeMember(
+            @PathVariable UUID roomId,
+            @PathVariable Long memberId,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        User user = authenticatedUserService.getCurrentUser(jwt);
+
+        Room room = roomService.removeMember(roomId, memberId, user.getId());
+
+        return response(room, user.getId());
+    }
+
+    @PostMapping("/{roomId}/close")
+    public RoomResponse close(
+            @PathVariable UUID roomId,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        User user = authenticatedUserService.getCurrentUser(jwt);
+
+        Room room = roomService.close(roomId, user.getId());
+
+        return response(room, user.getId());
+    }
+
+    @PostMapping("/{roomId}/open")
+    public RoomResponse open(
+            @PathVariable UUID roomId,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        User user = authenticatedUserService.getCurrentUser(jwt);
+
+        Room room = roomService.open(roomId, user.getId());
+
+        return response(room, user.getId());
+    }
+
+    @DeleteMapping("/{roomId}")
+    public void delete(
+            @PathVariable UUID roomId,
+            @AuthenticationPrincipal Jwt jwt) {
+
+        User user = authenticatedUserService.getCurrentUser(jwt);
+
+        roomService.delete(roomId, user.getId());
+    }
+
     private RoomResponse response(Room room, Long userId) {
 
         List<UserResponse> members = roomService.members(room.getId())
@@ -134,7 +181,7 @@ public class RoomController {
                 .map(member -> new UserResponse(
                         member.getId(),
                         member.getUsername(),
-                        member.getEmail()
+                        null
                 ))
                 .toList();
 
@@ -150,12 +197,13 @@ public class RoomController {
                 new UserResponse(
                         owner.getId(),
                         owner.getUsername(),
-                        owner.getEmail()
+                        null
                 ),
                 room.getCreatedAt(),
                 members,
                 members.size(),
-                isMember
+                isMember,
+                room.isClosed()
         );
     }
 }

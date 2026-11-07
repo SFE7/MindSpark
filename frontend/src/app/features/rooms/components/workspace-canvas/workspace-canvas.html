@@ -88,7 +88,8 @@
       @for (idea of ideaList(); track idea.id) {
         <article
           class="idea-card"
-          [class.editable]="isCreator(idea)"
+          [class.editable]="isCreator(idea) && !room()?.closed"
+          [class.read-only]="room()?.closed"
           [class.dragging]="draggingIdea()?.id === idea.id"
           [style.left]="percentX(idea.x)"
           [style.top]="percentY(idea.y)"
@@ -98,7 +99,7 @@
           (pointerup)="onIdeaPointerUp($event)"
           (pointercancel)="onIdeaPointerUp($event)"
           (keydown.enter)="editIdea(idea)"
-          [attr.tabindex]="isCreator(idea) ? 0 : null"
+          [attr.tabindex]="isCreator(idea) && !room()?.closed ? 0 : null"
         >
           <h3 class="idea-title">{{ idea.title }}</h3>
           @if (idea.description) {
@@ -109,6 +110,7 @@
               type="button"
               class="idea-vote-badge"
               [class.voted]="idea.voted"
+              [disabled]="room()?.closed"
               (click)="toggleVote($event, idea)"
               (pointerdown)="$event.stopPropagation()"
               [attr.aria-label]="idea.voted ? 'Remove vote' : 'Vote for idea'"
@@ -116,7 +118,7 @@
               <span class="vote-icon">&#9650;</span>
               <span class="vote-count">{{ idea.voteCount || 0 }}</span>
             </button>
-            @if (isCreator(idea)) {
+            @if (isCreator(idea) && !room()?.closed) {
               <span class="idea-edit-hint">Edit</span>
             }
           </div>
@@ -176,6 +178,9 @@
     @if (room(); as currentRoom) {
       <div class="header-center">
         <span class="status-pulse"></span>
+        @if (currentRoom.closed) {
+          <span class="closed-badge">Closed (read-only)</span>
+        }
         @if (isEditingRoomName()) {
           <form class="room-title-edit-form" (ngSubmit)="saveRoomName()">
             <input
@@ -192,12 +197,12 @@
         } @else {
           <span
             class="room-title"
-            [class.editable]="isRoomOwner()"
+            [class.editable]="isRoomOwner() && !currentRoom.closed"
             (click)="startEditingRoomName()"
-            [title]="isRoomOwner() ? 'Click to edit room name' : ''"
+            [title]="isRoomOwner() && !currentRoom.closed ? 'Click to edit room name' : ''"
           >
             {{ currentRoom.name }}
-            @if (isRoomOwner()) {
+            @if (isRoomOwner() && !currentRoom.closed) {
               <span class="edit-icon" aria-hidden="true">✎</span>
             }
           </span>
@@ -208,6 +213,22 @@
     }
 
     <div class="header-right">
+      @if (isRoomOwner()) {
+        @if (room()?.closed) {
+          <button class="header-action-btn reopen-btn" type="button" (click)="toggleRoomClosed()">Reopen room</button>
+        } @else {
+          <button class="header-action-btn close-btn" type="button" (click)="toggleRoomClosed()">Close room</button>
+        }
+        <button class="header-action-btn delete-btn" type="button" (click)="deleteRoom()">Delete room</button>
+      }
+      <button
+        class="participants-btn"
+        type="button"
+        (click)="toggleParticipants()"
+        [attr.aria-expanded]="participantsOpen()"
+      >
+        Participants ({{ room()?.members?.length || 0 }})
+      </button>
       <button class="leave-room-btn" type="button" (click)="onLeave()">Leave room</button>
       <div class="undo-redo-group" aria-label="Undo and redo controls">
         <button
@@ -241,6 +262,42 @@
     </div>
   </header>
 
+  @if (participantsOpen()) {
+    <div class="participants-backdrop" (click)="toggleParticipants()"></div>
+    <aside class="participants-panel" aria-label="Room participants" (click)="$event.stopPropagation()">
+      <div class="participants-panel-header">
+        <div class="panel-title-wrap">
+          <span class="participants-title">Participants</span>
+          <span class="participants-count-tag">{{ room()?.members?.length || 0 }}</span>
+        </div>
+        <button type="button" class="close-panel-btn" (click)="toggleParticipants()" aria-label="Close participants panel">✕</button>
+      </div>
+      <div class="participants-list">
+        @for (member of room()?.members; track member.id) {
+          <div class="participant-item">
+            <div class="participant-details">
+              <span class="participant-name">{{ member.username }}</span>
+              <span class="participant-id">#{{ member.id }}</span>
+              @if (member.id === room()?.owner?.id) {
+                <span class="creator-badge">Creator</span>
+              }
+            </div>
+            @if (isRoomOwner() && member.id !== room()?.owner?.id) {
+              <button
+                type="button"
+                class="remove-participant-btn"
+                (click)="removeParticipant(member)"
+                [title]="'Remove ' + member.username"
+              >
+                Remove
+              </button>
+            }
+          </div>
+        }
+      </div>
+    </aside>
+  }
+
   <!-- Subtle Guide Text Under Logo -->
   <div class="canvas-guide-text">A shared space for loose thoughts</div>
 
@@ -253,12 +310,18 @@
         <div class="room-ideas-empty">No ideas yet</div>
       } @else {
         @for (idea of ideaList(); track idea.id) {
-          <div class="room-idea-chip" (click)="editIdea(idea)" [title]="idea.title">
+          <div
+            class="room-idea-chip"
+            [class.chip-read-only]="room()?.closed"
+            (click)="!room()?.closed && editIdea(idea)"
+            [title]="idea.title"
+          >
             <span class="chip-title">{{ idea.title }}</span>
             <button
               type="button"
               class="chip-vote-btn"
               [class.voted]="idea.voted"
+              [disabled]="room()?.closed"
               (click)="toggleVote($event, idea)"
               (pointerdown)="$event.stopPropagation()"
               [attr.aria-label]="idea.voted ? 'Remove vote' : 'Vote for idea'"
@@ -280,6 +343,8 @@
           type="button"
           class="toolbar-tool-btn"
           [class.selected]="selectedTool() === tool.id"
+          [class.disabled]="tool.id === 'idea' && room()?.closed"
+          [disabled]="tool.id === 'idea' && room()?.closed"
           [attr.aria-pressed]="selectedTool() === tool.id"
           [attr.aria-label]="tool.label"
           (click)="selectTool(tool.id)"

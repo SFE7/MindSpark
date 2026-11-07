@@ -9,6 +9,7 @@ export interface Room {
   members: User[];
   memberCount: number;
   member: boolean;
+  closed?: boolean;
 }
 
 export interface IdeaPayload {

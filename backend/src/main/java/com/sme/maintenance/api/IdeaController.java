@@ -163,13 +163,14 @@ public class IdeaController {
                 new UserResponse(
                         room.getOwner().getId(),
                         room.getOwner().getUsername(),
-                        room.getOwner().getEmail()
+                        null
                 ),
                 room.getCreatedAt(),
                 members,
                 members.size(),
                 members.stream()
-                        .anyMatch(member -> member.id().equals(userId))
+                        .anyMatch(member -> member.id().equals(userId)),
+                room.isClosed()
         );
 
         User author = idea.getAuthor();

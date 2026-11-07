@@ -1,0 +1,12 @@
+
+
+First time running the project or u did some changes to backend or frontend:
+
+
+docker compose up --build
+
+
+
+Rerun it:
+
+docker compose up

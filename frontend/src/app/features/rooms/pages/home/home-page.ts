@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 
 import { RoomsService } from '../../data-access/rooms.service';
 import { Room } from '../../models/room.model';
@@ -16,6 +16,7 @@ import { UserService } from '../../../../core/user-service';
   styleUrl: './home-page.scss',
 })
 export class HomePageComponent {
+  private readonly route = inject(ActivatedRoute);
   private readonly mindspark = inject(RoomsService);
   private readonly router = inject(Router);
   private readonly auth = inject(KeycloakAuth);
@@ -33,6 +34,16 @@ export class HomePageComponent {
   protected readonly isLoggedIn = this.auth.isLoggedIn;
 
   constructor() {
+    const redirectMsg = this.route.snapshot.queryParams['error'] || (history.state && history.state.message);
+    if (redirectMsg) {
+      this.error.set(redirectMsg);
+    }
+    this.route.queryParams.subscribe(params => {
+      if (params['error']) {
+        this.error.set(params['error']);
+      }
+    });
+
     this.mindspark.health().subscribe({
       next: () => this.status.set('Connected to the workshop server'),
       error: () => this.status.set('Could not connect to the workshop server')
@@ -77,6 +88,17 @@ export class HomePageComponent {
 
   protected reopenRoom(room: Room): void {
     this.mindspark.reopenRoom(room.id).subscribe({ next: reopened => this.openRoom(reopened), error: () => this.showError('Could not reopen this room') });
+  }
+
+  protected deleteRoom(event: MouseEvent, room: Room): void {
+    event.stopPropagation();
+    const confirmed = window.confirm('Permanently delete this room? All ideas and votes will be lost.');
+    if (!confirmed) return;
+
+    this.mindspark.deleteRoom(room.id).subscribe({
+      next: () => this.refreshRooms(),
+      error: () => this.showError('Could not delete the room.'),
+    });
   }
 
   protected openRoom(room: Room): void {
