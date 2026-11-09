@@ -15,16 +15,21 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sme.maintenance.api.ApiModels.CategoryResponse;
+import com.sme.maintenance.api.ApiModels.IdeaFilters;
 import com.sme.maintenance.api.ApiModels.IdeaRequest;
 import com.sme.maintenance.api.ApiModels.IdeaResponse;
 import com.sme.maintenance.api.ApiModels.RoomResponse;
 import com.sme.maintenance.api.ApiModels.UserResponse;
+import com.sme.maintenance.entities.Category;
 import com.sme.maintenance.entities.User;
 import com.sme.maintenance.idea.Idea;
 import com.sme.maintenance.idea.IdeaService;
+import com.sme.maintenance.repositories.CategoryRepository;
 import com.sme.maintenance.room.Room;
 import com.sme.maintenance.room.RoomService;
 import com.sme.maintenance.services.AuthenticatedUserService;
+import com.sme.maintenance.services.CategoryService;
 import com.sme.maintenance.vote.VoteService;
 
 @RestController
@@ -35,27 +40,32 @@ public class IdeaController {
     private final VoteService voteService;
     private final RoomService roomService;
     private final AuthenticatedUserService authenticatedUserService;
+    private final CategoryRepository categoryRepository;
 
     public IdeaController(
             IdeaService ideaService,
             VoteService voteService,
             RoomService roomService,
-            AuthenticatedUserService authenticatedUserService) {
+            AuthenticatedUserService authenticatedUserService,
+            CategoryRepository categoryRepository
+        ) {
         this.ideaService = ideaService;
         this.voteService = voteService;
         this.roomService = roomService;
         this.authenticatedUserService = authenticatedUserService;
+        this.categoryRepository = categoryRepository;
     }
 
     @GetMapping("/rooms/{roomId}/ideas")
     public List<IdeaResponse> list(
             @PathVariable UUID roomId,
+            IdeaFilters filters,
             @AuthenticationPrincipal Jwt jwt) {
 
         User user = authenticatedUserService.getCurrentUser(jwt);
         Long userId = user.getId();
 
-        return ideaService.list(roomId, userId)
+        return ideaService.list(roomId, userId,filters)
                 .stream()
                 .map(idea -> response(idea, userId))
                 .toList();
@@ -70,6 +80,9 @@ public class IdeaController {
         User user = authenticatedUserService.getCurrentUser(jwt);
         Long userId = user.getId();
 
+        Category category = categoryRepository.findById(request.categoryId()).get(); // we get the category from the id
+        // if id does not belong to a category, .get() method will return an exception
+
         Idea idea = ideaService.create(
                 roomId,
                 request.text(),
@@ -78,7 +91,8 @@ public class IdeaController {
                 request.x(),
                 request.y(),
                 request.color(),
-                userId
+                userId,
+                category
         );
 
         return response(idea, userId);
@@ -93,6 +107,9 @@ public class IdeaController {
         User user = authenticatedUserService.getCurrentUser(jwt);
         Long userId = user.getId();
 
+        Category category = categoryRepository.findById(request.categoryId()).get(); // we get the category from the id
+        // if id does not belong to a category, .get() method will return an exception
+
         Idea idea = ideaService.update(
                 ideaId,
                 request.text(),
@@ -101,7 +118,8 @@ public class IdeaController {
                 request.x(),
                 request.y(),
                 request.color(),
-                userId
+                userId,
+                category
         );
 
         return response(idea, userId);
@@ -180,6 +198,14 @@ public class IdeaController {
                 author.getUsername(),
                 author.getEmail()
         );
+        
+        //preparing the category response as a part of the idea response
+        Category category = idea.getCategory();
+        CategoryResponse categoryResponse = null;
+
+        if (category!=null){
+        categoryResponse = new CategoryResponse(category.getId(),category.getTitle());
+        }
 
         return new IdeaResponse(
                 idea.getId(),
@@ -194,7 +220,8 @@ public class IdeaController {
                 idea.getCreatedAt(),
                 idea.getUpdatedAt(),
                 voteService.count(idea.getId()),
-                voteService.voted(idea.getId(), userId)
+                voteService.voted(idea.getId(), userId),
+                categoryResponse
         );
     }
 }

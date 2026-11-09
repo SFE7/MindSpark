@@ -1,14 +1,20 @@
 
 package com.sme.maintenance.idea;
 
+import com.sme.maintenance.vote.VoteRepository;
+import com.sme.maintenance.vote.VoteService;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.sme.maintenance.api.ApiModels.IdeaFilters;
+import com.sme.maintenance.entities.Category;
 import com.sme.maintenance.entities.User;
 import com.sme.maintenance.repositories.UserRepository;
 import com.sme.maintenance.room.Room;
@@ -19,6 +25,8 @@ import com.sme.maintenance.room.RoomService;
 @Transactional
 public class IdeaService {
 
+    private final VoteService voteService;
+    private final VoteRepository voteRepository;
     private final IdeaRepository ideaRepository;
     private final RoomService roomService;
     private final RoomRepository roomRepository;
@@ -28,26 +36,42 @@ public class IdeaService {
             IdeaRepository ideaRepository,
             RoomService roomService,
             RoomRepository roomRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository, VoteRepository voteRepository, VoteService voteService) {
         this.ideaRepository = ideaRepository;
         this.roomService = roomService;
         this.roomRepository = roomRepository;
         this.userRepository = userRepository;
+        this.voteRepository = voteRepository;
+        this.voteService = voteService;
     }
 
     @Transactional(readOnly = true)
-    public List<Idea> list(UUID roomId, Long userId) {
-        roomService.memberRoom(roomId, userId);
+    public List<Idea> list(UUID roomId, Long userId,IdeaFilters filters) {
+        Room room = roomService.memberRoom(roomId, userId);
 
-        Room room = getRoom(roomId);
+        // first we apply the sort, either by vote count, created at or no sort at all
+        // we get the filters variables from the idea filters records
+        String sortBy = filters.sortBy();
+        Long categoryId = filters.categoryId();
+        String search = filters.search();
 
-        return ideaRepository.findByRoomOrderByCreatedAtAsc(room);
+        List<Idea> sortedIdeas = sortIdeas(sortBy, room);
+        List<Idea> filteredIdeas = sortedIdeas; 
+
+        if (search!=null && !search.isBlank()){
+            filteredIdeas = filterBySearch(filteredIdeas, search);
+        }
+        if (categoryId!=null){
+            filteredIdeas = filterByCategory(filteredIdeas, categoryId);
+        }
+        
+        return filteredIdeas;
     }
 // I can create an idea in a room I belong to
     public Idea create(UUID roomId, String text, Long userId) {
         return create(
                 roomId, text, text, null,
-                null, null, null, userId
+                null, null, null, userId,null
         );
     }
 
@@ -59,7 +83,9 @@ public class IdeaService {
             Double x,
             Double y,
             String color,
-            Long userId) {
+            Long userId,
+            Category category
+        ) {
 
         Room room = roomService.memberRoom(roomId, userId);
         roomService.requireOpen(room);
@@ -99,17 +125,18 @@ public class IdeaService {
                 description,
                 x,
                 y,
-                color
+                color,
+                category
         );
 
         return ideaRepository.save(idea);
     }
 
     // i can update my idea 
-    public Idea update(UUID ideaId, String text, Long userId) {
+    public Idea update(UUID ideaId, String text, Long userId,Category category) {
         return update(
                 ideaId, text, text, null,
-                null, null, null, userId
+                null, null, null, userId,category
         );
     }
 
@@ -118,11 +145,13 @@ public class IdeaService {
             String text,
             String title,
             String description,
-            Long userId) {
+            Long userId,
+            Category category
+        ) {
 
         return update(
                 ideaId, text, title, description,
-                null, null, null, userId
+                null, null, null, userId,category
         );
     }
 
@@ -134,7 +163,9 @@ public class IdeaService {
             Double x,
             Double y,
             String color,
-            Long userId) {
+            Long userId,
+            Category category
+        ) {
 
         Idea idea = find(ideaId);
 
@@ -234,7 +265,8 @@ public class IdeaService {
                 effectiveDescription,
                 newX,
                 newY,
-                newColor
+                newColor,
+                category
         );
 
         return ideaRepository.save(idea);
@@ -292,4 +324,82 @@ public class IdeaService {
             );
         }
     }
+
+    // helper methods
+
+    //gets the total vote count of an idea
+    public int getVoteCount(Idea idea){
+        return (int)voteService.count(idea.getId()); // we have to transform the count from long to int since they set it
+        // as long for whatever reason
+    }
+
+    // filtering and sorting methods
+
+
+    //sort methods
+
+    //there are currently 3 ways to sort which are:
+    // 1. sort by createdAt date, available in the repository
+    // 2. sort by vote count, requires its own method since we need to use the vote service to get each idea count
+    // 3. no sort just default find all by room funcotin in the repository
+    public List<Idea> sortIdeas(String sortBy,Room room){
+        if (sortBy.equals("createdAt")){
+             return ideaRepository.findByRoomOrderByCreatedAtAsc(room); 
+        }
+        else if(sortBy.equals("voteCount")){
+             return sortIdeasByVoteCount(room);
+        }
+        else{
+             return ideaRepository.findByRoom(room);
+        }
+    }
+
+    public List<Idea> sortIdeasByVoteCount(Room room){
+        List<Idea> unsortedIdeas = ideaRepository.findByRoom(room);
+        List<Idea> sortedIdea = unsortedIdeas.stream()
+        .sorted(
+            (idea1,idea2)->Integer.compare(getVoteCount(idea2),getVoteCount(idea1))  // we compare idea 2 before idea 1
+            // so that the result list is from the highest vote count to the lowest
+        ).toList();
+
+        return sortedIdea;
+    }
+
+    //filter methods
+
+    //filteres by the category id
+    public List<Idea> filterByCategory(List<Idea> originalIdeasList,Long categoryId){
+        List<Idea> filteredIdeasList = new ArrayList<Idea>();
+
+        //iterates through each idea and compares the category id
+        for (Idea idea : originalIdeasList) {
+             if (idea.getCategory()!=null){ // if the category if the idea is not null then we can access its id
+             Long ideaCategoryId = idea.getCategory().getId();
+             if (ideaCategoryId.equals(categoryId)){
+                filteredIdeasList.add(idea);
+             }
+        }
+        }
+
+        return filteredIdeasList;
+    }
+
+    //filteres by the search text
+    public List<Idea> filterBySearch(List<Idea> originalIdeasList,String searchText){
+        List<Idea> filteredIdeasList = new ArrayList<Idea>();
+        String trimmedSearchText = searchText.trim(); //we trim the serach text so we dont get bad results with white spaces
+
+        //iterates through each idea and checks if the idea title contains the search text
+        for (Idea idea : originalIdeasList) {
+             String ideaTitle = idea.getTitle().trim();
+             if (ideaTitle.contains(trimmedSearchText)){
+                filteredIdeasList.add(idea);
+             }
+        }
+
+        return filteredIdeasList;
+    }
+
+    
+
 }

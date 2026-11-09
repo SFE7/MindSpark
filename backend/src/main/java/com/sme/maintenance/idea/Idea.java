@@ -4,6 +4,7 @@ package com.sme.maintenance.idea;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.sme.maintenance.entities.Category;
 import com.sme.maintenance.entities.User;
 import com.sme.maintenance.room.Room;
 
@@ -57,11 +58,17 @@ public class Idea {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+
+    //foreign key relationship with category since ideas can be categorizeed in the second phase
+    @ManyToOne(fetch = FetchType.LAZY) //kept optional = true which is the default since ideas can also be created without categories
+    @JoinColumn(name = "category_id", nullable = true) //same thing with nullable
+    private Category category;
+
     protected Idea() {
     }
 
     public Idea(Room room, User author, String text) {
-        this(room, author, text, text, null, null, null, null);
+        this(room, author, text, text, null, null, null, null,null);
     }
 
     public Idea(
@@ -72,7 +79,9 @@ public class Idea {
             String description,
             Double x,
             Double y,
-            String color) {
+            String color,
+            Category category
+        ) {
 
         if (room == null) {
             throw new IllegalArgumentException("Room is required");
@@ -110,7 +119,10 @@ public class Idea {
             String description,
             Double x,
             Double y,
-            String color) {
+            String color,
+            Category category
+
+        ) {
 
         if (title != null && !title.isBlank()) {
             this.title = title.trim();
@@ -124,6 +136,11 @@ public class Idea {
             this.text = text.trim();
         } else if (this.title != null) {
             this.text = this.title;
+        }
+
+
+        if (category != null && !category.getRoom().getId().equals(this.room.getId())) {
+        throw new IllegalArgumentException("The selected category does not belong to this room.");
         }
 
         if (x != null) {
@@ -154,11 +171,11 @@ public class Idea {
     }
 
     public void update(String text, String title, String description) {
-        update(text, title, description, null, null, null);
+        update(text, title, description, null, null, null,null);
     }
 
     public void updateText(String text) {
-        update(text, text, this.description, null, null, null);
+        update(text, text, this.description, null, null, null,null);
     }
 
     public UUID getId() {
@@ -203,5 +220,9 @@ public class Idea {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public Category getCategory(){
+        return category;
     }
 }

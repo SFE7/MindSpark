@@ -164,9 +164,10 @@ public class RoomService {
         }
     }
 
-    private void requireOwner(Room room, Long userId) {
+    public void requireOwner(Room room, Long userId) { //Ilyes: i changeed the visiblty to public since i need to use it inside the category service
         if (!room.getOwnerId().equals(userId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the room owner can do this");
+
         }
     }
 

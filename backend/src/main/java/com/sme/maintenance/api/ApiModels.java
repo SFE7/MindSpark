@@ -5,11 +5,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import com.sme.maintenance.room.Room;
+
 public final class ApiModels {
 
     private ApiModels() {}
 
-
+    //Requests records
     public record CreateRoomRequest(String name) {}
 
     public record UpdateRoomRequest(String name) {}
@@ -22,9 +24,14 @@ public final class ApiModels {
             String description,
             Double x,
             Double y,
-            String color
+            String color,
+            Long categoryId
     ) {}
 
+    public record  CategoryRequest(String title){}
+
+
+    // Responses records
 
     public record UserResponse(
             Long id,
@@ -58,6 +65,22 @@ public final class ApiModels {
             Instant createdAt,
             Instant updatedAt,
             long voteCount,
-            boolean voted
+            boolean voted,
+            CategoryResponse category
     ) {}
+
+    public record CategoryResponse(
+        Long id,
+        String title
+    ) {
+    }
+
+    // filters
+
+    public record IdeaFilters(
+        Long categoryId,
+        String search,
+        String sortBy
+    ) {
+    }
 }

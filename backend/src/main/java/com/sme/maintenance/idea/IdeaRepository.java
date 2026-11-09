@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import com.sme.maintenance.entities.Category;
 import com.sme.maintenance.room.Room;
 
 public interface IdeaRepository extends JpaRepository<Idea, UUID> {
@@ -16,6 +17,9 @@ public interface IdeaRepository extends JpaRepository<Idea, UUID> {
 
     @EntityGraph(attributePaths = {"room.owner", "author"})
     List<Idea> findByRoomOrderByCreatedAtAsc(Room room);
+
+    @EntityGraph(attributePaths = {"room.owner", "author"})
+    List<Idea> findByRoom(Room room);
 
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("DELETE FROM Idea i WHERE i.room = :room")
