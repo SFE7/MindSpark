@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.sme.maintenance.entities.User;
 import com.sme.maintenance.repositories.UserRepository;
 import com.sme.maintenance.idea.Idea;
-import com.sme.maintenance.idea.IdeaService;
+import com.sme.maintenance.idea.IdeaFinderService;
 import com.sme.maintenance.room.RoomService;
 
 @Service
@@ -17,23 +17,23 @@ import com.sme.maintenance.room.RoomService;
 public class VoteService {
 
     private final VoteRepository voteRepository;
-    private final IdeaService ideaService;
+    private final IdeaFinderService ideaFinderService;
     private final RoomService roomService;
     private final UserRepository userRepository;
 
     public VoteService(
             VoteRepository voteRepository,
-            IdeaService ideaService,
+            IdeaFinderService ideaFinderService,
             RoomService roomService,
             UserRepository userRepository) {
         this.voteRepository = voteRepository;
-        this.ideaService = ideaService;
+        this.ideaFinderService = ideaFinderService;
         this.roomService = roomService;
         this.userRepository = userRepository;
     }
 //As a client, I can vote for an idea.
     public void add(UUID ideaId, Long userId) {
-        Idea idea = ideaService.find(ideaId);
+        Idea idea = ideaFinderService.find(ideaId);
         roomService.memberRoom(idea.getRoom().getId(), userId);
         roomService.requireOpen(idea.getRoom());
 
@@ -45,7 +45,7 @@ public class VoteService {
     }
 
     public void remove(UUID ideaId, Long userId) {
-        Idea idea = ideaService.find(ideaId);
+        Idea idea = ideaFinderService.find(ideaId);
         roomService.memberRoom(idea.getRoom().getId(), userId);
         roomService.requireOpen(idea.getRoom());
 
@@ -57,13 +57,13 @@ public class VoteService {
 
     @Transactional(readOnly = true)
     public long count(UUID ideaId) {
-        Idea idea = ideaService.find(ideaId);
+        Idea idea = ideaFinderService.find(ideaId);
         return voteRepository.countByIdea(idea);
     }
 
     @Transactional(readOnly = true)
     public boolean voted(UUID ideaId, Long userId) {
-        Idea idea = ideaService.find(ideaId);
+        Idea idea = ideaFinderService.find(ideaId);
         User user = getUser(userId);
 
         return voteRepository.existsByIdeaAndUser(idea, user);

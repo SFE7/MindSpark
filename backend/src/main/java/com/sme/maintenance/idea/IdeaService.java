@@ -2,7 +2,6 @@
 package com.sme.maintenance.idea;
 
 import com.sme.maintenance.vote.VoteRepository;
-import com.sme.maintenance.vote.VoteService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -25,24 +24,26 @@ import com.sme.maintenance.room.RoomService;
 @Transactional
 public class IdeaService {
 
-    private final VoteService voteService;
     private final VoteRepository voteRepository;
     private final IdeaRepository ideaRepository;
     private final RoomService roomService;
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
+    private final IdeaFinderService ideaFinderService;
 
     public IdeaService(
             IdeaRepository ideaRepository,
             RoomService roomService,
             RoomRepository roomRepository,
-            UserRepository userRepository, VoteRepository voteRepository, VoteService voteService) {
+            UserRepository userRepository,
+            VoteRepository voteRepository,
+            IdeaFinderService ideaFinderService) {
         this.ideaRepository = ideaRepository;
         this.roomService = roomService;
         this.roomRepository = roomRepository;
         this.userRepository = userRepository;
         this.voteRepository = voteRepository;
-        this.voteService = voteService;
+        this.ideaFinderService = ideaFinderService;
     }
 
     @Transactional(readOnly = true)
@@ -284,11 +285,7 @@ public class IdeaService {
 
     @Transactional(readOnly = true)
     public Idea find(UUID ideaId) {
-        return ideaRepository.findById(ideaId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Idea not found"
-                ));
+        return ideaFinderService.find(ideaId);
     }
 
     private Room getRoom(UUID roomId) {
@@ -329,8 +326,7 @@ public class IdeaService {
 
     //gets the total vote count of an idea
     public int getVoteCount(Idea idea){
-        return (int)voteService.count(idea.getId()); // we have to transform the count from long to int since they set it
-        // as long for whatever reason
+        return (int) voteRepository.countByIdea(idea);
     }
 
     // filtering and sorting methods
