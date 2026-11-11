@@ -1,9 +1,15 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, switchMap } from 'rxjs';
 import { UserService } from '../../../core/user-service';
 import { Idea } from '../models/idea.model';
 import { IdeaPayload } from '../models/room.model';
+
+export interface IdeaFilters {
+  categoryId?: number | null;
+  search?: string;
+  sortBy?: 'createdAt' | 'voteCount';
+}
 
 @Injectable({ providedIn: 'root' })
 export class IdeasService {
@@ -16,9 +22,20 @@ export class IdeasService {
     );
   }
 
-  listIdeas(roomId: string): Observable<Idea[]> {
+    listIdeas(roomId: string, filters: IdeaFilters = {}): Observable<Idea[]> {
+    let params = new HttpParams();
+    if (filters.categoryId != null) {
+      params = params.set('categoryId', filters.categoryId);
+    }
+    const search = filters.search?.trim();
+    if (search) {
+      params = params.set('search', search);
+    }
+    if (filters.sortBy) {
+      params = params.set('sortBy', filters.sortBy);
+    }
     return this.withCurrentUser(() =>
-      this.http.get<Idea[]>(`/api/rooms/${roomId}/ideas`)
+      this.http.get<Idea[]>(`/api/rooms/${roomId}/ideas`, { params })
     );
   }
 

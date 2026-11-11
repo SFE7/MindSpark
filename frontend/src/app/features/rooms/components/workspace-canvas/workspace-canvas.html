@@ -6,7 +6,7 @@
     [class.idea-active]="selectedTool() === 'idea'"
     [class.is-dragging]="draggingIdea() !== null"
   >
-    <!-- SVG Drawing Layer -->
+    <!-- SVG Drawing Layer  -->
     <svg
       class="canvas-surface"
       viewBox="0 0 1000 500"
@@ -101,6 +101,9 @@
           (keydown.enter)="editIdea(idea)"
           [attr.tabindex]="isCreator(idea) && !room()?.closed ? 0 : null"
         >
+       @if (idea.category) {
+        <span class="idea-category-badge">{{ idea.category.title }}</span>
+          }
           <h3 class="idea-title">{{ idea.title }}</h3>
           @if (idea.description) {
             <p class="idea-desc">{{ idea.description }}</p>
@@ -262,6 +265,36 @@
     </div>
   </header>
 
+    <div class="filter-bar" role="search" aria-label="Search and filter ideas">
+    <div class="search-box">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/>
+        <path d="M21 21l-4.3-4.3"/>
+      </svg>
+      <input
+        type="search"
+        class="search-input"
+        placeholder="Search ideas..."
+        [value]="searchInput()"
+        (input)="onSearchInput($any($event.target).value)"
+        aria-label="Search ideas"
+      />
+    </div>
+
+    <div class="category-pills" aria-label="Filter by category">
+      <button type="button" class="pill" [class.active]="filterCategoryId() === null" (click)="onFilterCategory(null)">All</button>
+      @for (cat of categories(); track cat.id) {
+        <button type="button" class="pill" [class.active]="filterCategoryId() === cat.id" (click)="onFilterCategory(cat.id)">
+          {{ cat.title }}
+        </button>
+      }
+    </div>
+
+    <button type="button" class="sort-toggle" (click)="toggleSort()" [attr.aria-label]="'Sort by ' + (sortBy() === 'createdAt' ? 'newest' : 'most voted')">
+      {{ sortBy() === 'createdAt' ? 'Newest' : 'Most voted' }}
+    </button>
+  </div>
+
   @if (participantsOpen()) {
     <div class="participants-backdrop" (click)="toggleParticipants()"></div>
     <aside class="participants-panel" aria-label="Room participants" (click)="$event.stopPropagation()">
@@ -333,6 +366,58 @@
         }
       }
     </div>
+
+        <div class="room-ideas-divider"></div>
+    <div class="room-ideas-title">CATEGORIES</div>
+    <div class="room-ideas-divider"></div>
+
+    <div class="category-list">
+      @for (cat of categories(); track cat.id) {
+        <div class="category-item">
+          @if (editingCategoryId() === cat.id) {
+            <input
+              class="category-edit-input"
+              maxlength="40"
+              [value]="editingCategoryTitle()"
+              (input)="editingCategoryTitle.set($any($event.target).value)"
+              (keydown.enter)="saveCategory()"
+              (keydown.escape)="cancelEditingCategory()"
+            />
+            <button type="button" class="category-icon-btn" (click)="saveCategory()" title="Save">✓</button>
+            <button type="button" class="category-icon-btn" (click)="cancelEditingCategory()" title="Cancel">✕</button>
+          } @else {
+            <span class="category-name" [title]="cat.title">{{ cat.title }}</span>
+            @if (isRoomOwner() && !room()?.closed) {
+              <button type="button" class="category-icon-btn" (click)="startEditingCategory(cat)" title="Rename" aria-label="Rename category">✎</button>
+              <button type="button" class="category-icon-btn danger" (click)="deleteCategory(cat)" title="Delete" aria-label="Delete category">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
+                </svg>
+              </button>
+            }
+          }
+        </div>
+      } @empty {
+        <div class="room-ideas-empty">No categories</div>
+      }
+    </div>
+
+    @if (!room()?.closed) {
+      <div class="category-add">
+        <input
+          class="category-add-input"
+          placeholder="New category"
+          maxlength="40"
+          [value]="newCategoryTitle()"
+          (input)="newCategoryTitle.set($any($event.target).value)"
+          (keydown.enter)="addCategory()"
+        />
+        <button type="button" class="category-add-btn" (click)="addCategory()" aria-label="Add category">+</button>
+      </div>
+    }
+    @if (categoryError()) {
+      <p class="category-error" role="alert">{{ categoryError() }}</p>
+    }
   </aside>
 
   <!-- Floating Drawing Toolbar (Bottom-Right) -->

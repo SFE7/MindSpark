@@ -1,13 +1,15 @@
 import { Component, OnDestroy, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { Subscription, of, timer } from 'rxjs';
+import { Subscription, forkJoin, of, timer } from 'rxjs';
 import { catchError, exhaustMap, timeout } from 'rxjs/operators';
 
+import { CategoriesService } from '../../data-access/categories.service';
 import { IdeasService } from '../../data-access/ideas.service';
 import { RoomsService } from '../../data-access/rooms.service';
+import { Category } from '../../models/category.model';
 import { Idea } from '../../models/idea.model';
-import { Room } from '../../models/room.model';
+import { IdeaFilters, IdeaSortBy, Room } from '../../models/room.model';
 import { User } from '../../../../core/models/User';
 import { UserService } from '../../../../core/user-service';
 
@@ -64,6 +66,9 @@ export interface IdeaItem {
   creatorId: number | null;
   title: string;
   description: string;
+  categoryId: number | null;
+  categoryTitle: string | null;
+  category?: { id: number; title: string } | null;
   voteCount?: number;
   voted?: boolean;
 }
@@ -85,6 +90,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   private readonly mindspark = inject(IdeasService);
   private readonly roomsService = inject(RoomsService);
+  private readonly categoriesService = inject(CategoriesService);
   private readonly userService = inject(UserService);
   private readonly router = inject(Router);
 
@@ -125,7 +131,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   protected readonly shapesOpen = signal(false);
   protected readonly items = signal<CanvasItem[]>([]);
   protected readonly preview = signal<CanvasItem | null>(null);
-  protected readonly ideaDraft = signal<{ id?: string; x: number; y: number; title: string; description: string } | null>(null);
+  protected readonly ideaDraft = signal<{ id?: string; x: number; y: number; title: string; description: string; categoryId: number | null } | null>(null);
   protected readonly ideaError = signal('');
   protected readonly ideaList = computed(() => this.items().filter((item): item is IdeaItem => item.kind === 'idea'));
   protected readonly canUndo = computed(() => this.historyIndex() > 0);
@@ -135,6 +141,192 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   protected readonly editingRoomName = signal('');
   protected readonly roomNameError = signal('');
   protected readonly participantsOpen = signal(false);
+
+  // ---------- Categories, search, filter and sort (Sprint 2 - phase 2) ----------
+  protected readonly categories = signal<Category[]>([]);
+  protected readonly categoriesOpen = signal(false);
+  protected readonly newCategoryTitle = signal('');
+  protected readonly editingCategoryId = signal<number | null>(null);
+  protected readonly editingCategoryTitle = signal('');
+  protected readonly categoryError = signal('');
+
+  protected readonly searchInput = signal('');
+  private readonly searchTerm = signal('');
+  protected readonly filterCategoryId = signal<number | null>(null);
+  protected readonly selectedCategoryId = computed(() => this.filterCategoryId());
+  protected readonly sortBy = signal<IdeaSortBy>('createdAt');
+  private searchTimer?: ReturnType<typeof setTimeout>;
+
+  // Every change of these signals triggers a new call to IdeasService.listIdeas()
+  private readonly filters = computed<IdeaFilters>(() => ({
+    categoryId: this.filterCategoryId(),
+    search: this.searchTerm(),
+    sortBy: this.sortBy(),
+  }));
+  protected readonly hasActiveFilters = computed(
+    () => this.filterCategoryId() !== null || this.searchTerm() !== ''
+  );
+  // Only the room owner can create / rename / delete categories (backend rule) and only while the room is open
+  protected readonly canManageCategories = computed(() => this.isRoomOwner() && !this.room()?.closed);
+
+  protected onSearchInput(value: string): void {
+    this.searchInput.set(value);
+    clearTimeout(this.searchTimer);
+    // debounce so we do not call the backend on every keystroke
+    this.searchTimer = setTimeout(() => this.searchTerm.set(value.trim()), 300);
+  }
+
+  protected clearSearch(): void {
+    clearTimeout(this.searchTimer);
+    this.searchInput.set('');
+    this.searchTerm.set('');
+  }
+
+  protected onFilterCategory(categoryId: number | null): void {
+    this.filterCategoryId.set(categoryId);
+  }
+
+  protected setSort(sortBy: IdeaSortBy): void {
+    this.sortBy.set(sortBy);
+  }
+
+  protected selectCategoryFilter(categoryId: number | null): void {
+    this.onFilterCategory(categoryId);
+  }
+
+  protected toggleSort(): void {
+    this.setSort(this.sortBy() === 'createdAt' ? 'voteCount' : 'createdAt');
+  }
+
+  protected resetFilters(): void {
+    this.clearSearch();
+    this.filterCategoryId.set(null);
+  }
+
+  protected toggleCategories(): void {
+    this.categoriesOpen.update(v => !v);
+    this.categoryError.set('');
+    this.editingCategoryId.set(null);
+  }
+
+  protected startEditingCategory(category: Category): void {
+    if (!this.canManageCategories()) return;
+    this.editingCategoryId.set(category.id);
+    this.editingCategoryTitle.set(category.title);
+    this.categoryError.set('');
+  }
+
+  protected cancelEditingCategory(): void {
+    this.editingCategoryId.set(null);
+    this.categoryError.set('');
+  }
+
+  protected addCategory(): void {
+    const currentRoomId = this.roomId();
+    if (!currentRoomId || !this.canManageCategories()) return;
+
+    const title = this.newCategoryTitle().trim();
+    if (!title) {
+      this.categoryError.set('Category name is required.');
+      return;
+    }
+    if (this.categories().some(c => c.title.toLowerCase() === title.toLowerCase())) {
+      this.categoryError.set('This category already exists.');
+      return;
+    }
+
+    this.categoriesService.createCategory(currentRoomId, title).subscribe({
+      next: created => {
+        this.categories.update(list => [...list, created]);
+        this.newCategoryTitle.set('');
+        this.categoryError.set('');
+      },
+      error: err => this.categoryError.set(this.categoryErrorMessage(err, 'Could not create the category.')),
+    });
+  }
+
+  protected saveCategory(): void {
+    const categoryId = this.editingCategoryId();
+    if (categoryId === null || !this.canManageCategories()) return;
+
+    const title = this.editingCategoryTitle().trim();
+    if (!title) {
+      this.categoryError.set('Category name is required.');
+      return;
+    }
+
+    this.categoriesService.updateCategory(categoryId, title).subscribe({
+      next: updated => {
+        this.categories.update(list => list.map(c => (c.id === updated.id ? updated : c)));
+        // refresh the badge shown on the cards right away
+        this.items.update(items =>
+          items.map(item =>
+            item.kind === 'idea' && item.categoryId === updated.id
+              ? { ...item, categoryTitle: updated.title }
+              : item
+          )
+        );
+        this.editingCategoryId.set(null);
+        this.categoryError.set('');
+      },
+      error: err => this.categoryError.set(this.categoryErrorMessage(err, 'Could not rename the category.')),
+    });
+  }
+
+  protected deleteCategory(category: Category): void {
+    if (!this.canManageCategories()) return;
+
+    const confirmed = window.confirm(
+      `Delete the category "${category.title}"? Its ideas will become uncategorized.`
+    );
+    if (!confirmed) return;
+
+    this.categoriesService.deleteCategory(category.id).subscribe({
+      next: () => {
+        this.categories.update(list => list.filter(c => c.id !== category.id));
+        if (this.filterCategoryId() === category.id) {
+          this.filterCategoryId.set(null);
+        }
+        // the backend sets the category of its ideas to null
+        this.items.update(items =>
+          items.map(item =>
+            item.kind === 'idea' && item.categoryId === category.id
+              ? { ...item, categoryId: null, categoryTitle: null }
+              : item
+          )
+        );
+        this.categoryError.set('');
+      },
+      error: err => this.categoryError.set(this.categoryErrorMessage(err, 'Could not delete the category.')),
+    });
+  }
+
+  private categoryErrorMessage(err: unknown, fallback: string): string {
+    const status = (err as { status?: number } | null)?.status;
+    if (status === 409) return 'A category with this name already exists in this room.';
+    if (status === 403) return 'Only the room owner can manage categories.';
+    if (status === 400) return 'The category name cannot be empty.';
+    return fallback;
+  }
+
+  private categoryTitleOf(categoryId: number | null): string | null {
+    if (categoryId === null) return null;
+    return this.categories().find(c => c.id === categoryId)?.title ?? null;
+  }
+
+  private syncCategories(categories: Category[]): void {
+    const current = this.categories();
+    const changed =
+      current.length !== categories.length ||
+      categories.some((c, i) => c.id !== current[i].id || c.title !== current[i].title);
+    if (changed) {
+      this.categories.set(categories);
+    }
+    const activeFilter = this.filterCategoryId();
+    if (activeFilter !== null && !categories.some(c => c.id === activeFilter)) {
+      this.filterCategoryId.set(null);
+    }
+  }
 
   protected toggleParticipants(): void {
     this.participantsOpen.update(v => !v);
@@ -250,6 +442,8 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   constructor() {
     effect(() => {
       const currentRoomId = this.roomId();
+      // reading the filters here restarts the sync immediately when a filter changes
+      this.filters();
       if (currentRoomId) {
         this.loadLocalPositions(currentRoomId);
         this.startSync(currentRoomId);
@@ -266,6 +460,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    clearTimeout(this.searchTimer);
     this.stopSync();
   }
 
@@ -294,16 +489,28 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     this.pollSub = timer(0, 2000)
       .pipe(
         exhaustMap(() =>
-          this.mindspark.listIdeas(currentRoomId).pipe(
-            timeout(10000),
-            catchError(err => {
-              console.error('Error fetching room ideas:', err);
-              return of(null);
-            })
-          )
+          forkJoin({
+            ideas: this.mindspark.listIdeas(currentRoomId, this.filters()).pipe(
+              timeout(10000),
+              catchError(err => {
+                console.error('Error fetching room ideas:', err);
+                return of(null);
+              })
+            ),
+            categories: this.categoriesService.listCategories(currentRoomId).pipe(
+              timeout(10000),
+              catchError(err => {
+                console.error('Error fetching room categories:', err);
+                return of(null);
+              })
+            ),
+          })
         )
       )
-      .subscribe(ideas => {
+      .subscribe(({ ideas, categories }) => {
+        if (categories) {
+          this.syncCategories(categories);
+        }
         if (ideas) {
           this.syncServerIdeas(ideas);
         }
@@ -364,6 +571,9 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         creatorId: idea.author.id,
         title: idea.title || idea.text || 'Untitled Idea',
         description: idea.description || '',
+        categoryId: idea.category?.id ?? null,
+        categoryTitle: idea.category?.title ?? null,
+        category: idea.category ?? null,
         voteCount: idea.voteCount ?? 0,
         voted: !!idea.voted,
       };
@@ -383,6 +593,8 @@ export class WorkspaceCanvasComponent implements OnDestroy {
           ci.y !== si.y ||
           ci.color !== si.color ||
           ci.creatorId !== si.creatorId ||
+          ci.categoryId !== si.categoryId ||
+          ci.categoryTitle !== si.categoryTitle ||
           ci.voteCount !== si.voteCount ||
           ci.voted !== si.voted
         );
@@ -436,7 +648,8 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         this.finishPointer(surface);
         return;
       }
-      this.ideaDraft.set({ x: point.x, y: point.y, title: '', description: '' });
+      // pre-select the active category filter so the new idea stays visible
+      this.ideaDraft.set({ x: point.x, y: point.y, title: '', description: '', categoryId: this.filterCategoryId() });
       this.ideaError.set('');
       this.finishPointer(surface);
       return;
@@ -572,6 +785,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
               x: currentItem.x,
               y: currentItem.y,
               color: currentItem.color,
+              categoryId: currentItem.categoryId,
             })
             .subscribe({
               next: updated => {
@@ -644,6 +858,9 @@ export class WorkspaceCanvasComponent implements OnDestroy {
           creatorId: this.userService.currentUser()?.id ?? null,
           title,
           description,
+          categoryId: draft.categoryId,
+          categoryTitle: this.categoryTitleOf(draft.categoryId),
+          category: draft.categoryId == null ? null : { id: draft.categoryId, title: this.categoryTitleOf(draft.categoryId) ?? '' },
           voteCount: 0,
           voted: false,
         };
@@ -662,6 +879,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
           x: draft.x,
           y: draft.y,
           color: this.selectedColor(),
+          categoryId: draft.categoryId,
         })
         .subscribe({
           next: newIdea => {
@@ -674,6 +892,9 @@ export class WorkspaceCanvasComponent implements OnDestroy {
               creatorId: newIdea.author.id,
               title: newIdea.title || newIdea.text || title,
               description: newIdea.description || description,
+              categoryId: newIdea.category?.id ?? null,
+              categoryTitle: newIdea.category?.title ?? null,
+              category: newIdea.category ?? null,
               voteCount: newIdea.voteCount ?? 0,
               voted: !!newIdea.voted,
             };
@@ -692,7 +913,9 @@ export class WorkspaceCanvasComponent implements OnDestroy {
       if (!currentRoomId) {
         this.commit(
           this.items().map(item =>
-            item.kind === 'idea' && item.id === ideaId ? { ...item, title, description } : item
+            item.kind === 'idea' && item.id === ideaId
+              ? { ...item, title, description, categoryId: draft.categoryId, categoryTitle: this.categoryTitleOf(draft.categoryId) }
+              : item
           )
         );
         this.ideaDraft.set(null);
@@ -700,7 +923,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         return;
       }
 
-      this.mindspark.updateIdea(ideaId, { title, description }).subscribe({
+      this.mindspark.updateIdea(ideaId, { title, description, categoryId: draft.categoryId }).subscribe({
         next: updated => {
           this.commit(
             this.items().map(item =>
@@ -709,6 +932,8 @@ export class WorkspaceCanvasComponent implements OnDestroy {
                     ...item,
                     title: updated.title || updated.text || title,
                     description: updated.description || description,
+                    categoryId: updated.category?.id ?? null,
+                    categoryTitle: updated.category?.title ?? null,
                   }
                 : item
             )
@@ -725,7 +950,14 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   protected editIdea(idea: IdeaItem): void {
     if (this.room()?.closed || !this.isCreator(idea)) return;
-    this.ideaDraft.set({ id: idea.id, x: idea.x, y: idea.y, title: idea.title, description: idea.description });
+    this.ideaDraft.set({
+      id: idea.id,
+      x: idea.x,
+      y: idea.y,
+      title: idea.title,
+      description: idea.description,
+      categoryId: idea.categoryId,
+    });
     this.ideaError.set('');
   }
 
@@ -741,6 +973,10 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   protected updateIdeaDraft(field: 'title' | 'description', value: string): void {
     this.ideaDraft.update(draft => (draft ? { ...draft, [field]: value } : draft));
+  }
+
+  protected updateIdeaDraftCategory(categoryId: number | null): void {
+    this.ideaDraft.update(draft => (draft ? { ...draft, categoryId } : draft));
   }
 
   protected toggleVote(event: Event, idea: IdeaItem): void {

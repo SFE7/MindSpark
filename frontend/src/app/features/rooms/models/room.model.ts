@@ -4,12 +4,20 @@ export interface Room {
   id: string;
   name: string;
   invitationCode: string;
-  owner: User;
-  createdAt: string;
-  members: User[];
+  owner?: User | null;
+  createdAt?: string;
+  members?: User[];
   memberCount: number;
-  member: boolean;
-  closed?: boolean;
+  member?: boolean;
+  closed: boolean;
+}
+
+export type IdeaSortBy = 'createdAt' | 'voteCount';
+
+export interface IdeaFilters {
+  categoryId?: number | null;
+  search?: string;
+  sortBy?: IdeaSortBy;
 }
 
 export interface IdeaPayload {
@@ -19,5 +27,5 @@ export interface IdeaPayload {
   x?: number;
   y?: number;
   color?: string;
+  categoryId?: number | null;
 }
-

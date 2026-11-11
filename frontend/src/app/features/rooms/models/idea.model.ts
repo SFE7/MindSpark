@@ -1,5 +1,6 @@
 import { User } from '../../../core/models/User';
 import { Room } from './room.model';
+import { Category } from './category.model';
 
 export interface Idea {
   id: string;
@@ -15,5 +16,5 @@ export interface Idea {
   updatedAt: string;
   voteCount: number;
   voted: boolean;
+  category?: Category | null;
 }
-
