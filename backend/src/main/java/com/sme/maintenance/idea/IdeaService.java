@@ -340,7 +340,7 @@ public class IdeaService {
     // 3. no sort just default find all by room funcotin in the repository
     public List<Idea> sortIdeas(String sortBy,Room room){
         if (sortBy.equals("createdAt")){
-             return ideaRepository.findByRoomOrderByCreatedAtAsc(room); 
+             return ideaRepository.findByRoomOrderByCreatedAtDesc(room); 
         }
         else if(sortBy.equals("voteCount")){
              return sortIdeasByVoteCount(room);

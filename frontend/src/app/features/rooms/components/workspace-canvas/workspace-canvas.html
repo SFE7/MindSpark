@@ -158,6 +158,19 @@
           rows="3"
           placeholder="Describe the thought"
         ></textarea>
+
+        <label for="idea-category">Category</label>
+        <select
+          id="idea-category"
+          [ngModel]="draft.categoryId"
+          (ngModelChange)="updateIdeaDraft('categoryId', $event)"
+          name="ideaCategory"
+        >
+          <option [ngValue]="null">No category (Uncategorized)</option>
+          @for (cat of categories(); track cat.id) {
+            <option [ngValue]="cat.id">{{ cat.title }}</option>
+          }
+        </select>
         @if (ideaError()) {
           <p class="idea-error" role="alert">{{ ideaError() }}</p>
         }

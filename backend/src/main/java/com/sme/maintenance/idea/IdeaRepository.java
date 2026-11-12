@@ -16,7 +16,7 @@ public interface IdeaRepository extends JpaRepository<Idea, UUID> {
     Optional<Idea> findById(UUID id);
 
     @EntityGraph(attributePaths = {"room.owner", "author"})
-    List<Idea> findByRoomOrderByCreatedAtAsc(Room room);
+    List<Idea> findByRoomOrderByCreatedAtDesc(Room room);
 
     @EntityGraph(attributePaths = {"room.owner", "author"})
     List<Idea> findByRoom(Room room);

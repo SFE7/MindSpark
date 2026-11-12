@@ -111,6 +111,7 @@ public class Idea {
 
         this.createdAt = Instant.now();
         this.updatedAt = this.createdAt;
+        this.category = category;
     }
 
     public void update(
@@ -156,6 +157,7 @@ public class Idea {
         }
 
         this.updatedAt = Instant.now();
+        this.category = category;
     }
 
     public void updatePosition(Double x, Double y) {

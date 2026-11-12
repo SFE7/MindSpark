@@ -8,6 +8,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -36,6 +37,7 @@ import com.sme.maintenance.vote.VoteService;
 @RequestMapping("/api")
 public class IdeaController {
 
+    private final CategoryService categoryService;
     private final IdeaService ideaService;
     private final VoteService voteService;
     private final RoomService roomService;
@@ -47,19 +49,20 @@ public class IdeaController {
             VoteService voteService,
             RoomService roomService,
             AuthenticatedUserService authenticatedUserService,
-            CategoryRepository categoryRepository
+            CategoryRepository categoryRepository, CategoryService categoryService
         ) {
         this.ideaService = ideaService;
         this.voteService = voteService;
         this.roomService = roomService;
         this.authenticatedUserService = authenticatedUserService;
         this.categoryRepository = categoryRepository;
+        this.categoryService = categoryService;
     }
 
     @GetMapping("/rooms/{roomId}/ideas")
     public List<IdeaResponse> list(
             @PathVariable UUID roomId,
-            IdeaFilters filters,
+            @ModelAttribute IdeaFilters filters,
             @AuthenticationPrincipal Jwt jwt) {
 
         User user = authenticatedUserService.getCurrentUser(jwt);
@@ -80,8 +83,12 @@ public class IdeaController {
         User user = authenticatedUserService.getCurrentUser(jwt);
         Long userId = user.getId();
 
-        Category category = categoryRepository.findById(request.categoryId()).get(); // we get the category from the id
-        // if id does not belong to a category, .get() method will return an exception
+        Category category = null; // we first intialize it as null, if the category service is not null then we search for it and find it
+        
+        if(request.categoryId()!=null){
+        category = categoryService.getCategoryById(request.categoryId()); // we get the category from the id
+        
+        }
 
         Idea idea = ideaService.create(
                 roomId,
@@ -106,9 +113,13 @@ public class IdeaController {
 
         User user = authenticatedUserService.getCurrentUser(jwt);
         Long userId = user.getId();
+        
+        Category category  = null; //we first assume the category is null, if the category request id is not null then
+        // we search for the category
 
-        Category category = categoryRepository.findById(request.categoryId()).get(); // we get the category from the id
-        // if id does not belong to a category, .get() method will return an exception
+        if (request.categoryId()!=null){
+        category = categoryService.getCategoryById(request.categoryId()); // we get the category from the id
+        }
 
         Idea idea = ideaService.update(
                 ideaId,

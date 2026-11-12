@@ -1,11 +1,11 @@
 package com.sme.maintenance.api;
 
+import com.sme.maintenance.repositories.CategoryRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -20,8 +20,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.sme.maintenance.api.ApiModels.CategoryRequest;
 import com.sme.maintenance.api.ApiModels.CategoryResponse;
-import com.sme.maintenance.api.ApiModels.IdeaRequest;
-import com.sme.maintenance.api.ApiModels.IdeaResponse;
 import com.sme.maintenance.entities.Category;
 import com.sme.maintenance.entities.User;
 import com.sme.maintenance.services.AuthenticatedUserService;

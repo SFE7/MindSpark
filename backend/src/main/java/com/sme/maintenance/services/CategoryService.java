@@ -13,6 +13,8 @@ import com.sme.maintenance.room.Room;
 import com.sme.maintenance.room.RoomRepository;
 import com.sme.maintenance.room.RoomService;
 
+import jakarta.transaction.Transactional;
+
 @Service 
 public class CategoryService {
 
@@ -57,6 +59,7 @@ public class CategoryService {
     // 2. user is eligable for using CRUD operations on the category by calling or validation function
     // 3. the string is not blank or null
     // 4. the new title dosent already exists inside the room
+    @Transactional 
     public Category rename(Long categoryId,String newTitle,Long userId){
         Category category = getCategoryById(categoryId);
 
@@ -82,7 +85,7 @@ public class CategoryService {
     }
 
         category.setTitle(trimmedNewTitle);
-        return category;
+        return categoryRepository.save(category); //saves the category and returns the saved category
 
     }
 

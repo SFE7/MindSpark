@@ -971,7 +971,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     this.ideaError.set('');
   }
 
-  protected updateIdeaDraft(field: 'title' | 'description', value: string): void {
+  protected updateIdeaDraft(field: 'title' | 'description'| 'categoryId', value: string|number|null): void {
     this.ideaDraft.update(draft => (draft ? { ...draft, [field]: value } : draft));
   }
 
