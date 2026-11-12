@@ -339,10 +339,10 @@ public class IdeaService {
     // 2. sort by vote count, requires its own method since we need to use the vote service to get each idea count
     // 3. no sort just default find all by room funcotin in the repository
     public List<Idea> sortIdeas(String sortBy,Room room){
-        if (sortBy.equals("createdAt")){
+        if ("createdAt".equals(sortBy)){
              return ideaRepository.findByRoomOrderByCreatedAtDesc(room); 
         }
-        else if(sortBy.equals("voteCount")){
+        else if("voteCount".equals(sortBy)){
              return sortIdeasByVoteCount(room);
         }
         else{
@@ -382,15 +382,26 @@ public class IdeaService {
 
     //filteres by the search text
     public List<Idea> filterBySearch(List<Idea> originalIdeasList,String searchText){
-        List<Idea> filteredIdeasList = new ArrayList<Idea>();
-        String trimmedSearchText = searchText.trim(); //we trim the serach text so we dont get bad results with white spaces
+        if (searchText == null || searchText.isBlank()) {
+            return originalIdeasList;
+        }
 
-        //iterates through each idea and checks if the idea title contains the search text
+        List<Idea> filteredIdeasList = new ArrayList<Idea>();
+        String query = searchText.trim().toLowerCase();
+
+        //iterates through each idea and checks if the idea title, description, or text contains the search text (case-insensitive)
         for (Idea idea : originalIdeasList) {
-             String ideaTitle = idea.getTitle().trim();
-             if (ideaTitle.contains(trimmedSearchText)){
+            String title = idea.getTitle();
+            String description = idea.getDescription();
+            String text = idea.getText();
+
+            boolean matchesTitle = title != null && title.toLowerCase().contains(query);
+            boolean matchesDescription = description != null && description.toLowerCase().contains(query);
+            boolean matchesText = text != null && text.toLowerCase().contains(query);
+
+            if (matchesTitle || matchesDescription || matchesText) {
                 filteredIdeasList.add(idea);
-             }
+            }
         }
 
         return filteredIdeasList;

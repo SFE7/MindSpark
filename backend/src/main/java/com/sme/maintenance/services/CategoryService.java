@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.sme.maintenance.entities.Category;
+import com.sme.maintenance.idea.IdeaRepository;
 import com.sme.maintenance.repositories.CategoryRepository;
 import com.sme.maintenance.room.Room;
 import com.sme.maintenance.room.RoomRepository;
@@ -22,11 +23,13 @@ public class CategoryService {
     private final RoomService roomService;
     private final RoomRepository roomRepository;
     private final CategoryRepository categoryRepository;
+    private final IdeaRepository ideaRepository;
 
-    public CategoryService(RoomService roomService,RoomRepository roomRepository,CategoryRepository categoryRepository){
+    public CategoryService(RoomService roomService,RoomRepository roomRepository,CategoryRepository categoryRepository,IdeaRepository ideaRepository){
         this.roomService = roomService;
         this.roomRepository = roomRepository;
         this.categoryRepository = categoryRepository;
+        this.ideaRepository = ideaRepository;
     }
 
 
@@ -149,6 +152,7 @@ public class CategoryService {
     //for a category to be deleted, theere are 1 checks that needs to be confirmed which are:
     // 1. the category exists by id
     // 2. user is eligable for using CRUD operations on the category by calling or validation function
+    @Transactional
     public void delete(Long categoryId,Long userId){
         Category category = getCategoryById(categoryId);
 
@@ -156,6 +160,7 @@ public class CategoryService {
         
         validateUserAndRoom(room.getId(), userId);
 
+        ideaRepository.clearCategory(category);
         categoryRepository.delete(category);
     }
 }

@@ -24,4 +24,8 @@ public interface IdeaRepository extends JpaRepository<Idea, UUID> {
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("DELETE FROM Idea i WHERE i.room = :room")
     void deleteByRoom(@org.springframework.data.repository.query.Param("room") Room room);
+
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("UPDATE Idea i SET i.category = null WHERE i.category = :category")
+    void clearCategory(@org.springframework.data.repository.query.Param("category") Category category);
 }
