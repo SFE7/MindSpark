@@ -121,6 +121,16 @@
               <span class="vote-icon">&#9650;</span>
               <span class="vote-count">{{ idea.voteCount || 0 }}</span>
             </button>
+            <button
+              type="button"
+              class="idea-comment-badge"
+              (click)="openComments($event, idea)"
+              (pointerdown)="$event.stopPropagation()"
+              [attr.aria-label]="'Comments for ' + idea.title"
+              title="Comments"
+            >
+              <span class="comment-icon">💬</span>
+            </button>
             @if (isCreator(idea) && !room()?.closed) {
               <span class="idea-edit-hint">Edit</span>
             }
@@ -341,6 +351,142 @@
           </div>
         }
       </div>
+    </aside>
+  }
+
+  <!-- Idea Comments Panel Drawer -->
+  @if (commentsOpen()) {
+    <div class="comments-backdrop" (click)="closeComments()"></div>
+    <aside class="comments-panel" aria-label="Idea comments" (click)="$event.stopPropagation()">
+      <div class="comments-panel-header">
+        <div class="panel-title-wrap">
+          <span class="comments-title">Comments</span>
+          <span class="comments-subtitle">{{ activeCommentIdea()?.title }}</span>
+        </div>
+        <button type="button" class="close-panel-btn" (click)="closeComments()" aria-label="Close comments panel">✕</button>
+      </div>
+
+      @if (commentError()) {
+        <p class="comments-error-banner" role="alert">{{ commentError() }}</p>
+      }
+
+      <div class="comments-content">
+        @if (commentsLoading()) {
+          <div class="comments-loading">Loading comments...</div>
+        } @else if (comments().length === 0) {
+          <div class="comments-empty">No comments yet. Be the first to comment!</div>
+        } @else {
+          <div class="comments-list">
+            @for (comment of comments(); track comment.id) {
+              <div class="comment-item">
+                <div class="comment-meta">
+                  <span class="comment-author">{{ comment.author.username }}</span>
+                  <span class="comment-time">{{ comment.createdAt?.substring(0, 10) }}</span>
+                </div>
+
+                @if (editingCommentId() === comment.id) {
+                  <div class="comment-edit-box">
+                    <input
+                      class="comment-edit-input"
+                      [value]="editingCommentContent()"
+                      (input)="editingCommentContent.set($any($event.target).value)"
+                      (keydown.enter)="saveEditComment(comment.id)"
+                      (keydown.escape)="cancelEditComment()"
+                      maxlength="2000"
+                    />
+                    <div class="comment-edit-actions">
+                      <button type="button" class="comment-btn-sm save" (click)="saveEditComment(comment.id)">Save</button>
+                      <button type="button" class="comment-btn-sm cancel" (click)="cancelEditComment()">Cancel</button>
+                    </div>
+                  </div>
+                } @else {
+                  <p class="comment-text">{{ comment.content || comment.text }}</p>
+                  <div class="comment-actions">
+                    @if (!room()?.closed) {
+                      <button type="button" class="comment-action-link" (click)="startReply(comment.id)">Reply</button>
+                    }
+                    @if (isCommentAuthor(comment) && !room()?.closed) {
+                      <button type="button" class="comment-action-link" (click)="startEditComment(comment)">Edit</button>
+                      <button type="button" class="comment-action-link danger" (click)="deleteComment(comment)">Delete</button>
+                    }
+                  </div>
+                }
+
+                <!-- Inline Reply Box -->
+                @if (replyingToCommentId() === comment.id && !room()?.closed) {
+                  <div class="reply-input-box">
+                    <input
+                      class="reply-input"
+                      placeholder="Write a reply..."
+                      [value]="replyContent()"
+                      (input)="replyContent.set($any($event.target).value)"
+                      (keydown.enter)="sendReply(comment.id)"
+                      maxlength="2000"
+                    />
+                    <div class="reply-actions">
+                      <button type="button" class="comment-btn-sm save" (click)="sendReply(comment.id)">Reply</button>
+                      <button type="button" class="comment-btn-sm cancel" (click)="cancelReply()">Cancel</button>
+                    </div>
+                  </div>
+                }
+
+                <!-- Nested Replies -->
+                @if (comment.replies && comment.replies.length > 0) {
+                  <div class="replies-list">
+                    @for (reply of comment.replies; track reply.id) {
+                      <div class="reply-item">
+                        <div class="comment-meta">
+                          <span class="comment-author">{{ reply.author.username }}</span>
+                          <span class="comment-time">{{ reply.createdAt?.substring(0, 10) }}</span>
+                        </div>
+                        @if (editingCommentId() === reply.id) {
+                          <div class="comment-edit-box">
+                            <input
+                              class="comment-edit-input"
+                              [value]="editingCommentContent()"
+                              (input)="editingCommentContent.set($any($event.target).value)"
+                              (keydown.enter)="saveEditComment(reply.id)"
+                              (keydown.escape)="cancelEditComment()"
+                              maxlength="2000"
+                            />
+                            <div class="comment-edit-actions">
+                              <button type="button" class="comment-btn-sm save" (click)="saveEditComment(reply.id)">Save</button>
+                              <button type="button" class="comment-btn-sm cancel" (click)="cancelEditComment()">Cancel</button>
+                            </div>
+                          </div>
+                        } @else {
+                          <p class="comment-text">{{ reply.content || reply.text }}</p>
+                          @if (isCommentAuthor(reply) && !room()?.closed) {
+                            <div class="comment-actions">
+                              <button type="button" class="comment-action-link" (click)="startEditComment(reply)">Edit</button>
+                              <button type="button" class="comment-action-link danger" (click)="deleteComment(reply)">Delete</button>
+                            </div>
+                          }
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Add New Top-Level Comment (if room open) -->
+      @if (!room()?.closed) {
+        <div class="comments-footer">
+          <input
+            class="new-comment-input"
+            placeholder="Add a comment..."
+            [value]="newCommentContent()"
+            (input)="newCommentContent.set($any($event.target).value)"
+            (keydown.enter)="addComment()"
+            maxlength="2000"
+          />
+          <button type="button" class="new-comment-btn" (click)="addComment()">Send</button>
+        </div>
+      }
     </aside>
   }
 

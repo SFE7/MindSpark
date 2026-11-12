@@ -30,6 +30,22 @@ public final class ApiModels {
 
     public record  CategoryRequest(String title){}
 
+    public record CommentRequest(
+            String text,
+            String content,
+            UUID parentId
+    ) {
+        public String effectiveContent() {
+            if (content != null && !content.isBlank()) {
+                return content.trim();
+            }
+            if (text != null && !text.isBlank()) {
+                return text.trim();
+            }
+            return "";
+        }
+    }
+
 
     // Responses records
 
@@ -74,6 +90,18 @@ public final class ApiModels {
         String title
     ) {
     }
+
+    public record CommentResponse(
+            UUID id,
+            UUID ideaId,
+            UserResponse author,
+            String content,
+            String text,
+            UUID parentId,
+            Instant createdAt,
+            Instant updatedAt,
+            List<CommentResponse> replies
+    ) {}
 
     // filters
 

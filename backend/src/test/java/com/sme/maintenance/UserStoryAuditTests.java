@@ -1,6 +1,7 @@
 package com.sme.maintenance;
 
 import com.jayway.jsonpath.JsonPath;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -785,6 +786,29 @@ public class UserStoryAuditTests {
                             .with(authenticatedAs(owner)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(1));
+        }
+
+        @Test
+        @Disabled("Pagination not implemented - removed upstream in 2c6a690 without implementation")
+        @DisplayName("30.9 Pagination support if it exists")
+        void testPaginationSupport() throws Exception {
+            String owner = "s30-user-9";
+            String roomId = createRoom(owner, "Room 30.9");
+            Long cat = createCategory(owner, roomId, "Default");
+
+            for (int i = 1; i <= 5; i++) {
+                mockMvc.perform(post("/api/rooms/" + roomId + "/ideas")
+                                .with(authenticatedAs(owner))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"title\":\"Idea " + i + "\",\"text\":\"Text\",\"categoryId\":" + cat + "}"))
+                        .andExpect(status().isOk());
+            }
+
+            // Test page=0&size=2
+            mockMvc.perform(get("/api/rooms/" + roomId + "/ideas?page=0&size=2&sortBy=createdAt")
+                            .with(authenticatedAs(owner)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(2));
         }
     }
 }

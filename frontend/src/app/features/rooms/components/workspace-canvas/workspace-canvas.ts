@@ -5,9 +5,11 @@ import { Subscription, forkJoin, of, timer } from 'rxjs';
 import { catchError, exhaustMap, timeout } from 'rxjs/operators';
 
 import { CategoriesService } from '../../data-access/categories.service';
+import { CommentsService } from '../../data-access/comments.service';
 import { IdeasService } from '../../data-access/ideas.service';
 import { RoomsService } from '../../data-access/rooms.service';
 import { Category } from '../../models/category.model';
+import { CommentItem } from '../../models/comment.model';
 import { Idea } from '../../models/idea.model';
 import { IdeaFilters, IdeaSortBy, Room } from '../../models/room.model';
 import { User } from '../../../../core/models/User';
@@ -91,6 +93,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   private readonly mindspark = inject(IdeasService);
   private readonly roomsService = inject(RoomsService);
   private readonly categoriesService = inject(CategoriesService);
+  private readonly commentsService = inject(CommentsService);
   private readonly userService = inject(UserService);
   private readonly router = inject(Router);
 
@@ -156,6 +159,18 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   protected readonly selectedCategoryId = computed(() => this.filterCategoryId());
   protected readonly sortBy = signal<IdeaSortBy>('createdAt');
   private searchTimer?: ReturnType<typeof setTimeout>;
+
+  // ---------- Comments (Phase 3 - stories #32-34) ----------
+  protected readonly commentsOpen = signal(false);
+  protected readonly activeCommentIdea = signal<IdeaItem | null>(null);
+  protected readonly comments = signal<CommentItem[]>([]);
+  protected readonly commentsLoading = signal(false);
+  protected readonly commentError = signal('');
+  protected readonly newCommentContent = signal('');
+  protected readonly replyingToCommentId = signal<string | null>(null);
+  protected readonly replyContent = signal('');
+  protected readonly editingCommentId = signal<string | null>(null);
+  protected readonly editingCommentContent = signal('');
 
   // Every change of these signals triggers a new call to IdeasService.listIdeas()
   private readonly filters = computed<IdeaFilters>(() => ({
@@ -422,6 +437,166 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         this.roomNameError.set('Could not update room name.');
       },
     });
+  }
+
+  // ---------- Comment Actions (Phase 3) ----------
+  protected openComments(event: Event, idea: IdeaItem): void {
+    event.stopPropagation();
+    this.activeCommentIdea.set(idea);
+    this.commentsOpen.set(true);
+    this.commentError.set('');
+    this.newCommentContent.set('');
+    this.replyingToCommentId.set(null);
+    this.editingCommentId.set(null);
+    this.loadComments(idea.id);
+  }
+
+  protected closeComments(): void {
+    this.commentsOpen.set(false);
+    this.activeCommentIdea.set(null);
+    this.commentError.set('');
+    this.replyingToCommentId.set(null);
+    this.editingCommentId.set(null);
+  }
+
+  protected loadComments(ideaId: string): void {
+    this.commentsLoading.set(true);
+    this.commentsService.getComments(ideaId).subscribe({
+      next: list => {
+        this.comments.set(list);
+        this.commentsLoading.set(false);
+      },
+      error: () => {
+        this.commentsLoading.set(false);
+        this.commentError.set('Could not load comments.');
+      },
+    });
+  }
+
+  protected addComment(): void {
+    const idea = this.activeCommentIdea();
+    if (!idea || this.room()?.closed) return;
+    const content = this.newCommentContent().trim();
+    if (!content) {
+      this.commentError.set('Comment content is required.');
+      return;
+    }
+    this.commentsService.addComment(idea.id, content).subscribe({
+      next: created => {
+        this.comments.update(list => [...list, created]);
+        this.newCommentContent.set('');
+        this.commentError.set('');
+      },
+      error: () => this.commentError.set('Failed to add comment.'),
+    });
+  }
+
+  protected startReply(commentId: string): void {
+    this.replyingToCommentId.set(commentId);
+    this.replyContent.set('');
+    this.commentError.set('');
+  }
+
+  protected cancelReply(): void {
+    this.replyingToCommentId.set(null);
+    this.replyContent.set('');
+  }
+
+  protected sendReply(parentCommentId: string): void {
+    if (this.room()?.closed) return;
+    const content = this.replyContent().trim();
+    if (!content) {
+      this.commentError.set('Reply content is required.');
+      return;
+    }
+    this.commentsService.replyToComment(parentCommentId, content).subscribe({
+      next: reply => {
+        this.comments.update(list =>
+          list.map(c => {
+            if (c.id === parentCommentId) {
+              return { ...c, replies: [...(c.replies || []), reply] };
+            }
+            return c;
+          })
+        );
+        this.replyingToCommentId.set(null);
+        this.replyContent.set('');
+        this.commentError.set('');
+      },
+      error: () => this.commentError.set('Failed to send reply.'),
+    });
+  }
+
+  protected startEditComment(comment: CommentItem): void {
+    this.editingCommentId.set(comment.id);
+    this.editingCommentContent.set(comment.content || comment.text || '');
+    this.commentError.set('');
+  }
+
+  protected cancelEditComment(): void {
+    this.editingCommentId.set(null);
+    this.editingCommentContent.set('');
+  }
+
+  protected saveEditComment(commentId: string): void {
+    if (this.room()?.closed) return;
+    const content = this.editingCommentContent().trim();
+    if (!content) {
+      this.commentError.set('Comment content is required.');
+      return;
+    }
+    this.commentsService.updateComment(commentId, content).subscribe({
+      next: updated => {
+        this.comments.update(list =>
+          list.map(c => {
+            if (c.id === commentId) {
+              return { ...c, content: updated.content, text: updated.text, updatedAt: updated.updatedAt };
+            }
+            if (c.replies && c.replies.some(r => r.id === commentId)) {
+              return {
+                ...c,
+                replies: c.replies.map(r =>
+                  r.id === commentId
+                    ? { ...r, content: updated.content, text: updated.text, updatedAt: updated.updatedAt }
+                    : r
+                ),
+              };
+            }
+            return c;
+          })
+        );
+        this.editingCommentId.set(null);
+        this.editingCommentContent.set('');
+        this.commentError.set('');
+      },
+      error: () => this.commentError.set('Failed to update comment.'),
+    });
+  }
+
+  protected deleteComment(comment: CommentItem): void {
+    if (this.room()?.closed) return;
+    this.commentsService.deleteComment(comment.id).subscribe({
+      next: () => {
+        this.comments.update(list => {
+          if (comment.parentId) {
+            return list.map(c => {
+              if (c.id === comment.parentId) {
+                return { ...c, replies: (c.replies || []).filter(r => r.id !== comment.id) };
+              }
+              return c;
+            });
+          }
+          return list.filter(c => c.id !== comment.id);
+        });
+        this.commentError.set('');
+      },
+      error: () => this.commentError.set('Failed to delete comment.'),
+    });
+  }
+
+  protected isCommentAuthor(comment: CommentItem): boolean {
+    const currentUserId = this.userService.currentUser()?.id;
+    return currentUserId != null && comment.author?.id === currentUserId;
   }
 
   private nextItemId = 1;
