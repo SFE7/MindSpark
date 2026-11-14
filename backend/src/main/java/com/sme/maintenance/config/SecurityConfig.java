@@ -22,6 +22,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/users/sync").authenticated()
                         .requestMatchers("/api/health").permitAll()
+                        .requestMatchers("/ws/rooms", "/ws/rooms/**").permitAll()
                         .anyRequest().authenticated())
             .oauth2ResourceServer( oauth2 -> oauth2.jwt(jwt -> {}))
             .build();

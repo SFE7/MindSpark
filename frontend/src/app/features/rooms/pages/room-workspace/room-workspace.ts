@@ -5,6 +5,7 @@ import { EMPTY, Subscription, timer } from 'rxjs';
 import { catchError, exhaustMap, timeout } from 'rxjs/operators';
 
 import { RoomsService } from '../../data-access/rooms.service';
+import { RoomSocketService } from '../../data-access/room-socket.service';
 import { Room } from '../../models/room.model';
 import { WorkspaceCanvasComponent } from '../../components/workspace-canvas/workspace-canvas';
 
@@ -19,10 +20,12 @@ export class RoomWorkspaceComponent implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
   protected readonly router = inject(Router);
   private readonly mindspark = inject(RoomsService);
+  private readonly roomSocket = inject(RoomSocketService);
 
   protected readonly room = signal<Room | null>(null);
   protected readonly error = signal('');
   private pollSub?: Subscription;
+  private socketSub?: Subscription;
 
   constructor() {
     const roomId = this.route.snapshot.paramMap.get('roomId');
@@ -32,10 +35,19 @@ export class RoomWorkspaceComponent implements OnDestroy {
     }
 
     this.startPolling(roomId);
+
+    this.socketSub = this.roomSocket.connected$.subscribe(connected => {
+      if (connected) {
+        this.stopPolling();
+      } else if (this.room()) {
+        this.startPolling(roomId);
+      }
+    });
   }
 
   ngOnDestroy(): void {
     this.stopPolling();
+    this.socketSub?.unsubscribe();
   }
 
   private stopPolling(): void {

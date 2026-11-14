@@ -22,6 +22,7 @@ export class PresenceHelper {
   private heartbeatTimer?: ReturnType<typeof setInterval>;
   private heartbeatSub?: Subscription;
   private isDestroyed = false;
+  private isSocketActive = false;
 
   constructor(options: PresenceHelperOptions) {
     this.roomId = options.roomId;
@@ -65,13 +66,37 @@ export class PresenceHelper {
     this.heartbeat();
 
     // Schedule regular heartbeat every 10s
+    this.startHeartbeatTimer();
+  }
+
+  private startHeartbeatTimer(): void {
+    if (this.heartbeatTimer || this.isDestroyed || this.isSocketActive) return;
     this.heartbeatTimer = setInterval(() => {
       this.heartbeat();
     }, this.heartbeatIntervalMs);
   }
 
+  setSocketActive(active: boolean): void {
+    if (this.isSocketActive === active) return;
+    this.isSocketActive = active;
+
+    if (active) {
+      if (this.heartbeatTimer) {
+        clearInterval(this.heartbeatTimer);
+        this.heartbeatTimer = undefined;
+      }
+      this.heartbeatSub?.unsubscribe();
+      this.heartbeatSub = undefined;
+    } else {
+      if (!this.isDestroyed) {
+        this.heartbeat();
+        this.startHeartbeatTimer();
+      }
+    }
+  }
+
   private handleVisibilityChange = (): void => {
-    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible' && !this.isSocketActive) {
       this.heartbeat();
     }
   };
@@ -81,7 +106,7 @@ export class PresenceHelper {
   };
 
   heartbeat(): void {
-    if (this.isDestroyed || !this.roomId) return;
+    if (this.isDestroyed || !this.roomId || this.isSocketActive) return;
 
     this.heartbeatSub?.unsubscribe();
     this.heartbeatSub = this.roomsService.sendHeartbeat(this.roomId, this.clientId).subscribe({

@@ -2,11 +2,12 @@
 package com.sme.maintenance.idea;
 
 import com.sme.maintenance.vote.VoteRepository;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,8 @@ import com.sme.maintenance.repositories.UserRepository;
 import com.sme.maintenance.room.Room;
 import com.sme.maintenance.room.RoomRepository;
 import com.sme.maintenance.room.RoomService;
+import com.sme.maintenance.websocket.RoomBroadcastService;
+import com.sme.maintenance.websocket.RoomEvent;
 
 @Service
 @Transactional
@@ -30,6 +33,25 @@ public class IdeaService {
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
     private final IdeaFinderService ideaFinderService;
+    private final RoomBroadcastService broadcastService;
+
+    @Autowired
+    public IdeaService(
+            IdeaRepository ideaRepository,
+            RoomService roomService,
+            RoomRepository roomRepository,
+            UserRepository userRepository,
+            VoteRepository voteRepository,
+            IdeaFinderService ideaFinderService,
+            @Autowired(required = false) RoomBroadcastService broadcastService) {
+        this.ideaRepository = ideaRepository;
+        this.roomService = roomService;
+        this.roomRepository = roomRepository;
+        this.userRepository = userRepository;
+        this.voteRepository = voteRepository;
+        this.ideaFinderService = ideaFinderService;
+        this.broadcastService = broadcastService;
+    }
 
     public IdeaService(
             IdeaRepository ideaRepository,
@@ -38,12 +60,58 @@ public class IdeaService {
             UserRepository userRepository,
             VoteRepository voteRepository,
             IdeaFinderService ideaFinderService) {
-        this.ideaRepository = ideaRepository;
-        this.roomService = roomService;
-        this.roomRepository = roomRepository;
-        this.userRepository = userRepository;
-        this.voteRepository = voteRepository;
-        this.ideaFinderService = ideaFinderService;
+        this(ideaRepository, roomService, roomRepository, userRepository, voteRepository, ideaFinderService, null);
+    }
+
+    public RoomEvent.SharedIdea toSharedIdea(Idea idea) {
+        Long catId = idea.getCategory() != null ? idea.getCategory().getId() : null;
+        String catTitle = idea.getCategory() != null ? idea.getCategory().getTitle() : null;
+        long votes = voteRepository.countByIdea(idea);
+        return new RoomEvent.SharedIdea(
+                idea.getId(),
+                idea.getTitle(),
+                idea.getDescription(),
+                idea.getText(),
+                idea.getX(),
+                idea.getY(),
+                idea.getColor(),
+                catId,
+                catTitle,
+                votes,
+                idea.getCreatedAt(),
+                idea.getUpdatedAt()
+        );
+    }
+
+    private void broadcastIdeaCreated(Idea idea) {
+        if (broadcastService == null) return;
+        UUID roomId = idea.getRoom().getId();
+        broadcastService.broadcastAfterCommit(roomId, () -> {
+            long seq = broadcastService.nextSequence(roomId);
+            Instant now = broadcastService.getClock() != null ? broadcastService.getClock().instant() : Instant.now();
+            return RoomEvent.ideaCreated(roomId, seq, now, toSharedIdea(idea));
+        });
+    }
+
+    private void broadcastIdeaUpdated(Idea idea, boolean isMove) {
+        if (broadcastService == null) return;
+        UUID roomId = idea.getRoom().getId();
+        broadcastService.broadcastAfterCommit(roomId, () -> {
+            long seq = broadcastService.nextSequence(roomId);
+            Instant now = broadcastService.getClock() != null ? broadcastService.getClock().instant() : Instant.now();
+            return isMove
+                    ? RoomEvent.ideaMoved(roomId, seq, now, toSharedIdea(idea))
+                    : RoomEvent.ideaUpdated(roomId, seq, now, toSharedIdea(idea));
+        });
+    }
+
+    private void broadcastIdeaDeleted(UUID roomId, UUID ideaId) {
+        if (broadcastService == null) return;
+        broadcastService.broadcastAfterCommit(roomId, () -> {
+            long seq = broadcastService.nextSequence(roomId);
+            Instant now = broadcastService.getClock() != null ? broadcastService.getClock().instant() : Instant.now();
+            return RoomEvent.ideaDeleted(roomId, seq, now, ideaId);
+        });
     }
 
     @Transactional(readOnly = true)
@@ -130,7 +198,9 @@ public class IdeaService {
                 category
         );
 
-        return ideaRepository.save(idea);
+        Idea saved = ideaRepository.save(idea);
+        broadcastIdeaCreated(saved);
+        return saved;
     }
 
     // i can update my idea 
@@ -260,6 +330,8 @@ public class IdeaService {
                         ? color
                         : idea.getColor();
 
+        boolean isMoveOnly = (x != null || y != null) && !titleChanged && !textChanged && !descriptionChanged && !colorChanged;
+
         idea.update(
                 effectiveText,
                 effectiveTitle,
@@ -270,7 +342,9 @@ public class IdeaService {
                 category
         );
 
-        return ideaRepository.save(idea);
+        Idea saved = ideaRepository.save(idea);
+        broadcastIdeaUpdated(saved, isMoveOnly);
+        return saved;
     }
 // I can delete my own ideas
     public void delete(UUID ideaId, Long userId) {
@@ -280,6 +354,7 @@ public class IdeaService {
         requireAuthor(idea, userId);
         roomService.requireOpen(idea.getRoom());
 
+        broadcastIdeaDeleted(idea.getRoom().getId(), idea.getId());
         ideaRepository.delete(idea);
     }
 

@@ -149,4 +149,30 @@ describe('PresenceHelper', () => {
     helper.destroy();
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
+
+  it('pauses REST heartbeats when socket is active and resumes when inactive (Amendment 4)', () => {
+    helper = new PresenceHelper({
+      roomId: 'room-1',
+      roomsService: mockRoomsService as RoomsService,
+      auth: mockAuth as KeycloakAuth,
+      onUserRemoved: removedCallback,
+      heartbeatIntervalMs: 10000,
+    });
+
+    // Immediate heartbeat called once on init
+    expect(mockRoomsService.sendHeartbeat).toHaveBeenCalledTimes(1);
+
+    // Set socket active: heartbeats must pause
+    helper.setSocketActive(true);
+    vi.advanceTimersByTime(25000);
+    // Still only 1 call because socket is active
+    expect(mockRoomsService.sendHeartbeat).toHaveBeenCalledTimes(1);
+
+    // Set socket inactive: should resume REST heartbeats
+    helper.setSocketActive(false);
+    expect(mockRoomsService.sendHeartbeat).toHaveBeenCalledTimes(2);
+
+    vi.advanceTimersByTime(10000);
+    expect(mockRoomsService.sendHeartbeat).toHaveBeenCalledTimes(3);
+  });
 });

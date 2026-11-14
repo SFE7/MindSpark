@@ -1,8 +1,10 @@
 package com.sme.maintenance.services;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -13,6 +15,8 @@ import com.sme.maintenance.repositories.CategoryRepository;
 import com.sme.maintenance.room.Room;
 import com.sme.maintenance.room.RoomRepository;
 import com.sme.maintenance.room.RoomService;
+import com.sme.maintenance.websocket.RoomBroadcastService;
+import com.sme.maintenance.websocket.RoomEvent;
 
 import jakarta.transaction.Transactional;
 
@@ -24,12 +28,55 @@ public class CategoryService {
     private final RoomRepository roomRepository;
     private final CategoryRepository categoryRepository;
     private final IdeaRepository ideaRepository;
+    private final RoomBroadcastService broadcastService;
 
-    public CategoryService(RoomService roomService,RoomRepository roomRepository,CategoryRepository categoryRepository,IdeaRepository ideaRepository){
+    @Autowired
+    public CategoryService(RoomService roomService,
+                           RoomRepository roomRepository,
+                           CategoryRepository categoryRepository,
+                           IdeaRepository ideaRepository,
+                           @Autowired(required = false) RoomBroadcastService broadcastService){
         this.roomService = roomService;
         this.roomRepository = roomRepository;
         this.categoryRepository = categoryRepository;
         this.ideaRepository = ideaRepository;
+        this.broadcastService = broadcastService;
+    }
+
+    public CategoryService(RoomService roomService,
+                           RoomRepository roomRepository,
+                           CategoryRepository categoryRepository,
+                           IdeaRepository ideaRepository){
+        this(roomService, roomRepository, categoryRepository, ideaRepository, null);
+    }
+
+    private void broadcastCategoryCreated(Category category) {
+        if (broadcastService == null) return;
+        UUID roomId = category.getRoom().getId();
+        broadcastService.broadcastAfterCommit(roomId, () -> {
+            long seq = broadcastService.nextSequence(roomId);
+            Instant now = broadcastService.getClock() != null ? broadcastService.getClock().instant() : Instant.now();
+            return RoomEvent.categoryCreated(roomId, seq, now, new RoomEvent.SharedCategory(category.getId(), category.getTitle()));
+        });
+    }
+
+    private void broadcastCategoryUpdated(Category category) {
+        if (broadcastService == null) return;
+        UUID roomId = category.getRoom().getId();
+        broadcastService.broadcastAfterCommit(roomId, () -> {
+            long seq = broadcastService.nextSequence(roomId);
+            Instant now = broadcastService.getClock() != null ? broadcastService.getClock().instant() : Instant.now();
+            return RoomEvent.categoryUpdated(roomId, seq, now, new RoomEvent.SharedCategory(category.getId(), category.getTitle()));
+        });
+    }
+
+    private void broadcastCategoryDeleted(UUID roomId, Long categoryId) {
+        if (broadcastService == null) return;
+        broadcastService.broadcastAfterCommit(roomId, () -> {
+            long seq = broadcastService.nextSequence(roomId);
+            Instant now = broadcastService.getClock() != null ? broadcastService.getClock().instant() : Instant.now();
+            return RoomEvent.categoryDeleted(roomId, seq, now, categoryId);
+        });
     }
 
 
@@ -88,8 +135,9 @@ public class CategoryService {
     }
 
         category.setTitle(trimmedNewTitle);
-        return categoryRepository.save(category); //saves the category and returns the saved category
-
+        Category saved = categoryRepository.save(category);
+        broadcastCategoryUpdated(saved);
+        return saved;
     }
 
     //to create a room we need to validate 2 checks which are:
@@ -118,7 +166,9 @@ public class CategoryService {
         }
 
         Category category = new Category(trimmedTitle, room);
-        return categoryRepository.save(category);
+        Category saved = categoryRepository.save(category);
+        broadcastCategoryCreated(saved);
+        return saved;
     }
 
 
@@ -162,5 +212,6 @@ public class CategoryService {
 
         ideaRepository.clearCategory(category);
         categoryRepository.delete(category);
+        broadcastCategoryDeleted(room.getId(), categoryId);
     }
 }

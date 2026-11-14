@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -17,18 +19,26 @@ import org.springframework.web.server.ResponseStatusException;
 public class PresenceService {
 
     public static final Duration HEARTBEAT_EXPIRY = Duration.ofSeconds(60);
-    public static final Duration LEAVE_GRACE = Duration.ofSeconds(10);
+    public static final Duration LEAVE_GRACE = Duration.ofSeconds(5);
     public static final int MAX_CLIENTS_PER_USER = 10;
 
     private Clock clock;
+    private Duration heartbeatExpiry;
+    private Duration leaveGrace;
 
     public static class ClientSession {
         private Instant lastHeartbeat;
         private Instant leaveStartedAt;
+        private boolean hasActiveSocket;
+        private final Duration heartbeatExpiry;
+        private final Duration leaveGrace;
 
-        public ClientSession(Instant now) {
+        public ClientSession(Instant now, Duration heartbeatExpiry, Duration leaveGrace) {
             this.lastHeartbeat = now;
             this.leaveStartedAt = null;
+            this.hasActiveSocket = false;
+            this.heartbeatExpiry = heartbeatExpiry;
+            this.leaveGrace = leaveGrace;
         }
 
         public Instant getLastHeartbeat() {
@@ -47,11 +57,22 @@ public class PresenceService {
             this.leaveStartedAt = leaveStartedAt;
         }
 
+        public boolean isHasActiveSocket() {
+            return hasActiveSocket;
+        }
+
+        public void setHasActiveSocket(boolean hasActiveSocket) {
+            this.hasActiveSocket = hasActiveSocket;
+        }
+
         public boolean isActive(Instant now) {
-            if (leaveStartedAt != null) {
-                return Duration.between(leaveStartedAt, now).compareTo(LEAVE_GRACE) < 0;
+            if (hasActiveSocket) {
+                return true;
             }
-            return Duration.between(lastHeartbeat, now).compareTo(HEARTBEAT_EXPIRY) < 0;
+            if (leaveStartedAt != null) {
+                return Duration.between(leaveStartedAt, now).compareTo(leaveGrace) < 0;
+            }
+            return Duration.between(lastHeartbeat, now).compareTo(heartbeatExpiry) < 0;
         }
     }
 
@@ -62,8 +83,21 @@ public class PresenceService {
     private final ConcurrentHashMap<UUID, Boolean> seenOwners = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, Object> roomLocks = new ConcurrentHashMap<>();
 
-    public PresenceService(Clock clock) {
+    @Autowired
+    public PresenceService(@Autowired(required = false) Clock clock,
+                           @Value("${mindspark.presence.heartbeat-expiry-seconds:60}") long heartbeatExpirySeconds,
+                           @Value("${mindspark.presence.leave-grace-seconds:5}") long leaveGraceSeconds) {
         this.clock = clock != null ? clock : Clock.systemUTC();
+        this.heartbeatExpiry = Duration.ofSeconds(heartbeatExpirySeconds);
+        this.leaveGrace = Duration.ofSeconds(leaveGraceSeconds);
+    }
+
+    public PresenceService(Clock clock) {
+        this(clock, 60, 5);
+    }
+
+    public PresenceService() {
+        this(Clock.systemUTC(), 60, 5);
     }
 
     public void setClock(Clock clock) {
@@ -72,6 +106,22 @@ public class PresenceService {
 
     public Clock getClock() {
         return clock;
+    }
+
+    public Duration getHeartbeatExpiry() {
+        return heartbeatExpiry;
+    }
+
+    public void setHeartbeatExpiry(Duration heartbeatExpiry) {
+        this.heartbeatExpiry = heartbeatExpiry;
+    }
+
+    public Duration getLeaveGrace() {
+        return leaveGrace;
+    }
+
+    public void setLeaveGrace(Duration leaveGrace) {
+        this.leaveGrace = leaveGrace;
     }
 
     public Object getRoomLock(UUID roomId) {
@@ -111,9 +161,68 @@ public class PresenceService {
                 }
             }
 
-            ClientSession session = clientMap.computeIfAbsent(clientId, k -> new ClientSession(now));
+            ClientSession session = clientMap.computeIfAbsent(clientId, k -> new ClientSession(now, heartbeatExpiry, leaveGrace));
             session.setLastHeartbeat(now);
             session.setLeaveStartedAt(null);
+        }
+    }
+
+    public void recordSocketOpen(UUID roomId, Long userId, String clientId, boolean isOwner) {
+        heartbeat(roomId, userId, clientId, isOwner);
+        synchronized (getRoomLock(roomId)) {
+            ConcurrentHashMap<Long, ConcurrentHashMap<String, ClientSession>> userMap = roomSessions.get(roomId);
+            if (userMap != null) {
+                ConcurrentHashMap<String, ClientSession> clientMap = userMap.get(userId);
+                if (clientMap != null) {
+                    ClientSession session = clientMap.get(clientId);
+                    if (session != null) {
+                        session.setHasActiveSocket(true);
+                        session.setLeaveStartedAt(null);
+                    }
+                }
+            }
+        }
+    }
+
+    public void recordSocketPong(UUID roomId, Long userId, String clientId, boolean isOwner) {
+        Instant now = clock.instant();
+        synchronized (getRoomLock(roomId)) {
+            if (isOwner) {
+                seenOwners.put(roomId, Boolean.TRUE);
+            }
+            ConcurrentHashMap<Long, ConcurrentHashMap<String, ClientSession>> userMap =
+                    roomSessions.computeIfAbsent(roomId, k -> new ConcurrentHashMap<>());
+            ConcurrentHashMap<String, ClientSession> clientMap =
+                    userMap.computeIfAbsent(userId, k -> new ConcurrentHashMap<>());
+            ClientSession session = clientMap.computeIfAbsent(clientId, k -> new ClientSession(now, heartbeatExpiry, leaveGrace));
+            session.setLastHeartbeat(now);
+            session.setHasActiveSocket(true);
+            session.setLeaveStartedAt(null);
+        }
+    }
+
+    public void recordSocketClose(UUID roomId, Long userId, String clientId, boolean isOwner) {
+        Instant now = clock.instant();
+        synchronized (getRoomLock(roomId)) {
+            if (isOwner) {
+                seenOwners.put(roomId, Boolean.TRUE);
+            }
+            ConcurrentHashMap<Long, ConcurrentHashMap<String, ClientSession>> userMap = roomSessions.get(roomId);
+            if (userMap != null) {
+                ConcurrentHashMap<String, ClientSession> clientMap = userMap.get(userId);
+                if (clientMap != null) {
+                    ClientSession session = clientMap.get(clientId);
+                    if (session != null) {
+                        session.setHasActiveSocket(false);
+                        session.setLeaveStartedAt(now);
+                    } else {
+                        ClientSession newSession = new ClientSession(now, heartbeatExpiry, leaveGrace);
+                        newSession.setHasActiveSocket(false);
+                        newSession.setLeaveStartedAt(now);
+                        clientMap.put(clientId, newSession);
+                    }
+                }
+            }
         }
     }
 
@@ -132,9 +241,11 @@ public class PresenceService {
                 if (clientMap != null) {
                     ClientSession session = clientMap.get(clientId);
                     if (session != null) {
+                        session.setHasActiveSocket(false);
                         session.setLeaveStartedAt(now);
                     } else {
-                        ClientSession newSession = new ClientSession(now);
+                        ClientSession newSession = new ClientSession(now, heartbeatExpiry, leaveGrace);
+                        newSession.setHasActiveSocket(false);
                         newSession.setLeaveStartedAt(now);
                         clientMap.put(clientId, newSession);
                     }
