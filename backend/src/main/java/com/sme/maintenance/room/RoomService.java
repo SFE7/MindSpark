@@ -11,6 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.sme.maintenance.entities.User;
 import com.sme.maintenance.idea.IdeaRepository;
+import com.sme.maintenance.presence.PresenceService;
 import com.sme.maintenance.repositories.UserRepository;
 import com.sme.maintenance.vote.VoteRepository;
 
@@ -23,16 +24,19 @@ public class RoomService {
     private final UserRepository userRepository;
     private final IdeaRepository ideaRepository;
     private final VoteRepository voteRepository;
+    private final PresenceService presenceService;
 
     public RoomService(
             RoomRepository roomRepository,
             UserRepository userRepository,
             IdeaRepository ideaRepository,
-            VoteRepository voteRepository) {
+            VoteRepository voteRepository,
+            PresenceService presenceService) {
         this.roomRepository = roomRepository;
         this.userRepository = userRepository;
         this.ideaRepository = ideaRepository;
         this.voteRepository = voteRepository;
+        this.presenceService = presenceService;
     }
 
     // i can create a room
@@ -98,6 +102,10 @@ public class RoomService {
         Room room = find(roomId);
         requireOwner(room, userId);
 
+        if (presenceService != null) {
+            presenceService.clearRoom(roomId);
+        }
+
         voteRepository.deleteByRoom(room);
         ideaRepository.deleteByRoom(room);
         room.getMemberIds().clear();
@@ -161,6 +169,9 @@ public class RoomService {
     public void requireOpen(Room room) {
         if (room.isClosed()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This room is closed");
+        }
+        if (presenceService != null && presenceService.isRoomOffline(room.getId(), room.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Room offline: the owner is away");
         }
     }
 

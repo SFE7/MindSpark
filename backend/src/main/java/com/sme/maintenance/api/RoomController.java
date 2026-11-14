@@ -21,6 +21,7 @@ import com.sme.maintenance.api.ApiModels.RoomResponse;
 import com.sme.maintenance.api.ApiModels.UpdateRoomRequest;
 import com.sme.maintenance.api.ApiModels.UserResponse;
 import com.sme.maintenance.entities.User;
+import com.sme.maintenance.presence.PresenceService;
 import com.sme.maintenance.room.Room;
 import com.sme.maintenance.room.RoomService;
 import com.sme.maintenance.services.AuthenticatedUserService;
@@ -31,12 +32,15 @@ public class RoomController {
 
     private final AuthenticatedUserService authenticatedUserService;
     private final RoomService roomService;
+    private final PresenceService presenceService;
 
     public RoomController(
             RoomService roomService,
-            AuthenticatedUserService authenticatedUserService) {
+            AuthenticatedUserService authenticatedUserService,
+            PresenceService presenceService) {
         this.roomService = roomService;
         this.authenticatedUserService = authenticatedUserService;
+        this.presenceService = presenceService;
     }
 
     @PostMapping
@@ -189,6 +193,7 @@ public class RoomController {
                 .anyMatch(member -> member.id().equals(userId));
 
         User owner = room.getOwner();
+        boolean offline = presenceService.isRoomOffline(room.getId(), room.getOwnerId());
 
         return new RoomResponse(
                 room.getId(),
@@ -203,7 +208,8 @@ public class RoomController {
                 members,
                 members.size(),
                 isMember,
-                room.isClosed()
+                room.isClosed(),
+                offline
         );
     }
 }

@@ -1,8 +1,11 @@
 import { Component, OnDestroy, computed, effect, inject, input, output, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription, forkJoin, of, timer } from 'rxjs';
-import { catchError, exhaustMap, timeout } from 'rxjs/operators';
+import { catchError, exhaustMap, map, timeout } from 'rxjs/operators';
+import { IdeaPositionGuard } from './idea-position-guard';
+import { PresenceHelper } from './presence-helper';
 
 import { CategoriesService } from '../../data-access/categories.service';
 import { CommentsService } from '../../data-access/comments.service';
@@ -12,6 +15,7 @@ import { Category } from '../../models/category.model';
 import { CommentItem } from '../../models/comment.model';
 import { Idea } from '../../models/idea.model';
 import { IdeaFilters, IdeaSortBy, Room } from '../../models/room.model';
+import { KeycloakAuth } from '../../../../core/auth/keycloak-auth';
 import { User } from '../../../../core/models/User';
 import { UserService } from '../../../../core/user-service';
 
@@ -95,13 +99,18 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   private readonly categoriesService = inject(CategoriesService);
   private readonly commentsService = inject(CommentsService);
   private readonly userService = inject(UserService);
+  private readonly auth = inject(KeycloakAuth);
   private readonly router = inject(Router);
+
+  protected readonly isOffline = computed(() => !this.room()?.closed && Boolean(this.room()?.offline));
+  protected readonly isRoomLocked = computed(() => Boolean(this.room()?.closed || this.room()?.offline));
 
   protected goHome(): void {
     void this.router.navigate(['/']);
   }
 
   protected onLeave(): void {
+    this.stopPresence();
     this.leave.emit();
   }
 
@@ -181,8 +190,8 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   protected readonly hasActiveFilters = computed(
     () => this.filterCategoryId() !== null || this.searchTerm() !== ''
   );
-  // Only the room owner can create / rename / delete categories (backend rule) and only while the room is open
-  protected readonly canManageCategories = computed(() => this.isRoomOwner() && !this.room()?.closed);
+  // Only the room owner can create / rename / delete categories (backend rule) and only while the room is open and online
+  protected readonly canManageCategories = computed(() => this.isRoomOwner() && !this.isRoomLocked());
 
   protected onSearchInput(value: string): void {
     this.searchInput.set(value);
@@ -365,21 +374,9 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     }
   }
 
-  protected deleteRoom(): void {
-    const currentRoomId = this.roomId();
-    if (!currentRoomId || !this.isRoomOwner()) return;
-
-    const confirmed = window.confirm('Permanently delete this room? All ideas and votes will be lost.');
-    if (!confirmed) return;
-
-    this.roomsService.deleteRoom(currentRoomId).subscribe({
-      next: () => void this.router.navigate(['/']),
-    });
-  }
-
   protected removeParticipant(member: User): void {
     const currentRoomId = this.roomId();
-    if (!currentRoomId || !this.isRoomOwner()) return;
+    if (!currentRoomId || !this.isRoomOwner() || this.isRoomLocked()) return;
 
     const confirmed = window.confirm(`Remove ${member.username || 'this user'} from the room?`);
     if (!confirmed) return;
@@ -401,7 +398,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   });
 
   protected startEditingRoomName(): void {
-    if (!this.isRoomOwner() || this.room()?.closed) return;
+    if (!this.isRoomOwner() || this.isRoomLocked()) return;
     this.editingRoomName.set(this.room()?.name || '');
     this.roomNameError.set('');
     this.isEditingRoomName.set(true);
@@ -413,7 +410,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected saveRoomName(): void {
-    if (!this.isRoomOwner() || this.room()?.closed) return;
+    if (!this.isRoomOwner() || this.isRoomLocked()) return;
     const name = this.editingRoomName().trim();
     if (!name) {
       this.roomNameError.set('Room name is required.');
@@ -475,7 +472,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   protected addComment(): void {
     const idea = this.activeCommentIdea();
-    if (!idea || this.room()?.closed) return;
+    if (!idea || this.isRoomLocked()) return;
     const content = this.newCommentContent().trim();
     if (!content) {
       this.commentError.set('Comment content is required.');
@@ -503,7 +500,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected sendReply(parentCommentId: string): void {
-    if (this.room()?.closed) return;
+    if (this.isRoomLocked()) return;
     const content = this.replyContent().trim();
     if (!content) {
       this.commentError.set('Reply content is required.');
@@ -539,7 +536,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected saveEditComment(commentId: string): void {
-    if (this.room()?.closed) return;
+    if (this.isRoomLocked()) return;
     const content = this.editingCommentContent().trim();
     if (!content) {
       this.commentError.set('Comment content is required.');
@@ -574,7 +571,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected deleteComment(comment: CommentItem): void {
-    if (this.room()?.closed) return;
+    if (this.isRoomLocked()) return;
     this.commentsService.deleteComment(comment.id).subscribe({
       next: () => {
         this.comments.update(list => {
@@ -613,6 +610,9 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   private dragStartIdeaPos = { x: 0, y: 0 };
   private hasDragged = false;
   private localPositions = new Map<string, { x: number; y: number }>();
+  private readonly positionGuard = new IdeaPositionGuard();
+  private ideaErrorTimer?: number;
+  private presenceHelper?: PresenceHelper;
 
   constructor() {
     effect(() => {
@@ -620,15 +620,19 @@ export class WorkspaceCanvasComponent implements OnDestroy {
       // reading the filters here restarts the sync immediately when a filter changes
       this.filters();
       if (currentRoomId) {
+        this.positionGuard.clear();
         this.loadLocalPositions(currentRoomId);
         this.startSync(currentRoomId);
+        this.initPresence(currentRoomId);
       } else {
         this.stopSync();
+        this.stopPresence();
+        this.positionGuard.clear();
       }
     });
 
     effect(() => {
-      if (this.room()?.closed && this.selectedTool() === 'idea') {
+      if (this.isRoomLocked() && this.selectedTool() === 'idea') {
         this.selectedTool.set('pen');
       }
     });
@@ -636,7 +640,36 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     clearTimeout(this.searchTimer);
+    clearTimeout(this.ideaErrorTimer);
     this.stopSync();
+    this.stopPresence();
+    this.positionGuard.clear();
+  }
+
+  private initPresence(roomId: string): void {
+    this.stopPresence();
+    this.presenceHelper = new PresenceHelper({
+      roomId,
+      roomsService: this.roomsService,
+      auth: this.auth,
+      onUserRemoved: () => this.handleUserRemoved(),
+    });
+  }
+
+  private stopPresence(): void {
+    if (this.presenceHelper) {
+      this.presenceHelper.destroy();
+      this.presenceHelper = undefined;
+    }
+  }
+
+  private handleUserRemoved(): void {
+    this.stopSync();
+    this.stopPresence();
+    void this.router.navigate(['/'], {
+      queryParams: { error: 'You were removed from this room' },
+      state: { message: 'You were removed from this room' },
+    });
   }
 
   private loadLocalPositions(roomId: string): void {
@@ -645,6 +678,9 @@ export class WorkspaceCanvasComponent implements OnDestroy {
       if (saved) {
         const parsed = JSON.parse(saved) as Record<string, { x: number; y: number }>;
         this.localPositions = new Map(Object.entries(parsed));
+        for (const [id, pos] of this.localPositions.entries()) {
+          this.positionGuard.trackConfirmedPosition(id, pos.x, pos.y);
+        }
       }
     } catch {}
   }
@@ -663,11 +699,24 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     // Fetch immediately, then poll every 2000ms so new ideas appear to all participants
     this.pollSub = timer(0, 2000)
       .pipe(
-        exhaustMap(() =>
-          forkJoin({
+        exhaustMap(() => {
+          const pollGen = this.positionGuard.nextPollGeneration();
+          return forkJoin({
+            room: this.roomsService.getRoom(currentRoomId).pipe(
+              timeout(10000),
+              catchError((err: HttpErrorResponse) => {
+                if (err.status === 403) {
+                  this.handleUserRemoved();
+                }
+                return of(null);
+              })
+            ),
             ideas: this.mindspark.listIdeas(currentRoomId, this.filters()).pipe(
               timeout(10000),
               catchError(err => {
+                if (err && typeof err === 'object' && 'status' in err && (err as { status: number }).status === 403) {
+                  this.handleUserRemoved();
+                }
                 console.error('Error fetching room ideas:', err);
                 return of(null);
               })
@@ -679,15 +728,20 @@ export class WorkspaceCanvasComponent implements OnDestroy {
                 return of(null);
               })
             ),
-          })
-        )
+          }).pipe(
+            map(result => ({ ...result, pollGen }))
+          );
+        })
       )
-      .subscribe(({ ideas, categories }) => {
+      .subscribe(({ room, ideas, categories, pollGen }) => {
+        if (room) {
+          this.roomChanged.emit(room);
+        }
         if (categories) {
           this.syncCategories(categories);
         }
         if (ideas) {
-          this.syncServerIdeas(ideas);
+          this.syncServerIdeas(ideas, pollGen);
         }
       });
   }
@@ -699,7 +753,11 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     }
   }
 
-  private syncServerIdeas(ideas: Idea[]): void {
+  private syncServerIdeas(ideas: Idea[], pollGen?: number): void {
+    if (pollGen != null) {
+      this.positionGuard.onPollReceived(pollGen);
+    }
+
     const currentItems = this.items();
     const nonIdeas = currentItems.filter(item => item.kind !== 'idea');
     const currentlyDragging = this.draggingIdea();
@@ -708,6 +766,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
       const isBeingDragged = currentlyDragging !== null && currentlyDragging.id === idea.id;
       const currentLocal = currentItems.find(i => i.id === idea.id) as IdeaItem | undefined;
       const cached = this.localPositions.get(idea.id);
+      const pending = this.positionGuard.getPendingMove(idea.id);
 
       let x: number;
       let y: number;
@@ -715,6 +774,9 @@ export class WorkspaceCanvasComponent implements OnDestroy {
       if (isBeingDragged && currentLocal) {
         x = currentLocal.x;
         y = currentLocal.y;
+      } else if (pending) {
+        x = pending.x;
+        y = pending.y;
       } else if (cached) {
         // If we have a local cached position from dragging, prioritize it unless server has an updated position
         if (idea.x != null && idea.y != null && (idea.x !== 500 || idea.y !== 250)) {
@@ -735,6 +797,10 @@ export class WorkspaceCanvasComponent implements OnDestroy {
       } else {
         x = 500;
         y = 250;
+      }
+
+      if (!pending && idea.x != null && idea.y != null) {
+        this.positionGuard.trackConfirmedPosition(idea.id, idea.x, idea.y);
       }
 
       return {
@@ -781,7 +847,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected selectTool(tool: WorkspaceTool): void {
-    if (tool === 'idea' && this.room()?.closed) return;
+    if (tool === 'idea' && this.isRoomLocked()) return;
     this.selectedTool.set(tool);
     this.shapesOpen.set(tool === 'shapes');
   }
@@ -873,7 +939,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected onIdeaPointerDown(event: PointerEvent, idea: IdeaItem): void {
-    if (this.room()?.closed) return;
+    if (this.isRoomLocked()) return;
     if (event.button !== 0) return;
 
     if (this.selectedTool() === 'eraser') {
@@ -953,6 +1019,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         this.saveLocalPositions();
 
         if (this.roomId()) {
+          const moveSeq = this.positionGuard.registerDrop(dragged.id, currentItem.x, currentItem.y);
           this.mindspark
             .updateIdea(dragged.id, {
               title: currentItem.title,
@@ -964,12 +1031,46 @@ export class WorkspaceCanvasComponent implements OnDestroy {
             })
             .subscribe({
               next: updated => {
-                if (updated.x != null && updated.y != null) {
-                  this.localPositions.set(updated.id, { x: updated.x, y: updated.y });
+                const targetX = updated.x ?? currentItem.x;
+                const targetY = updated.y ?? currentItem.y;
+                const isLatest = this.positionGuard.onSaveSuccess(dragged.id, moveSeq, targetX, targetY);
+                if (isLatest) {
+                  this.localPositions.set(updated.id, { x: targetX, y: targetY });
                   this.saveLocalPositions();
+                  if (updated.x != null && updated.y != null && (updated.x !== currentItem.x || updated.y !== currentItem.y)) {
+                    this.items.update(items =>
+                      items.map(item =>
+                        item.kind === 'idea' && item.id === updated.id
+                          ? { ...item, x: updated.x!, y: updated.y! }
+                          : item
+                      )
+                    );
+                  }
                 }
               },
-              error: err => console.error('Could not save dragged idea position', err),
+              error: err => {
+                console.error('Could not save dragged idea position', err);
+                const rollback = this.positionGuard.onSaveFailure(dragged.id, moveSeq);
+                if (rollback.rolledBack) {
+                  const rollbackPos = rollback.rollbackPos ?? this.dragStartIdeaPos;
+                  this.localPositions.set(dragged.id, { x: rollbackPos.x, y: rollbackPos.y });
+                  this.saveLocalPositions();
+                  this.items.update(items =>
+                    items.map(item =>
+                      item.kind === 'idea' && item.id === dragged.id
+                        ? { ...item, x: rollbackPos.x, y: rollbackPos.y }
+                        : item
+                    )
+                  );
+                }
+                this.ideaError.set('Could not update idea.');
+                clearTimeout(this.ideaErrorTimer);
+                this.ideaErrorTimer = window.setTimeout(() => {
+                  if (this.ideaError() === 'Could not update idea.') {
+                    this.ideaError.set('');
+                  }
+                }, 4000);
+              },
             });
         }
       }
@@ -1012,7 +1113,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   protected saveIdea(): void {
     const draft = this.ideaDraft();
-    if (!draft || this.room()?.closed) return;
+    if (!draft || this.isRoomLocked()) return;
     const title = draft.title.trim();
     if (!title) {
       this.ideaError.set('A title is required.');
@@ -1124,7 +1225,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected editIdea(idea: IdeaItem): void {
-    if (this.room()?.closed || !this.isCreator(idea)) return;
+    if (this.isRoomLocked() || !this.isCreator(idea)) return;
     this.ideaDraft.set({
       id: idea.id,
       x: idea.x,
@@ -1156,7 +1257,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   protected toggleVote(event: Event, idea: IdeaItem): void {
     event.stopPropagation();
-    if (this.room()?.closed || !idea.id || !this.roomId()) return;
+    if (this.isRoomLocked() || !idea.id || !this.roomId()) return;
 
     const request$ = idea.voted ? this.mindspark.removeVote(idea.id) : this.mindspark.vote(idea.id);
 

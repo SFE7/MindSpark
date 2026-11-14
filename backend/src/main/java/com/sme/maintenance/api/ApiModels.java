@@ -18,6 +18,8 @@ public final class ApiModels {
 
     public record JoinRoomRequest(String invitationCode) {}
 
+    public record PresenceRequest(String clientId) {}
+
     public record IdeaRequest(
             String text,
             String title,
@@ -64,8 +66,15 @@ public final class ApiModels {
             List<UserResponse> members,
             int memberCount,
             boolean member,
-            boolean closed
-    ) {}
+            boolean closed,
+            boolean offline
+    ) {
+        public RoomResponse(UUID id, String name, String invitationCode, UserResponse owner,
+                            Instant createdAt, List<UserResponse> members, int memberCount,
+                            boolean member, boolean closed) {
+            this(id, name, invitationCode, owner, createdAt, members, memberCount, member, closed, false);
+        }
+    }
 
 
     public record IdeaResponse(

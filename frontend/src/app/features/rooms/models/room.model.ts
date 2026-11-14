@@ -10,6 +10,7 @@ export interface Room {
   memberCount: number;
   member?: boolean;
   closed: boolean;
+  offline?: boolean;
 }
 
 export type IdeaSortBy = 'createdAt' | 'voteCount';

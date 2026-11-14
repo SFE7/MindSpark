@@ -84,13 +84,14 @@ export class RoomWorkspaceComponent implements OnDestroy {
 
           const nameChanged = current.name !== loadedRoom.name;
           const closedChanged = Boolean(current.closed) !== Boolean(loadedRoom.closed);
+          const offlineChanged = Boolean(current.offline) !== Boolean(loadedRoom.offline);
           const currentMemberIds = (current.members || []).map(m => m.id).sort().join(',');
           const loadedMemberIds = (loadedRoom.members || []).map(m => m.id).sort().join(',');
           const membersChanged =
             current.memberCount !== loadedRoom.memberCount ||
             currentMemberIds !== loadedMemberIds;
 
-          if (nameChanged || closedChanged || membersChanged) {
+          if (nameChanged || closedChanged || offlineChanged || membersChanged) {
             this.room.set(loadedRoom);
           }
         },

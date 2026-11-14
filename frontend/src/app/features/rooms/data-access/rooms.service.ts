@@ -83,6 +83,18 @@ export class RoomsService {
     );
   }
 
+  sendHeartbeat(roomId: string, clientId: string): Observable<void> {
+    return this.withCurrentUser(() =>
+      this.http.post<void>(`/api/rooms/${roomId}/presence`, { clientId })
+    );
+  }
+
+  sendLeave(roomId: string, clientId: string): Observable<void> {
+    return this.withCurrentUser(() =>
+      this.http.post<void>(`/api/rooms/${roomId}/presence/leave`, { clientId })
+    );
+  }
+
   deleteRoom(roomId: string): Observable<void> {
     return this.withCurrentUser(() =>
       this.http.delete<void>(`/api/rooms/${roomId}`)

@@ -30,6 +30,10 @@ export class KeycloakAuth {
     return this.keycloak.token;
   }
 
+  get currentToken(): string | undefined {
+    return this.keycloak.token;
+  }
+
   get isLoggedIn(): boolean {
     return this.keycloak.authenticated;
   }

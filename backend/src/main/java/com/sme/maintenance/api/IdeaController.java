@@ -26,6 +26,7 @@ import com.sme.maintenance.entities.Category;
 import com.sme.maintenance.entities.User;
 import com.sme.maintenance.idea.Idea;
 import com.sme.maintenance.idea.IdeaService;
+import com.sme.maintenance.presence.PresenceService;
 import com.sme.maintenance.repositories.CategoryRepository;
 import com.sme.maintenance.room.Room;
 import com.sme.maintenance.room.RoomService;
@@ -43,13 +44,16 @@ public class IdeaController {
     private final RoomService roomService;
     private final AuthenticatedUserService authenticatedUserService;
     private final CategoryRepository categoryRepository;
+    private final PresenceService presenceService;
 
     public IdeaController(
             IdeaService ideaService,
             VoteService voteService,
             RoomService roomService,
             AuthenticatedUserService authenticatedUserService,
-            CategoryRepository categoryRepository, CategoryService categoryService
+            CategoryRepository categoryRepository,
+            CategoryService categoryService,
+            PresenceService presenceService
         ) {
         this.ideaService = ideaService;
         this.voteService = voteService;
@@ -57,6 +61,7 @@ public class IdeaController {
         this.authenticatedUserService = authenticatedUserService;
         this.categoryRepository = categoryRepository;
         this.categoryService = categoryService;
+        this.presenceService = presenceService;
     }
 
     @GetMapping("/rooms/{roomId}/ideas")
@@ -185,6 +190,8 @@ public class IdeaController {
                 ))
                 .toList();
 
+        boolean offline = presenceService.isRoomOffline(room.getId(), room.getOwnerId());
+
         RoomResponse roomResponse = new RoomResponse(
                 room.getId(),
                 room.getName(),
@@ -199,7 +206,8 @@ public class IdeaController {
                 members.size(),
                 members.stream()
                         .anyMatch(member -> member.id().equals(userId)),
-                room.isClosed()
+                room.isClosed(),
+                offline
         );
 
         User author = idea.getAuthor();

@@ -83,13 +83,20 @@
       }
     </svg>
 
+    @if (ideaError() && !ideaDraft()) {
+      <div class="canvas-error-banner" role="alert">{{ ideaError() }}</div>
+    }
+    @if (isOffline()) {
+      <div class="offline-banner" role="alert">Room offline: the owner has left</div>
+    }
+
     <!-- Canvas Idea Layer -->
     <div class="canvas-idea-layer">
       @for (idea of ideaList(); track idea.id) {
         <article
           class="idea-card"
-          [class.editable]="isCreator(idea) && !room()?.closed"
-          [class.read-only]="room()?.closed"
+          [class.editable]="isCreator(idea) && !isRoomLocked()"
+          [class.read-only]="isRoomLocked()"
           [class.dragging]="draggingIdea()?.id === idea.id"
           [style.left]="percentX(idea.x)"
           [style.top]="percentY(idea.y)"
@@ -99,7 +106,7 @@
           (pointerup)="onIdeaPointerUp($event)"
           (pointercancel)="onIdeaPointerUp($event)"
           (keydown.enter)="editIdea(idea)"
-          [attr.tabindex]="isCreator(idea) && !room()?.closed ? 0 : null"
+          [attr.tabindex]="isCreator(idea) && !isRoomLocked() ? 0 : null"
         >
        @if (idea.category) {
         <span class="idea-category-badge">{{ idea.category.title }}</span>
@@ -113,7 +120,7 @@
               type="button"
               class="idea-vote-badge"
               [class.voted]="idea.voted"
-              [disabled]="room()?.closed"
+              [disabled]="isRoomLocked()"
               (click)="toggleVote($event, idea)"
               (pointerdown)="$event.stopPropagation()"
               [attr.aria-label]="idea.voted ? 'Remove vote' : 'Vote for idea'"
@@ -131,7 +138,7 @@
             >
               <span class="comment-icon">💬</span>
             </button>
-            @if (isCreator(idea) && !room()?.closed) {
+            @if (isCreator(idea) && !isRoomLocked()) {
               <span class="idea-edit-hint">Edit</span>
             }
           </div>
@@ -206,6 +213,8 @@
         <span class="status-pulse"></span>
         @if (currentRoom.closed) {
           <span class="closed-badge">Closed (read-only)</span>
+        } @else if (isOffline()) {
+          <span class="offline-badge">Offline (owner away)</span>
         }
         @if (isEditingRoomName()) {
           <form class="room-title-edit-form" (ngSubmit)="saveRoomName()">
@@ -223,12 +232,12 @@
         } @else {
           <span
             class="room-title"
-            [class.editable]="isRoomOwner() && !currentRoom.closed"
+            [class.editable]="isRoomOwner() && !isRoomLocked()"
             (click)="startEditingRoomName()"
-            [title]="isRoomOwner() && !currentRoom.closed ? 'Click to edit room name' : ''"
+            [title]="isRoomOwner() && !isRoomLocked() ? 'Click to edit room name' : ''"
           >
             {{ currentRoom.name }}
-            @if (isRoomOwner() && !currentRoom.closed) {
+            @if (isRoomOwner() && !isRoomLocked()) {
               <span class="edit-icon" aria-hidden="true">✎</span>
             }
           </span>
@@ -245,7 +254,6 @@
         } @else {
           <button class="header-action-btn close-btn" type="button" (click)="toggleRoomClosed()">Close room</button>
         }
-        <button class="header-action-btn delete-btn" type="button" (click)="deleteRoom()">Delete room</button>
       }
       <button
         class="participants-btn"
@@ -402,10 +410,10 @@
                 } @else {
                   <p class="comment-text">{{ comment.content || comment.text }}</p>
                   <div class="comment-actions">
-                    @if (!room()?.closed) {
+                    @if (!isRoomLocked()) {
                       <button type="button" class="comment-action-link" (click)="startReply(comment.id)">Reply</button>
                     }
-                    @if (isCommentAuthor(comment) && !room()?.closed) {
+                    @if (isCommentAuthor(comment) && !isRoomLocked()) {
                       <button type="button" class="comment-action-link" (click)="startEditComment(comment)">Edit</button>
                       <button type="button" class="comment-action-link danger" (click)="deleteComment(comment)">Delete</button>
                     }
@@ -413,7 +421,7 @@
                 }
 
                 <!-- Inline Reply Box -->
-                @if (replyingToCommentId() === comment.id && !room()?.closed) {
+                @if (replyingToCommentId() === comment.id && !isRoomLocked()) {
                   <div class="reply-input-box">
                     <input
                       class="reply-input"
@@ -456,7 +464,7 @@
                           </div>
                         } @else {
                           <p class="comment-text">{{ reply.content || reply.text }}</p>
-                          @if (isCommentAuthor(reply) && !room()?.closed) {
+                          @if (isCommentAuthor(reply) && !isRoomLocked()) {
                             <div class="comment-actions">
                               <button type="button" class="comment-action-link" (click)="startEditComment(reply)">Edit</button>
                               <button type="button" class="comment-action-link danger" (click)="deleteComment(reply)">Delete</button>
@@ -474,7 +482,7 @@
       </div>
 
       <!-- Add New Top-Level Comment (if room open) -->
-      @if (!room()?.closed) {
+      @if (!isRoomLocked()) {
         <div class="comments-footer">
           <input
             class="new-comment-input"
@@ -504,8 +512,8 @@
         @for (idea of ideaList(); track idea.id) {
           <div
             class="room-idea-chip"
-            [class.chip-read-only]="room()?.closed"
-            (click)="!room()?.closed && editIdea(idea)"
+            [class.chip-read-only]="isRoomLocked()"
+            (click)="!isRoomLocked() && editIdea(idea)"
             [title]="idea.title"
           >
             <span class="chip-title">{{ idea.title }}</span>
@@ -513,7 +521,7 @@
               type="button"
               class="chip-vote-btn"
               [class.voted]="idea.voted"
-              [disabled]="room()?.closed"
+              [disabled]="isRoomLocked()"
               (click)="toggleVote($event, idea)"
               (pointerdown)="$event.stopPropagation()"
               [attr.aria-label]="idea.voted ? 'Remove vote' : 'Vote for idea'"
@@ -546,7 +554,7 @@
             <button type="button" class="category-icon-btn" (click)="cancelEditingCategory()" title="Cancel">✕</button>
           } @else {
             <span class="category-name" [title]="cat.title">{{ cat.title }}</span>
-            @if (isRoomOwner() && !room()?.closed) {
+            @if (isRoomOwner() && !isRoomLocked()) {
               <button type="button" class="category-icon-btn" (click)="startEditingCategory(cat)" title="Rename" aria-label="Rename category">✎</button>
               <button type="button" class="category-icon-btn danger" (click)="deleteCategory(cat)" title="Delete" aria-label="Delete category">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -561,7 +569,7 @@
       }
     </div>
 
-    @if (!room()?.closed) {
+    @if (!isRoomLocked()) {
       <div class="category-add">
         <input
           class="category-add-input"
@@ -587,8 +595,8 @@
           type="button"
           class="toolbar-tool-btn"
           [class.selected]="selectedTool() === tool.id"
-          [class.disabled]="tool.id === 'idea' && room()?.closed"
-          [disabled]="tool.id === 'idea' && room()?.closed"
+          [class.disabled]="tool.id === 'idea' && isRoomLocked()"
+          [disabled]="tool.id === 'idea' && isRoomLocked()"
           [attr.aria-pressed]="selectedTool() === tool.id"
           [attr.aria-label]="tool.label"
           (click)="selectTool(tool.id)"
