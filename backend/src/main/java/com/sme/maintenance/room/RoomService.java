@@ -1,11 +1,9 @@
 package com.sme.maintenance.room;
 
 import java.security.SecureRandom;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,8 +14,6 @@ import com.sme.maintenance.idea.IdeaRepository;
 import com.sme.maintenance.presence.PresenceService;
 import com.sme.maintenance.repositories.UserRepository;
 import com.sme.maintenance.vote.VoteRepository;
-import com.sme.maintenance.websocket.RoomBroadcastService;
-import com.sme.maintenance.websocket.RoomEvent;
 
 @Service
 @Transactional
@@ -29,23 +25,6 @@ public class RoomService {
     private final IdeaRepository ideaRepository;
     private final VoteRepository voteRepository;
     private final PresenceService presenceService;
-    private final RoomBroadcastService broadcastService;
-
-    @Autowired
-    public RoomService(
-            RoomRepository roomRepository,
-            UserRepository userRepository,
-            IdeaRepository ideaRepository,
-            VoteRepository voteRepository,
-            PresenceService presenceService,
-            @Autowired(required = false) RoomBroadcastService broadcastService) {
-        this.roomRepository = roomRepository;
-        this.userRepository = userRepository;
-        this.ideaRepository = ideaRepository;
-        this.voteRepository = voteRepository;
-        this.presenceService = presenceService;
-        this.broadcastService = broadcastService;
-    }
 
     public RoomService(
             RoomRepository roomRepository,
@@ -53,38 +32,11 @@ public class RoomService {
             IdeaRepository ideaRepository,
             VoteRepository voteRepository,
             PresenceService presenceService) {
-        this(roomRepository, userRepository, ideaRepository, voteRepository, presenceService, null);
-    }
-
-    private RoomEvent.SharedRoom toSharedRoom(Room room) {
-        RoomEvent.SharedUser owner = room.getOwner() != null
-                ? new RoomEvent.SharedUser(room.getOwner().getId(), room.getOwner().getUsername(), room.getOwner().getEmail())
-                : null;
-        List<User> memberUsers = userRepository.findAllById(room.getMemberIds());
-        List<RoomEvent.SharedUser> members = memberUsers.stream()
-                .map(u -> new RoomEvent.SharedUser(u.getId(), u.getUsername(), u.getEmail()))
-                .toList();
-        boolean offline = presenceService != null && presenceService.isRoomOffline(room.getId(), room.getOwnerId());
-        return new RoomEvent.SharedRoom(
-                room.getId(),
-                room.getName(),
-                room.getInvitationCode(),
-                owner,
-                members,
-                members.size(),
-                room.isClosed(),
-                offline
-        );
-    }
-
-    private void broadcastRoomUpdated(Room room) {
-        if (broadcastService == null) return;
-        UUID roomId = room.getId();
-        broadcastService.broadcastAfterCommit(roomId, () -> {
-            long seq = broadcastService.nextSequence(roomId);
-            Instant now = broadcastService.getClock() != null ? broadcastService.getClock().instant() : Instant.now();
-            return RoomEvent.roomUpdated(roomId, seq, now, toSharedRoom(room));
-        });
+        this.roomRepository = roomRepository;
+        this.userRepository = userRepository;
+        this.ideaRepository = ideaRepository;
+        this.voteRepository = voteRepository;
+        this.presenceService = presenceService;
     }
 
     // i can create a room
@@ -110,9 +62,7 @@ public class RoomService {
         }
 
         room.setName(name.trim());
-        Room saved = roomRepository.save(room);
-        broadcastRoomUpdated(saved);
-        return saved;
+        return roomRepository.save(room);
     }
 
     @Transactional(readOnly = true)
@@ -131,27 +81,21 @@ public class RoomService {
         }
         getUser(userId);
         room.getMemberIds().add(userId);
-        Room saved = roomRepository.save(room);
-        broadcastRoomUpdated(saved);
-        return saved;
+        return roomRepository.save(room);
     }
 
     public Room close(UUID roomId, Long userId) {
         Room room = find(roomId);
         requireOwner(room, userId);
         room.setClosed(true);
-        Room saved = roomRepository.save(room);
-        broadcastRoomUpdated(saved);
-        return saved;
+        return roomRepository.save(room);
     }
 
     public Room open(UUID roomId, Long userId) {
         Room room = find(roomId);
         requireOwner(room, userId);
         room.setClosed(false);
-        Room saved = roomRepository.save(room);
-        broadcastRoomUpdated(saved);
-        return saved;
+        return roomRepository.save(room);
     }
 
     public void delete(UUID roomId, Long userId) {
@@ -160,10 +104,6 @@ public class RoomService {
 
         if (presenceService != null) {
             presenceService.clearRoom(roomId);
-        }
-
-        if (broadcastService != null) {
-            broadcastService.closeRoomSockets(roomId, 4404, "Room deleted");
         }
 
         voteRepository.deleteByRoom(room);
@@ -176,21 +116,14 @@ public class RoomService {
         Room room = find(roomId);
         requireOwner(room, userId);
         room.getMemberIds().add(userId);
-        Room saved = roomRepository.save(room);
-        broadcastRoomUpdated(saved);
-        return saved;
+        return roomRepository.save(room);
     }
 //As a client, I can leave a brainstorming room.
     public Room leave(UUID roomId, Long userId) {
         Room room = find(roomId);
         requireMember(room, userId);
         room.getMemberIds().remove(userId);
-        Room saved = roomRepository.save(room);
-        broadcastRoomUpdated(saved);
-        if (broadcastService != null) {
-            broadcastService.closeUserSockets(roomId, userId, 4403, "Left room");
-        }
-        return saved;
+        return roomRepository.save(room);
     }
 
     @Transactional
@@ -207,12 +140,7 @@ public class RoomService {
         }
 
         room.getMemberIds().remove(memberIdToRemove);
-        Room saved = roomRepository.save(room);
-        broadcastRoomUpdated(saved);
-        if (broadcastService != null) {
-            broadcastService.closeUserSockets(roomId, memberIdToRemove, 4403, "Removed from room");
-        }
-        return saved;
+        return roomRepository.save(room);
     }
 
     public Room memberRoom(UUID roomId, Long userId) {

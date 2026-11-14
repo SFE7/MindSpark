@@ -11,7 +11,6 @@ import { CategoriesService } from '../../data-access/categories.service';
 import { CommentsService } from '../../data-access/comments.service';
 import { IdeasService } from '../../data-access/ideas.service';
 import { RoomsService } from '../../data-access/rooms.service';
-import { RoomSocketService, RoomWebSocketEvent, WsSharedIdea } from '../../data-access/room-socket.service';
 import { Category } from '../../models/category.model';
 import { CommentItem } from '../../models/comment.model';
 import { Idea } from '../../models/idea.model';
@@ -102,7 +101,6 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   private readonly userService = inject(UserService);
   private readonly auth = inject(KeycloakAuth);
   private readonly router = inject(Router);
-  private readonly roomSocket = inject(RoomSocketService);
 
   protected readonly isOffline = computed(() => !this.room()?.closed && Boolean(this.room()?.offline));
   protected readonly isRoomLocked = computed(() => Boolean(this.room()?.closed || this.room()?.offline));
@@ -616,11 +614,6 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   private ideaErrorTimer?: number;
   private presenceHelper?: PresenceHelper;
 
-  private socketEventSub?: Subscription;
-  private socketConnectedSub?: Subscription;
-  private socketClosedSub?: Subscription;
-  private latestSocketEventGen = 0;
-
   constructor() {
     effect(() => {
       const currentRoomId = this.roomId();
@@ -629,12 +622,11 @@ export class WorkspaceCanvasComponent implements OnDestroy {
       if (currentRoomId) {
         this.positionGuard.clear();
         this.loadLocalPositions(currentRoomId);
-        this.initSocket(currentRoomId);
+        this.startSync(currentRoomId);
         this.initPresence(currentRoomId);
       } else {
         this.stopSync();
         this.stopPresence();
-        this.stopSocket();
         this.positionGuard.clear();
       }
     });
@@ -651,46 +643,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     clearTimeout(this.ideaErrorTimer);
     this.stopSync();
     this.stopPresence();
-    this.stopSocket();
     this.positionGuard.clear();
-  }
-
-  private initSocket(roomId: string): void {
-    this.stopSocket();
-    this.roomSocket.connect(roomId);
-
-    this.socketConnectedSub = this.roomSocket.connected$.subscribe(connected => {
-      this.presenceHelper?.setSocketActive(connected);
-      this.startSync(roomId, connected);
-    });
-
-    this.socketClosedSub = this.roomSocket.closed$.subscribe(({ code }) => {
-      if (code === 4403) {
-        this.handleUserRemoved();
-      } else if (code === 4404) {
-        this.stopSync();
-        this.stopPresence();
-        this.stopSocket();
-        void this.router.navigate(['/'], {
-          queryParams: { error: 'This room was deleted' },
-          state: { message: 'This room was deleted' },
-        });
-      }
-    });
-
-    this.socketEventSub = this.roomSocket.events$.subscribe(event => {
-      this.handleSocketEvent(event);
-    });
-  }
-
-  private stopSocket(): void {
-    this.socketConnectedSub?.unsubscribe();
-    this.socketConnectedSub = undefined;
-    this.socketClosedSub?.unsubscribe();
-    this.socketClosedSub = undefined;
-    this.socketEventSub?.unsubscribe();
-    this.socketEventSub = undefined;
-    this.roomSocket.disconnect();
   }
 
   private initPresence(roomId: string): void {
@@ -701,9 +654,6 @@ export class WorkspaceCanvasComponent implements OnDestroy {
       auth: this.auth,
       onUserRemoved: () => this.handleUserRemoved(),
     });
-    if (this.roomSocket.isConnected) {
-      this.presenceHelper.setSocketActive(true);
-    }
   }
 
   private stopPresence(): void {
@@ -716,7 +666,6 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   private handleUserRemoved(): void {
     this.stopSync();
     this.stopPresence();
-    this.stopSocket();
     void this.router.navigate(['/'], {
       queryParams: { error: 'You were removed from this room' },
       state: { message: 'You were removed from this room' },
@@ -745,15 +694,13 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     } catch {}
   }
 
-  private startSync(currentRoomId: string, isSocketActive: boolean = false): void {
+  private startSync(currentRoomId: string): void {
     this.stopSync();
-    // Fetch immediately, then 15s when WebSocket is active, 2000ms fallback when disconnected (Amendment 5)
-    const intervalMs = isSocketActive ? 15000 : 2000;
-    this.pollSub = timer(0, intervalMs)
+    // Fetch immediately, then poll every 2000ms so new ideas appear to all participants
+    this.pollSub = timer(0, 2000)
       .pipe(
         exhaustMap(() => {
           const pollGen = this.positionGuard.nextPollGeneration();
-          const requestSocketGen = this.latestSocketEventGen;
           return forkJoin({
             room: this.roomsService.getRoom(currentRoomId).pipe(
               timeout(10000),
@@ -782,16 +729,11 @@ export class WorkspaceCanvasComponent implements OnDestroy {
               })
             ),
           }).pipe(
-            map(result => ({ ...result, pollGen, requestSocketGen }))
+            map(result => ({ ...result, pollGen }))
           );
         })
       )
-      .subscribe(({ room, ideas, categories, pollGen, requestSocketGen }) => {
-        // Discard REST responses that were sent before the latest applied socket event (Amendment 5)
-        if (requestSocketGen < this.latestSocketEventGen) {
-          return;
-        }
-
+      .subscribe(({ room, ideas, categories, pollGen }) => {
         if (room) {
           this.roomChanged.emit(room);
         }
@@ -802,162 +744,6 @@ export class WorkspaceCanvasComponent implements OnDestroy {
           this.syncServerIdeas(ideas, pollGen);
         }
       });
-  }
-
-  private handleSocketEvent(event: RoomWebSocketEvent): void {
-    if (!event || event.roomId !== this.roomId()) return;
-
-    switch (event.type) {
-      case 'room.updated': {
-        this.latestSocketEventGen++;
-        if (event.room) {
-          const mappedRoom: Room = {
-            id: event.room.id,
-            name: event.room.name,
-            invitationCode: event.room.invitationCode,
-            owner: event.room.owner ? {
-              id: event.room.owner.id,
-              username: event.room.owner.username,
-              email: event.room.owner.email,
-            } : null,
-            members: (event.room.members || []).map(m => ({
-              id: m.id,
-              username: m.username,
-              email: m.email,
-            })),
-            memberCount: event.room.memberCount,
-            closed: event.room.closed,
-            offline: event.room.offline
-          };
-          this.roomChanged.emit(mappedRoom);
-        }
-        break;
-      }
-      case 'room.offline': {
-        this.latestSocketEventGen++;
-        const current = this.room();
-        if (current && typeof event.offline === 'boolean') {
-          this.roomChanged.emit({
-            ...current,
-            offline: event.offline
-          });
-        }
-        break;
-      }
-      case 'idea.created':
-      case 'idea.updated':
-      case 'idea.moved':
-      case 'idea.voted': {
-        if (!event.idea) return;
-        // Amendment 1: Check ordering per idea (updatedAt first, sequence as tie-break)
-        if (this.roomSocket.isStaleIdeaEvent(event.idea.id, event.idea.updatedAt, event.sequence)) {
-          return;
-        }
-        this.roomSocket.recordIdeaEvent(event.idea.id, event.idea.updatedAt, event.sequence);
-        this.latestSocketEventGen++;
-        this.applySocketIdea(event.idea);
-        break;
-      }
-      case 'idea.deleted': {
-        if (!event.ideaId) return;
-        this.latestSocketEventGen++;
-        this.localPositions.delete(event.ideaId);
-        this.positionGuard.removeIdea(event.ideaId);
-        this.items.update(items => items.filter(item => item.id !== event.ideaId));
-        break;
-      }
-      case 'category.created': {
-        this.latestSocketEventGen++;
-        if (event.category) {
-          const newCat: Category = { id: event.category.id, title: event.category.title };
-          this.categories.update(cats => {
-            if (cats.some(c => c.id === newCat.id)) return cats;
-            return [...cats, newCat];
-          });
-        }
-        break;
-      }
-      case 'category.updated': {
-        this.latestSocketEventGen++;
-        if (event.category) {
-          const updatedCat: Category = { id: event.category.id, title: event.category.title };
-          this.categories.update(cats => cats.map(c => c.id === updatedCat.id ? updatedCat : c));
-        }
-        break;
-      }
-      case 'category.deleted': {
-        this.latestSocketEventGen++;
-        if (event.categoryId != null) {
-          const delId = event.categoryId;
-          this.categories.update(cats => cats.filter(c => c.id !== delId));
-        }
-        break;
-      }
-    }
-  }
-
-  private applySocketIdea(idea: WsSharedIdea): void {
-    const currentItems = this.items();
-    const existingIndex = currentItems.findIndex(i => i.id === idea.id);
-    const existing = existingIndex >= 0 ? (currentItems[existingIndex] as IdeaItem) : null;
-
-    const isBeingDragged = this.draggingIdea()?.id === idea.id;
-    const pending = this.positionGuard.getPendingMove(idea.id);
-    const cached = this.localPositions.get(idea.id);
-
-    let x: number;
-    let y: number;
-
-    if (isBeingDragged && existing) {
-      x = existing.x;
-      y = existing.y;
-    } else if (pending) {
-      x = pending.x;
-      y = pending.y;
-    } else if (idea.x != null && idea.y != null) {
-      x = idea.x;
-      y = idea.y;
-      this.localPositions.set(idea.id, { x, y });
-    } else if (cached) {
-      x = cached.x;
-      y = cached.y;
-    } else if (existing) {
-      x = existing.x;
-      y = existing.y;
-    } else {
-      x = 500;
-      y = 250;
-    }
-
-    if (!pending && idea.x != null && idea.y != null) {
-      this.positionGuard.trackConfirmedPosition(idea.id, idea.x, idea.y);
-    }
-
-    const updatedItem: IdeaItem = {
-      kind: 'idea',
-      id: idea.id,
-      x,
-      y,
-      color: idea.color || '#9fc9a9',
-      creatorId: existing?.creatorId ?? null,
-      title: idea.title || idea.text || 'Untitled Idea',
-      description: idea.description || '',
-      categoryId: idea.categoryId ?? null,
-      categoryTitle: idea.categoryTitle ?? null,
-      category: idea.categoryId ? { id: idea.categoryId, title: idea.categoryTitle || '' } : null,
-      voteCount: idea.voteCount ?? 0,
-      voted: existing?.voted ?? false,
-    };
-
-    if (existingIndex >= 0) {
-      this.items.update(items => {
-        const next = [...items];
-        next[existingIndex] = updatedItem;
-        return next;
-      });
-    } else {
-      this.items.update(items => [...items, updatedItem]);
-    }
   }
 
   private stopSync(): void {

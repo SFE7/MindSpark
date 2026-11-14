@@ -85,11 +85,6 @@ export class IdeaPositionGuard {
     }
   }
 
-  removeIdea(ideaId: string): void {
-    this.pendingMoves.delete(ideaId);
-    this.confirmedPositions.delete(ideaId);
-  }
-
   clear(): void {
     this.pendingMoves.clear();
     this.confirmedPositions.clear();

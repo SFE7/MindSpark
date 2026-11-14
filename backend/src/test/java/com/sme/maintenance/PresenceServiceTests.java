@@ -103,20 +103,20 @@ class PresenceServiceTests {
         // Leave request received (starts 10s grace period)
         service.leave(roomId, userId, clientId, false);
 
-        // Within 5s grace period (e.g. 3s), user is still considered active
-        clock.advance(Duration.ofSeconds(3));
+        // Within 10s grace period (e.g. 5s), user is still considered active
+        clock.advance(Duration.ofSeconds(5));
         assertThat(service.isUserActive(roomId, userId)).isTrue();
 
         // Heartbeat received within grace period (e.g. on navigation/refresh)
         service.heartbeat(roomId, userId, clientId, false);
 
-        // Advance 8 more seconds (11s total since leave) - user is still active because leave was cancelled
+        // Advance 8 more seconds (13s total since leave) - user is still active because leave was cancelled
         clock.advance(Duration.ofSeconds(8));
         assertThat(service.isUserActive(roomId, userId)).isTrue();
     }
 
     @Test
-    void leaveExpiresAfterGraceWithoutHeartbeat() {
+    void leaveExpiresAfter10SecondsGraceWithoutHeartbeat() {
         UUID roomId = UUID.randomUUID();
         Long userId = 10L;
         String clientId = "client-1";
@@ -124,8 +124,8 @@ class PresenceServiceTests {
         service.heartbeat(roomId, userId, clientId, false);
         service.leave(roomId, userId, clientId, false);
 
-        // Advance 6 seconds (past 5s grace)
-        clock.advance(Duration.ofSeconds(6));
+        // Advance 11 seconds (past 10s grace)
+        clock.advance(Duration.ofSeconds(11));
         assertThat(service.isUserActive(roomId, userId)).isFalse();
 
         List<PresenceService.ExpiredMember> expired = service.computeExpiredMembers();
@@ -143,7 +143,7 @@ class PresenceServiceTests {
 
         // Tab 1 closes (leaves)
         service.leave(roomId, userId, "tab-1", false);
-        clock.advance(Duration.ofSeconds(6)); // Past Tab 1's 5s grace period
+        clock.advance(Duration.ofSeconds(15)); // Past Tab 1's grace period
 
         // User is still active because Tab 2 is active!
         assertThat(service.isUserActive(roomId, userId)).isTrue();
