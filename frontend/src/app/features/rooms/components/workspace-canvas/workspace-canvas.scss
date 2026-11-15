@@ -899,6 +899,47 @@
   }
 }
 
+.connection-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  font: 500 0.72rem 'DM Mono', monospace;
+  border: 1px solid #d9ddd5;
+  background: #f8faf6;
+  user-select: none;
+  white-space: nowrap;
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  &.connected {
+    color: #166534;
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+
+    .status-dot {
+      background: #22c55e;
+      box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+    }
+  }
+
+  &.reconnecting {
+    color: #92400e;
+    background: #fffbeb;
+    border-color: #fde68a;
+
+    .status-dot {
+      background: #f59e0b;
+      box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+    }
+  }
+}
+
 .participants-btn {
   border: 1px solid #d9ddd5;
   background: #fff;

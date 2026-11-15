@@ -10,6 +10,7 @@ import { PresenceHelper } from './presence-helper';
 import { CategoriesService } from '../../data-access/categories.service';
 import { CommentsService } from '../../data-access/comments.service';
 import { IdeasService } from '../../data-access/ideas.service';
+import { RealtimeService } from '../../data-access/realtime.service';
 import { RoomsService } from '../../data-access/rooms.service';
 import { Category } from '../../models/category.model';
 import { CommentItem } from '../../models/comment.model';
@@ -101,6 +102,11 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   private readonly userService = inject(UserService);
   private readonly auth = inject(KeycloakAuth);
   private readonly router = inject(Router);
+  protected readonly realtime = inject(RealtimeService);
+
+  protected readonly onlineParticipants = this.realtime.onlineParticipants;
+  protected readonly connectionStatus = this.realtime.connectionStatus;
+  private cardMovesSub?: Subscription;
 
   protected readonly isOffline = computed(() => !this.room()?.closed && Boolean(this.room()?.offline));
   protected readonly isRoomLocked = computed(() => Boolean(this.room()?.closed || this.room()?.offline));
@@ -111,6 +117,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   protected onLeave(): void {
     this.stopPresence();
+    this.realtime.leaveRoom();
     this.leave.emit();
   }
 
@@ -391,6 +398,24 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     });
   }
 
+  protected removeParticipantById(userId: number | string, username: string): void {
+    const currentRoomId = this.roomId();
+    const numId = typeof userId === 'number' ? userId : parseInt(String(userId), 10);
+    if (!currentRoomId || !this.isRoomOwner() || this.isRoomLocked() || isNaN(numId)) return;
+
+    const confirmed = window.confirm(`Remove ${username || 'this user'} from the room?`);
+    if (!confirmed) return;
+
+    this.roomsService.removeMember(currentRoomId, numId).subscribe({
+      next: updatedRoom => {
+        this.roomChanged.emit(updatedRoom);
+      },
+      error: () => {
+        this.roomsService.getRoom(currentRoomId).subscribe(refreshed => this.roomChanged.emit(refreshed));
+      },
+    });
+  }
+
   protected readonly isRoomOwner = computed(() => {
     const currentUserId = this.userService.currentUser()?.id;
     const ownerId = this.room()?.owner?.id;
@@ -615,6 +640,27 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   private presenceHelper?: PresenceHelper;
 
   constructor() {
+    this.cardMovesSub = this.realtime.cardMoves$.subscribe(move => {
+      // Requirement 4: IGNORE incoming events for a card the local user is currently dragging
+      if (this.draggingIdea()?.id === move.id) {
+        return;
+      }
+
+      // Requirement 2: Positions applied from remote card-move events MUST be protected
+      // from polling the same way as local drops, until the server returns matching coordinates.
+      this.positionGuard.registerRemoteMove(move.id, move.x, move.y);
+      this.localPositions.set(move.id, { x: move.x, y: move.y });
+      this.saveLocalPositions();
+
+      this.items.update(items =>
+        items.map(item =>
+          item.kind === 'idea' && item.id === move.id
+            ? { ...item, x: move.x, y: move.y }
+            : item
+        )
+      );
+    });
+
     effect(() => {
       const currentRoomId = this.roomId();
       // reading the filters here restarts the sync immediately when a filter changes
@@ -624,9 +670,15 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         this.loadLocalPositions(currentRoomId);
         this.startSync(currentRoomId);
         this.initPresence(currentRoomId);
+        const user = this.userService.currentUser();
+        this.realtime.joinRoom(currentRoomId, {
+          userId: user?.id ?? 0,
+          name: user?.username || 'Participant',
+        });
       } else {
         this.stopSync();
         this.stopPresence();
+        this.realtime.leaveRoom();
         this.positionGuard.clear();
       }
     });
@@ -643,6 +695,8 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     clearTimeout(this.ideaErrorTimer);
     this.stopSync();
     this.stopPresence();
+    this.cardMovesSub?.unsubscribe();
+    this.realtime.leaveRoom();
     this.positionGuard.clear();
   }
 
@@ -666,6 +720,8 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   private handleUserRemoved(): void {
     this.stopSync();
     this.stopPresence();
+    this.cardMovesSub?.unsubscribe();
+    this.realtime.leaveRoom();
     void this.router.navigate(['/'], {
       queryParams: { error: 'You were removed from this room' },
       state: { message: 'You were removed from this room' },
@@ -696,8 +752,8 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   private startSync(currentRoomId: string): void {
     this.stopSync();
-    // Fetch immediately, then poll every 2000ms so new ideas appear to all participants
-    this.pollSub = timer(0, 2000)
+    // Fetch immediately, then poll every 5000ms as a fallback so new ideas appear to all participants
+    this.pollSub = timer(0, 5000)
       .pipe(
         exhaustMap(() => {
           const pollGen = this.positionGuard.nextPollGeneration();
@@ -755,7 +811,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   private syncServerIdeas(ideas: Idea[], pollGen?: number): void {
     if (pollGen != null) {
-      this.positionGuard.onPollReceived(pollGen);
+      this.positionGuard.onPollReceived(pollGen, ideas);
     }
 
     const currentItems = this.items();
@@ -778,15 +834,9 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         x = pending.x;
         y = pending.y;
       } else if (cached) {
-        // If we have a local cached position from dragging, prioritize it unless server has an updated position
-        if (idea.x != null && idea.y != null && (idea.x !== 500 || idea.y !== 250)) {
-          x = idea.x;
-          y = idea.y;
-          this.localPositions.set(idea.id, { x, y });
-        } else {
-          x = cached.x;
-          y = cached.y;
-        }
+        // Cached local position is preserved; server idea.x/y does NOT override cached position
+        x = cached.x;
+        y = cached.y;
       } else if (idea.x != null && idea.y != null) {
         x = idea.x;
         y = idea.y;
@@ -986,6 +1036,16 @@ export class WorkspaceCanvasComponent implements OnDestroy {
             : item
         )
       );
+
+      this.realtime.broadcastCardMove(
+        {
+          id: this.draggingIdea()!.id,
+          x: newX,
+          y: newY,
+          by: this.userService.currentUser()?.id ?? 'anonymous',
+        },
+        false
+      );
     }
   }
 
@@ -1018,6 +1078,17 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         this.localPositions.set(dragged.id, { x: currentItem.x, y: currentItem.y });
         this.saveLocalPositions();
 
+        // Broadcast final position immediately
+        this.realtime.broadcastCardMove(
+          {
+            id: dragged.id,
+            x: currentItem.x,
+            y: currentItem.y,
+            by: this.userService.currentUser()?.id ?? 'anonymous',
+          },
+          true
+        );
+
         if (this.roomId()) {
           const moveSeq = this.positionGuard.registerDrop(dragged.id, currentItem.x, currentItem.y);
           this.mindspark
@@ -1033,20 +1104,10 @@ export class WorkspaceCanvasComponent implements OnDestroy {
               next: updated => {
                 const targetX = updated.x ?? currentItem.x;
                 const targetY = updated.y ?? currentItem.y;
-                const isLatest = this.positionGuard.onSaveSuccess(dragged.id, moveSeq, targetX, targetY);
-                if (isLatest) {
-                  this.localPositions.set(updated.id, { x: targetX, y: targetY });
-                  this.saveLocalPositions();
-                  if (updated.x != null && updated.y != null && (updated.x !== currentItem.x || updated.y !== currentItem.y)) {
-                    this.items.update(items =>
-                      items.map(item =>
-                        item.kind === 'idea' && item.id === updated.id
-                          ? { ...item, x: updated.x!, y: updated.y! }
-                          : item
-                      )
-                    );
-                  }
-                }
+                this.positionGuard.onSaveSuccess(dragged.id, moveSeq, targetX, targetY);
+                // Keep the dropped position as the source of truth (optimistic update)
+                this.localPositions.set(dragged.id, { x: currentItem.x, y: currentItem.y });
+                this.saveLocalPositions();
               },
               error: err => {
                 console.error('Could not save dragged idea position', err);

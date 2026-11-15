@@ -9,6 +9,14 @@ export interface PendingMove {
   y: number;
   status: 'saving' | 'saved';
   clearAfterPollGen: number;
+  timestamp: number;
+  isRemote?: boolean;
+}
+
+export interface ServerIdeaCoords {
+  id: string;
+  x?: number | null;
+  y?: number | null;
 }
 
 export class IdeaPositionGuard {
@@ -16,6 +24,7 @@ export class IdeaPositionGuard {
   private confirmedPositions = new Map<string, Position>();
   private moveSequence = 0;
   private pollGeneration = 0;
+  private readonly SAFETY_NET_MS = 5000;
 
   nextPollGeneration(): number {
     return ++this.pollGeneration;
@@ -33,8 +42,28 @@ export class IdeaPositionGuard {
       y,
       status: 'saving',
       clearAfterPollGen: Infinity,
+      timestamp: Date.now(),
+      isRemote: false,
     });
     return seq;
+  }
+
+  registerRemoteMove(ideaId: string, x: number, y: number): void {
+    const current = this.pendingMoves.get(ideaId);
+    if (current && !current.isRemote && current.status === 'saving') {
+      return;
+    }
+    const seq = ++this.moveSequence;
+    this.pendingMoves.set(ideaId, {
+      seq,
+      x,
+      y,
+      status: 'saved',
+      clearAfterPollGen: Infinity,
+      timestamp: Date.now(),
+      isRemote: true,
+    });
+    this.confirmedPositions.set(ideaId, { x, y });
   }
 
   getPendingMove(ideaId: string): PendingMove | undefined {
@@ -57,11 +86,12 @@ export class IdeaPositionGuard {
     }
 
     this.confirmedPositions.set(ideaId, { x: updatedX, y: updatedY });
-    // Keep ignoring server x/y until a poll sent AFTER save completed returns
+    // Keep ignoring server x/y until a poll sent AFTER save completed returns or coords match
     pending.status = 'saved';
     pending.x = updatedX;
     pending.y = updatedY;
     pending.clearAfterPollGen = this.pollGeneration + 1;
+    pending.timestamp = Date.now();
     return true;
   }
 
@@ -77,10 +107,30 @@ export class IdeaPositionGuard {
     return { rolledBack: true, rollbackPos };
   }
 
-  onPollReceived(pollGen: number): void {
+  onPollReceived(pollGen: number, serverIdeas?: ServerIdeaCoords[]): void {
+    const now = Date.now();
+    const serverMap = serverIdeas ? new Map(serverIdeas.map(i => [i.id, i])) : null;
+
     for (const [ideaId, pending] of this.pendingMoves.entries()) {
-      if (pending.status === 'saved' && pollGen >= pending.clearAfterPollGen) {
-        this.pendingMoves.delete(ideaId);
+      if (pending.status === 'saved') {
+        const serverIdea = serverMap?.get(ideaId);
+        const serverCoordsMatch =
+          serverIdea != null &&
+          serverIdea.x != null &&
+          serverIdea.y != null &&
+          Math.abs(serverIdea.x - pending.x) < 0.5 &&
+          Math.abs(serverIdea.y - pending.y) < 0.5;
+
+        const pollStartedAfterSave = pollGen >= pending.clearAfterPollGen;
+        const safetyNetExpired = now - pending.timestamp >= this.SAFETY_NET_MS;
+
+        if (serverCoordsMatch) {
+          this.pendingMoves.delete(ideaId);
+        } else if (!pending.isRemote && pollStartedAfterSave) {
+          this.pendingMoves.delete(ideaId);
+        } else if (safetyNetExpired) {
+          this.pendingMoves.delete(ideaId);
+        }
       }
     }
   }

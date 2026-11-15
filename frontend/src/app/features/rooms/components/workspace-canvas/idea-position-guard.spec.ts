@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { IdeaPositionGuard } from './idea-position-guard';
 
 describe('IdeaPositionGuard', () => {
@@ -45,8 +45,8 @@ describe('IdeaPositionGuard', () => {
     expect(pending?.status).toBe('saved');
     expect(pending?.clearAfterPollGen).toBe(2);
 
-    // Stale Poll 1 returns (pollGen = 1) -> must NOT clear guard
-    guard.onPollReceived(poll1Gen);
+    // Stale Poll 1 returns (pollGen = 1) with stale coordinates -> must NOT clear guard
+    guard.onPollReceived(poll1Gen, [{ id: 'idea-1', x: 100, y: 100 }]);
     pending = guard.getPendingMove('idea-1');
     expect(pending).toBeDefined();
 
@@ -57,6 +57,38 @@ describe('IdeaPositionGuard', () => {
     guard.onPollReceived(poll2Gen);
     pending = guard.getPendingMove('idea-1');
     expect(pending).toBeUndefined();
+  });
+
+  it('clears guard immediately if server coordinates match dropped ones', () => {
+    const poll1Gen = guard.nextPollGeneration();
+    const seq = guard.registerDrop('idea-1', 250, 350);
+    guard.onSaveSuccess('idea-1', seq, 250, 350);
+
+    // Poll 1 returns with matching coordinates (e.g. backend processed quickly)
+    guard.onPollReceived(poll1Gen, [{ id: 'idea-1', x: 250, y: 350 }]);
+    expect(guard.getPendingMove('idea-1')).toBeUndefined();
+  });
+
+  it('protects remote card moves from stale server polls until coordinates match', () => {
+    // User B receives remote move for idea-1 to (400, 500)
+    guard.registerRemoteMove('idea-1', 400, 500);
+
+    const pending = guard.getPendingMove('idea-1');
+    expect(pending).toBeDefined();
+    expect(pending?.x).toBe(400);
+    expect(pending?.y).toBe(500);
+    expect(pending?.isRemote).toBe(true);
+
+    // A background poll arrives with stale server coordinates (100, 100)
+    const pollGen = guard.nextPollGeneration();
+    guard.onPollReceived(pollGen, [{ id: 'idea-1', x: 100, y: 100 }]);
+
+    // Must still be protected!
+    expect(guard.getPendingMove('idea-1')).toBeDefined();
+
+    // Subsequent poll arrives with matching coordinates (400, 500)
+    guard.onPollReceived(pollGen + 1, [{ id: 'idea-1', x: 400, y: 500 }]);
+    expect(guard.getPendingMove('idea-1')).toBeUndefined();
   });
 
   it('handles rapid repeated moves: latest drop wins and older response does not revert', () => {

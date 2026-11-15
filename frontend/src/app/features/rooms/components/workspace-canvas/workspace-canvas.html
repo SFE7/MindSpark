@@ -248,6 +248,15 @@
     }
 
     <div class="header-right">
+      <div
+        class="connection-status-pill"
+        [class.connected]="connectionStatus() === 'connected'"
+        [class.reconnecting]="connectionStatus() === 'reconnecting'"
+        [title]="'Realtime status: ' + connectionStatus()"
+      >
+        <span class="status-dot"></span>
+        <span class="status-label">{{ connectionStatus() === 'connected' ? 'Connected' : 'Reconnecting' }}</span>
+      </div>
       @if (isRoomOwner()) {
         @if (room()?.closed) {
           <button class="header-action-btn reopen-btn" type="button" (click)="toggleRoomClosed()">Reopen room</button>
@@ -261,7 +270,7 @@
         (click)="toggleParticipants()"
         [attr.aria-expanded]="participantsOpen()"
       >
-        Participants ({{ room()?.members?.length || 0 }})
+        Participants ({{ onlineParticipants().length }})
       </button>
       <button class="leave-room-btn" type="button" (click)="onLeave()">Leave room</button>
       <div class="undo-redo-group" aria-label="Undo and redo controls">
@@ -331,27 +340,27 @@
     <aside class="participants-panel" aria-label="Room participants" (click)="$event.stopPropagation()">
       <div class="participants-panel-header">
         <div class="panel-title-wrap">
-          <span class="participants-title">Participants</span>
-          <span class="participants-count-tag">{{ room()?.members?.length || 0 }}</span>
+          <span class="participants-title">Online Participants</span>
+          <span class="participants-count-tag">{{ onlineParticipants().length }}</span>
         </div>
         <button type="button" class="close-panel-btn" (click)="toggleParticipants()" aria-label="Close participants panel">✕</button>
       </div>
       <div class="participants-list">
-        @for (member of room()?.members; track member.id) {
+        @for (participant of onlineParticipants(); track participant.userId) {
           <div class="participant-item">
             <div class="participant-details">
-              <span class="participant-name">{{ member.username }}</span>
-              <span class="participant-id">#{{ member.id }}</span>
-              @if (member.id === room()?.owner?.id) {
+              <span class="participant-name">{{ participant.name }}</span>
+              <span class="participant-id">#{{ participant.userId }}</span>
+              @if (participant.userId === room()?.owner?.id) {
                 <span class="creator-badge">Creator</span>
               }
             </div>
-            @if (isRoomOwner() && member.id !== room()?.owner?.id) {
+            @if (isRoomOwner() && participant.userId !== room()?.owner?.id) {
               <button
                 type="button"
                 class="remove-participant-btn"
-                (click)="removeParticipant(member)"
-                [title]="'Remove ' + member.username"
+                (click)="removeParticipantById(participant.userId, participant.name)"
+                [title]="'Remove ' + participant.name"
               >
                 Remove
               </button>
