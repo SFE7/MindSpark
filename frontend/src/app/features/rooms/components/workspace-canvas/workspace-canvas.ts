@@ -1,4 +1,4 @@
-import { Component, OnDestroy, computed, effect, inject, input, output, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, computed, effect, inject, input, output, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -6,6 +6,19 @@ import { Subscription, forkJoin, of, timer } from 'rxjs';
 import { catchError, exhaustMap, map, timeout } from 'rxjs/operators';
 import { IdeaPositionGuard } from './idea-position-guard';
 import { PresenceHelper } from './presence-helper';
+import { DrawingsService } from '../../data-access/drawings.service';
+import { DrawingResponse } from '../../models/drawing.model';
+import { DrawingPositionGuard } from './drawing-position-guard';
+import {
+  CanvasPoint,
+  BoundingBox,
+  screenToleranceToCanvasUnits,
+  hitTestStroke,
+  hitTestShape,
+  getStrokeBoundingBox,
+  getShapeBoundingBox,
+  simplifyPoints,
+} from './drawing-hit-test';
 
 import { CategoriesService } from '../../data-access/categories.service';
 import { CommentsService } from '../../data-access/comments.service';
@@ -20,7 +33,7 @@ import { KeycloakAuth } from '../../../../core/auth/keycloak-auth';
 import { User } from '../../../../core/models/User';
 import { UserService } from '../../../../core/user-service';
 
-type WorkspaceTool = 'pen' | 'highlighter' | 'shapes' | 'idea' | 'eraser';
+type WorkspaceTool = 'select' | 'pen' | 'highlighter' | 'shapes' | 'idea' | 'eraser';
 type WorkspaceShape = 'triangle' | 'circle' | 'rectangle';
 
 interface ToolOption {
@@ -39,29 +52,35 @@ interface ShapeOption {
   iconPath: string;
 }
 
-interface CanvasPoint {
-  x: number;
-  y: number;
-}
-
-interface StrokeItem {
+export interface StrokeItem {
   kind: 'stroke';
-  id: number;
+  id: string;
   points: CanvasPoint[];
   color: string;
   width: number;
   opacity: number;
+  offsetX?: number;
+  offsetY?: number;
+  authorId?: number;
+  authorName?: string;
+  version?: number;
+  drawingKind?: 'pen' | 'highlighter';
 }
 
-interface ShapeItem {
+export interface ShapeItem {
   kind: 'shape';
-  id: number;
+  id: string;
   shape: WorkspaceShape;
   x: number;
   y: number;
   width: number;
   height: number;
   color: string;
+  offsetX?: number;
+  offsetY?: number;
+  authorId?: number;
+  authorName?: string;
+  version?: number;
 }
 
 export interface IdeaItem {
@@ -78,6 +97,15 @@ export interface IdeaItem {
   category?: { id: number; title: string } | null;
   voteCount?: number;
   voted?: boolean;
+}
+
+export interface RemoteCursor {
+  userId: number | string;
+  name: string;
+  color: string;
+  x: number;
+  y: number;
+  lastSeen: number;
 }
 
 type CanvasItem = StrokeItem | ShapeItem | IdeaItem;
@@ -99,6 +127,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   private readonly roomsService = inject(RoomsService);
   private readonly categoriesService = inject(CategoriesService);
   private readonly commentsService = inject(CommentsService);
+  private readonly drawingsService = inject(DrawingsService);
   private readonly userService = inject(UserService);
   private readonly auth = inject(KeycloakAuth);
   private readonly router = inject(Router);
@@ -106,7 +135,114 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   protected readonly onlineParticipants = this.realtime.onlineParticipants;
   protected readonly connectionStatus = this.realtime.connectionStatus;
+  protected readonly remoteCursors = signal<Map<string | number, RemoteCursor>>(new Map());
+  protected readonly remoteCursorList = computed(() => Array.from(this.remoteCursors().values()));
   private cardMovesSub?: Subscription;
+  private cursorMovesSub?: Subscription;
+  private cursorLeavesSub?: Subscription;
+  private cursorPruneTimer?: ReturnType<typeof setInterval>;
+  private ideaEventsSub?: Subscription;
+  private commentEventsSub?: Subscription;
+  private drawingEventsSub?: Subscription;
+  private drawingMovesSub?: Subscription;
+  private strokePointsSub?: Subscription;
+  private objectLockedSub?: Subscription;
+  private objectUnlockedSub?: Subscription;
+
+  private readonly ideaVersions = new Map<string, number>();
+  private readonly recentlyDeletedIds = new Map<string, number>();
+  private readonly drawingPositionGuard = new DrawingPositionGuard();
+  private readonly drawingVersions = new Map<string, number>();
+  private readonly recentlyDeletedDrawingIds = new Map<string, number>();
+
+  private isRecentlyDeleted(id: string): boolean {
+    const deletedAt = this.recentlyDeletedIds.get(id);
+    if (!deletedAt) return false;
+    if (Date.now() - deletedAt > 60000) {
+      this.recentlyDeletedIds.delete(id);
+      return false;
+    }
+    return true;
+  }
+
+  private markDeleted(id: string): void {
+    this.recentlyDeletedIds.set(id, Date.now());
+  }
+
+  private isRecentlyDeletedDrawing(id: string): boolean {
+    const deletedAt = this.recentlyDeletedDrawingIds.get(id);
+    if (!deletedAt) return false;
+    if (Date.now() - deletedAt > 60000) {
+      this.recentlyDeletedDrawingIds.delete(id);
+      return false;
+    }
+    return true;
+  }
+
+  private markDrawingDeleted(id: string): void {
+    this.recentlyDeletedDrawingIds.set(id, Date.now());
+  }
+
+  protected readonly transientError = signal<string>('');
+  private transientErrorTimer?: ReturnType<typeof setTimeout>;
+
+  protected showTransientError(message: string): void {
+    this.transientError.set(message);
+    clearTimeout(this.transientErrorTimer);
+    this.transientErrorTimer = setTimeout(() => {
+      this.transientError.set('');
+    }, 3500);
+  }
+
+  // Soft locking
+  protected readonly heldObjects = signal<Map<string, { objectType: 'card' | 'drawing'; objectId: string; userId: number | string; userName: string; expiresAt: number }>>(new Map());
+
+  protected isItemLocked(objectType: 'card' | 'drawing', objectId: string): boolean {
+    const key = `${objectType}:${objectId}`;
+    const held = this.heldObjects().get(key);
+    if (!held) return false;
+    if (Date.now() > held.expiresAt) return false;
+    const myId = this.userService.currentUser()?.id;
+    return myId == null || String(held.userId) !== String(myId);
+  }
+
+  protected getItemHolderName(objectType: 'card' | 'drawing', objectId: string): string | null {
+    const key = `${objectType}:${objectId}`;
+    const held = this.heldObjects().get(key);
+    if (!held) return null;
+    if (Date.now() > held.expiresAt) return null;
+    return held.userName;
+  }
+
+  // Remote stroke previews
+  protected readonly remotePreviews = signal<Map<string, { strokeId: string; points: CanvasPoint[]; color: string; width: number; opacity: number; lastUpdated: number }>>(new Map());
+  protected readonly remotePreviewList = computed(() => Array.from(this.remotePreviews().values()));
+
+  // Selected drawing
+  protected readonly selectedDrawingId = signal<string | null>(null);
+  protected readonly selectedDrawing = computed(() => {
+    const id = this.selectedDrawingId();
+    if (!id) return null;
+    return (this.items().find(i => (i.kind === 'stroke' || i.kind === 'shape') && i.id === id) as StrokeItem | ShapeItem | undefined) ?? null;
+  });
+  protected readonly selectionBox = computed<{ x: number; y: number; width: number; height: number } | null>(() => {
+    const item = this.selectedDrawing();
+    if (!item) return null;
+    let box: BoundingBox;
+    if (item.kind === 'stroke') {
+      box = getStrokeBoundingBox(item.points, item.offsetX || 0, item.offsetY || 0);
+    } else if (item.kind === 'shape') {
+      box = getShapeBoundingBox(item);
+    } else {
+      return null;
+    }
+    return {
+      x: box.minX,
+      y: box.minY,
+      width: Math.max(box.maxX - box.minX, 4),
+      height: Math.max(box.maxY - box.minY, 4),
+    };
+  });
 
   protected readonly isOffline = computed(() => !this.room()?.closed && Boolean(this.room()?.offline));
   protected readonly isRoomLocked = computed(() => Boolean(this.room()?.closed || this.room()?.offline));
@@ -122,6 +258,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected readonly tools: ToolOption[] = [
+    { id: 'select', label: 'Select', iconPath: '/assets/mindspark/select.png' },
     { id: 'pen', label: 'Pen', iconPath: '/assets/mindspark/pen.png' },
     { id: 'highlighter', label: 'Highlighter', iconPath: '/assets/mindspark/highlighter.png' },
     { id: 'shapes', label: 'Shapes', iconPath: '/assets/mindspark/shapes.png' },
@@ -188,7 +325,6 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   protected readonly editingCommentId = signal<string | null>(null);
   protected readonly editingCommentContent = signal('');
 
-  // Every change of these signals triggers a new call to IdeasService.listIdeas()
   private readonly filters = computed<IdeaFilters>(() => ({
     categoryId: this.filterCategoryId(),
     search: this.searchTerm(),
@@ -197,13 +333,11 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   protected readonly hasActiveFilters = computed(
     () => this.filterCategoryId() !== null || this.searchTerm() !== ''
   );
-  // Only the room owner can create / rename / delete categories (backend rule) and only while the room is open and online
   protected readonly canManageCategories = computed(() => this.isRoomOwner() && !this.isRoomLocked());
 
   protected onSearchInput(value: string): void {
     this.searchInput.set(value);
     clearTimeout(this.searchTimer);
-    // debounce so we do not call the backend on every keystroke
     this.searchTimer = setTimeout(() => this.searchTerm.set(value.trim()), 300);
   }
 
@@ -289,7 +423,6 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     this.categoriesService.updateCategory(categoryId, title).subscribe({
       next: updated => {
         this.categories.update(list => list.map(c => (c.id === updated.id ? updated : c)));
-        // refresh the badge shown on the cards right away
         this.items.update(items =>
           items.map(item =>
             item.kind === 'idea' && item.categoryId === updated.id
@@ -318,7 +451,6 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         if (this.filterCategoryId() === category.id) {
           this.filterCategoryId.set(null);
         }
-        // the backend sets the category of its ideas to null
         this.items.update(items =>
           items.map(item =>
             item.kind === 'idea' && item.categoryId === category.id
@@ -392,35 +524,28 @@ export class WorkspaceCanvasComponent implements OnDestroy {
       next: updatedRoom => {
         this.roomChanged.emit(updatedRoom);
       },
-      error: () => {
-        this.roomsService.getRoom(currentRoomId).subscribe(refreshed => this.roomChanged.emit(refreshed));
+      error: err => {
+        console.error('Failed to remove participant', err);
       },
     });
   }
 
-  protected removeParticipantById(userId: number | string, username: string): void {
+  protected removeParticipantById(userId: number | string, name: string): void {
     const currentRoomId = this.roomId();
-    const numId = typeof userId === 'number' ? userId : parseInt(String(userId), 10);
-    if (!currentRoomId || !this.isRoomOwner() || this.isRoomLocked() || isNaN(numId)) return;
+    if (!currentRoomId || !this.isRoomOwner() || this.isRoomLocked()) return;
 
-    const confirmed = window.confirm(`Remove ${username || 'this user'} from the room?`);
+    const confirmed = window.confirm(`Remove ${name || 'this user'} from the room?`);
     if (!confirmed) return;
 
-    this.roomsService.removeMember(currentRoomId, numId).subscribe({
+    this.roomsService.removeMember(currentRoomId, Number(userId)).subscribe({
       next: updatedRoom => {
         this.roomChanged.emit(updatedRoom);
       },
-      error: () => {
-        this.roomsService.getRoom(currentRoomId).subscribe(refreshed => this.roomChanged.emit(refreshed));
+      error: err => {
+        console.error('Failed to remove participant', err);
       },
     });
   }
-
-  protected readonly isRoomOwner = computed(() => {
-    const currentUserId = this.userService.currentUser()?.id;
-    const ownerId = this.room()?.owner?.id;
-    return currentUserId != null && ownerId != null && currentUserId === ownerId;
-  });
 
   protected startEditingRoomName(): void {
     if (!this.isRoomOwner() || this.isRoomLocked()) return;
@@ -435,33 +560,31 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   }
 
   protected saveRoomName(): void {
-    if (!this.isRoomOwner() || this.isRoomLocked()) return;
-    const name = this.editingRoomName().trim();
-    if (!name) {
+    const currentRoomId = this.roomId();
+    if (!currentRoomId || !this.isRoomOwner() || this.isRoomLocked()) return;
+
+    const trimmed = this.editingRoomName().trim();
+    if (!trimmed) {
       this.roomNameError.set('Room name is required.');
       return;
     }
-    if (name.length > 120) {
-      this.roomNameError.set('Room name cannot exceed 120 characters.');
-      return;
-    }
 
-    const currentRoomId = this.roomId();
-    if (!currentRoomId) return;
-
-    this.roomsService.updateRoom(currentRoomId, name).subscribe({
+    this.roomsService.updateRoom(currentRoomId, trimmed).subscribe({
       next: updatedRoom => {
         this.roomChanged.emit(updatedRoom);
         this.isEditingRoomName.set(false);
         this.roomNameError.set('');
       },
-      error: () => {
-        this.roomNameError.set('Could not update room name.');
-      },
+      error: () => this.roomNameError.set('Could not rename room.'),
     });
   }
 
-  // ---------- Comment Actions (Phase 3) ----------
+  protected isRoomOwner(): boolean {
+    const current = this.room();
+    const currentUserId = this.userService.currentUser()?.id;
+    return Boolean(current && currentUserId !== undefined && current.owner?.id === currentUserId);
+  }
+
   protected openComments(event: Event, idea: IdeaItem): void {
     event.stopPropagation();
     this.activeCommentIdea.set(idea);
@@ -469,28 +592,31 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     this.commentError.set('');
     this.newCommentContent.set('');
     this.replyingToCommentId.set(null);
+    this.replyContent.set('');
     this.editingCommentId.set(null);
+    this.editingCommentContent.set('');
     this.loadComments(idea.id);
   }
 
   protected closeComments(): void {
     this.commentsOpen.set(false);
     this.activeCommentIdea.set(null);
+    this.comments.set([]);
     this.commentError.set('');
     this.replyingToCommentId.set(null);
     this.editingCommentId.set(null);
   }
 
-  protected loadComments(ideaId: string): void {
+  private loadComments(ideaId: string): void {
     this.commentsLoading.set(true);
     this.commentsService.getComments(ideaId).subscribe({
-      next: list => {
-        this.comments.set(list);
+      next: data => {
+        this.comments.set(data);
         this.commentsLoading.set(false);
       },
       error: () => {
+        this.commentError.set('Failed to load comments.');
         this.commentsLoading.set(false);
-        this.commentError.set('Could not load comments.');
       },
     });
   }
@@ -499,24 +625,22 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     const idea = this.activeCommentIdea();
     if (!idea || this.isRoomLocked()) return;
     const content = this.newCommentContent().trim();
-    if (!content) {
-      this.commentError.set('Comment content is required.');
-      return;
-    }
+    if (!content) return;
+
     this.commentsService.addComment(idea.id, content).subscribe({
-      next: created => {
-        this.comments.update(list => [...list, created]);
+      next: comment => {
+        this.comments.update(list => [...list, comment]);
         this.newCommentContent.set('');
         this.commentError.set('');
       },
-      error: () => this.commentError.set('Failed to add comment.'),
+      error: () => this.commentError.set('Failed to post comment.'),
     });
   }
 
   protected startReply(commentId: string): void {
+    if (this.isRoomLocked()) return;
     this.replyingToCommentId.set(commentId);
     this.replyContent.set('');
-    this.commentError.set('');
   }
 
   protected cancelReply(): void {
@@ -524,18 +648,17 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     this.replyContent.set('');
   }
 
-  protected sendReply(parentCommentId: string): void {
-    if (this.isRoomLocked()) return;
+  protected sendReply(parentId: string): void {
+    const idea = this.activeCommentIdea();
+    if (!idea || this.isRoomLocked()) return;
     const content = this.replyContent().trim();
-    if (!content) {
-      this.commentError.set('Reply content is required.');
-      return;
-    }
-    this.commentsService.replyToComment(parentCommentId, content).subscribe({
+    if (!content) return;
+
+    this.commentsService.replyToComment(parentId, content).subscribe({
       next: reply => {
         this.comments.update(list =>
           list.map(c => {
-            if (c.id === parentCommentId) {
+            if (c.id === parentId) {
               return { ...c, replies: [...(c.replies || []), reply] };
             }
             return c;
@@ -545,14 +668,14 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         this.replyContent.set('');
         this.commentError.set('');
       },
-      error: () => this.commentError.set('Failed to send reply.'),
+      error: () => this.commentError.set('Failed to post reply.'),
     });
   }
 
   protected startEditComment(comment: CommentItem): void {
+    if (this.isRoomLocked()) return;
     this.editingCommentId.set(comment.id);
     this.editingCommentContent.set(comment.content || comment.text || '');
-    this.commentError.set('');
   }
 
   protected cancelEditComment(): void {
@@ -563,23 +686,21 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   protected saveEditComment(commentId: string): void {
     if (this.isRoomLocked()) return;
     const content = this.editingCommentContent().trim();
-    if (!content) {
-      this.commentError.set('Comment content is required.');
-      return;
-    }
+    if (!content) return;
+
     this.commentsService.updateComment(commentId, content).subscribe({
       next: updated => {
         this.comments.update(list =>
           list.map(c => {
             if (c.id === commentId) {
-              return { ...c, content: updated.content, text: updated.text, updatedAt: updated.updatedAt };
+              return { ...c, content: updated.content, text: updated.content, updatedAt: updated.updatedAt };
             }
-            if (c.replies && c.replies.some(r => r.id === commentId)) {
+            if (c.replies) {
               return {
                 ...c,
                 replies: c.replies.map(r =>
                   r.id === commentId
-                    ? { ...r, content: updated.content, text: updated.text, updatedAt: updated.updatedAt }
+                    ? { ...r, content: updated.content, text: updated.content, updatedAt: updated.updatedAt }
                     : r
                 ),
               };
@@ -630,6 +751,19 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   private actionStartItems: CanvasItem[] | null = null;
   private pollSub?: Subscription;
 
+  private currentStrokeId = '';
+  private lastStrokePointsBroadcastTime = 0;
+  private draggingDrawing: {
+    id: string;
+    startPointer: CanvasPoint;
+    startOffsetX: number;
+    startOffsetY: number;
+    currentOffsetX: number;
+    currentOffsetY: number;
+    hasMoved: boolean;
+  } | null = null;
+  private lastDrawingMoveBroadcastTime = 0;
+
   private activeDragPointerId: number | null = null;
   private dragStartPointer = { x: 0, y: 0 };
   private dragStartIdeaPos = { x: 0, y: 0 };
@@ -640,14 +774,18 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   private presenceHelper?: PresenceHelper;
 
   constructor() {
+    this.realtime.reconnected$.subscribe(() => {
+      const currentRoomId = this.roomId();
+      if (currentRoomId) {
+        this.startSync(currentRoomId);
+      }
+    });
+
     this.cardMovesSub = this.realtime.cardMoves$.subscribe(move => {
-      // Requirement 4: IGNORE incoming events for a card the local user is currently dragging
       if (this.draggingIdea()?.id === move.id) {
         return;
       }
 
-      // Requirement 2: Positions applied from remote card-move events MUST be protected
-      // from polling the same way as local drops, until the server returns matching coordinates.
       this.positionGuard.registerRemoteMove(move.id, move.x, move.y);
       this.localPositions.set(move.id, { x: move.x, y: move.y });
       this.saveLocalPositions();
@@ -661,12 +799,373 @@ export class WorkspaceCanvasComponent implements OnDestroy {
       );
     });
 
+    this.cursorMovesSub = this.realtime.cursorMoves$.subscribe(move => {
+      const myId = this.userService.currentUser()?.id;
+      if (myId != null && String(move.userId) === String(myId)) {
+        return;
+      }
+      this.remoteCursors.update(map => {
+        const next = new Map(map);
+        next.set(move.userId, {
+          userId: move.userId,
+          name: move.name,
+          color: move.color,
+          x: move.x,
+          y: move.y,
+          lastSeen: Date.now(),
+        });
+        return next;
+      });
+    });
+
+    this.cursorLeavesSub = this.realtime.cursorLeaves$.subscribe(leave => {
+      this.remoteCursors.update(map => {
+        if (!map.has(leave.userId)) return map;
+        const next = new Map(map);
+        next.delete(leave.userId);
+        return next;
+      });
+    });
+
+    this.cursorPruneTimer = setInterval(() => {
+      const now = Date.now();
+      let changed = false;
+      const current = this.remoteCursors();
+      for (const [, c] of current.entries()) {
+        if (now - c.lastSeen > 3000) {
+          changed = true;
+          break;
+        }
+      }
+      if (changed) {
+        this.remoteCursors.update(map => {
+          const next = new Map();
+          for (const [uid, c] of map.entries()) {
+            if (now - c.lastSeen <= 3000) {
+              next.set(uid, c);
+            }
+          }
+          return next;
+        });
+      }
+
+      // Prune expired soft locks
+      let locksChanged = false;
+      for (const [, h] of this.heldObjects().entries()) {
+        if (now > h.expiresAt) {
+          locksChanged = true;
+          break;
+        }
+      }
+      if (locksChanged) {
+        this.heldObjects.update(map => {
+          const next = new Map();
+          for (const [k, h] of map.entries()) {
+            if (now <= h.expiresAt) next.set(k, h);
+          }
+          return next;
+        });
+      }
+
+      // Prune stale remote previews (>5000ms)
+      let previewsChanged = false;
+      for (const [, p] of this.remotePreviews().entries()) {
+        if (now - p.lastUpdated > 5000) {
+          previewsChanged = true;
+          break;
+        }
+      }
+      if (previewsChanged) {
+        this.remotePreviews.update(map => {
+          const next = new Map();
+          for (const [k, p] of map.entries()) {
+            if (now - p.lastUpdated <= 5000) next.set(k, p);
+          }
+          return next;
+        });
+      }
+    }, 1000);
+
+    this.ideaEventsSub = this.realtime.ideaEvents$.subscribe(event => {
+      if (event.type === 'idea-deleted' && event.id) {
+        this.markDeleted(event.id);
+        this.items.update(items => items.filter(item => item.id !== event.id));
+        this.localPositions.delete(event.id);
+        this.saveLocalPositions();
+        if (this.activeCommentIdea()?.id === event.id) {
+          this.closeComments();
+        }
+        return;
+      }
+
+      if ((event.type === 'idea-created' || event.type === 'idea-updated') && event.idea) {
+        const idea = event.idea;
+        if (this.isRecentlyDeleted(idea.id)) {
+          return;
+        }
+
+        const serverVersion = event.version || (idea.updatedAt ? new Date(idea.updatedAt).getTime() : 0);
+        const currentVersion = this.ideaVersions.get(idea.id) || 0;
+        if (serverVersion < currentVersion) {
+          return;
+        }
+        this.ideaVersions.set(idea.id, serverVersion);
+
+        const currentItems = this.items();
+        const existingIndex = currentItems.findIndex(i => i.id === idea.id);
+        const currentlyDragging = this.draggingIdea();
+        const isBeingDragged = currentlyDragging !== null && currentlyDragging.id === idea.id;
+        const pending = this.positionGuard.getPendingMove(idea.id);
+
+        let x: number;
+        let y: number;
+
+        if (existingIndex >= 0) {
+          const existing = currentItems[existingIndex] as IdeaItem;
+          if (isBeingDragged) {
+            x = existing.x;
+            y = existing.y;
+          } else if (pending) {
+            x = pending.x;
+            y = pending.y;
+          } else {
+            x = idea.x != null ? idea.x : existing.x;
+            y = idea.y != null ? idea.y : existing.y;
+            this.localPositions.set(idea.id, { x, y });
+            this.saveLocalPositions();
+          }
+        } else {
+          x = idea.x != null ? idea.x : 500;
+          y = idea.y != null ? idea.y : 250;
+          this.localPositions.set(idea.id, { x, y });
+          this.saveLocalPositions();
+        }
+
+        const updatedIdeaItem: IdeaItem = {
+          kind: 'idea',
+          id: idea.id,
+          x,
+          y,
+          color: idea.color || '#9fc9a9',
+          creatorId: idea.author?.id ?? null,
+          title: idea.title || idea.text || 'Untitled Idea',
+          description: idea.description || '',
+          categoryId: idea.category?.id ?? null,
+          categoryTitle: idea.category?.title ?? null,
+          category: idea.category ?? null,
+          voteCount: idea.voteCount ?? 0,
+          voted: !!idea.voted,
+        };
+
+        if (existingIndex >= 0) {
+          this.items.update(items =>
+            items.map(i => i.id === idea.id ? updatedIdeaItem : i)
+          );
+        } else {
+          this.items.update(items => [...items, updatedIdeaItem]);
+        }
+      }
+    });
+
+    this.commentEventsSub = this.realtime.commentEvents$.subscribe(event => {
+      const activeIdea = this.activeCommentIdea();
+      if (!activeIdea || activeIdea.id !== event.ideaId) {
+        return;
+      }
+
+      if (event.type === 'comment-deleted' && event.commentId) {
+        this.comments.update(list =>
+          list
+            .filter(c => c.id !== event.commentId)
+            .map(c => ({
+              ...c,
+              replies: (c.replies || []).filter(r => r.id !== event.commentId),
+            }))
+        );
+      } else if (event.type === 'comment-created' && event.comment) {
+        const newComment = event.comment;
+        this.comments.update(list => {
+          if (newComment.parentId) {
+            return list.map(c => {
+              if (c.id === newComment.parentId) {
+                const existingReplies = c.replies || [];
+                if (existingReplies.some(r => r.id === newComment.id)) {
+                  return {
+                    ...c,
+                    replies: existingReplies.map(r => r.id === newComment.id ? newComment : r),
+                  };
+                }
+                return { ...c, replies: [...existingReplies, newComment] };
+              }
+              return c;
+            });
+          } else {
+            if (list.some(c => c.id === newComment.id)) {
+              return list.map(c => c.id === newComment.id ? newComment : c);
+            }
+            return [...list, newComment];
+          }
+        });
+      } else if (event.type === 'comment-updated' && event.comment) {
+        const updatedComment = event.comment;
+        this.comments.update(list =>
+          list.map(c => {
+            if (c.id === updatedComment.id) {
+              return { ...c, content: updatedComment.content, text: updatedComment.content, updatedAt: updatedComment.updatedAt };
+            }
+            if (c.replies && c.replies.some(r => r.id === updatedComment.id)) {
+              return {
+                ...c,
+                replies: c.replies.map(r =>
+                  r.id === updatedComment.id
+                    ? { ...r, content: updatedComment.content, text: updatedComment.content, updatedAt: updatedComment.updatedAt }
+                    : r
+                ),
+              };
+            }
+            return c;
+          })
+        );
+      }
+    });
+
+    this.drawingEventsSub = this.realtime.drawingEvents$.subscribe(event => {
+      if (event.type === 'drawing-deleted' && event.id) {
+        const delId = event.id;
+        this.markDrawingDeleted(delId);
+        this.items.update(items => items.filter(i => i.id !== delId));
+        if (this.selectedDrawingId() === delId) {
+          this.selectedDrawingId.set(null);
+        }
+        this.remotePreviews.update(map => {
+          if (!map.has(delId)) return map;
+          const next = new Map(map);
+          next.delete(delId);
+          return next;
+        });
+        return;
+      }
+
+      if ((event.type === 'drawing-created' || event.type === 'drawing-updated') && event.drawing) {
+        const d = event.drawing;
+        if (this.isRecentlyDeletedDrawing(d.id)) return;
+
+        const serverVersion = event.version || (d.updatedAt ? new Date(d.updatedAt).getTime() : 0);
+        const curVersion = this.drawingVersions.get(d.id) || 0;
+        if (serverVersion < curVersion) return;
+        this.drawingVersions.set(d.id, serverVersion);
+
+        this.remotePreviews.update(map => {
+          if (!map.has(d.id)) return map;
+          const next = new Map(map);
+          next.delete(d.id);
+          return next;
+        });
+
+        const parsedItem = this.mapDrawingResponseToCanvasItem(d);
+        if (!parsedItem) return;
+
+        if (this.draggingDrawing?.id === d.id) return;
+
+        const pending = this.drawingPositionGuard.getPendingMove(d.id);
+        if (pending) {
+          parsedItem.offsetX = pending.offsetX;
+          parsedItem.offsetY = pending.offsetY;
+        }
+
+        this.items.update(items => {
+          const idx = items.findIndex(i => i.id === d.id);
+          if (idx >= 0) {
+            return items.map(i => i.id === d.id ? parsedItem : i);
+          } else {
+            return [...items, parsedItem];
+          }
+        });
+      }
+    });
+
+    this.drawingMovesSub = this.realtime.drawingMoves$.subscribe(move => {
+      if (this.draggingDrawing?.id === move.id) return;
+
+      this.drawingPositionGuard.registerRemoteMove(move.id, move.offsetX, move.offsetY);
+      this.items.update(items =>
+        items.map(item => {
+          if ((item.kind === 'stroke' || item.kind === 'shape') && item.id === move.id) {
+            return { ...item, offsetX: move.offsetX, offsetY: move.offsetY };
+          }
+          return item;
+        })
+      );
+    });
+
+    this.strokePointsSub = this.realtime.strokePoints$.subscribe(sp => {
+      const myId = this.userService.currentUser()?.id;
+      if (myId != null && String(sp.userId) === String(myId)) return;
+
+      this.remotePreviews.update(map => {
+        const next = new Map(map);
+        next.set(sp.strokeId, {
+          strokeId: sp.strokeId,
+          points: sp.points,
+          color: sp.color,
+          width: sp.width,
+          opacity: sp.opacity,
+          lastUpdated: Date.now(),
+        });
+        return next;
+      });
+    });
+
+    this.objectLockedSub = this.realtime.objectLocked$.subscribe(lock => {
+      this.heldObjects.update(map => {
+        const next = new Map(map);
+        next.set(`${lock.objectType}:${lock.id}`, {
+          objectType: lock.objectType,
+          objectId: lock.id,
+          userId: lock.userId,
+          userName: lock.name,
+          expiresAt: Date.now() + 3000,
+        });
+        return next;
+      });
+    });
+
+    this.objectUnlockedSub = this.realtime.objectUnlocked$.subscribe(unlock => {
+      this.heldObjects.update(map => {
+        const next = new Map(map);
+        next.delete(`${unlock.objectType}:${unlock.id}`);
+        return next;
+      });
+    });
+
+    effect(() => {
+      const participants = this.onlineParticipants();
+      const participantIds = new Set(participants.map(p => String(p.userId)));
+      this.remoteCursors.update(map => {
+        let changed = false;
+        for (const uid of map.keys()) {
+          if (!participantIds.has(String(uid))) {
+            changed = true;
+            break;
+          }
+        }
+        if (!changed) return map;
+        const next = new Map();
+        for (const [uid, c] of map.entries()) {
+          if (participantIds.has(String(uid))) {
+            next.set(uid, c);
+          }
+        }
+        return next;
+      });
+    });
+
     effect(() => {
       const currentRoomId = this.roomId();
-      // reading the filters here restarts the sync immediately when a filter changes
       this.filters();
       if (currentRoomId) {
         this.positionGuard.clear();
+        this.drawingPositionGuard.clear();
         this.loadLocalPositions(currentRoomId);
         this.startSync(currentRoomId);
         this.initPresence(currentRoomId);
@@ -680,12 +1179,13 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         this.stopPresence();
         this.realtime.leaveRoom();
         this.positionGuard.clear();
+        this.drawingPositionGuard.clear();
       }
     });
 
     effect(() => {
-      if (this.isRoomLocked() && this.selectedTool() === 'idea') {
-        this.selectedTool.set('pen');
+      if (this.isRoomLocked() && (this.selectedTool() === 'idea' || this.selectedTool() === 'pen')) {
+        this.selectedTool.set('select');
       }
     });
   }
@@ -693,11 +1193,26 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   ngOnDestroy(): void {
     clearTimeout(this.searchTimer);
     clearTimeout(this.ideaErrorTimer);
+    clearTimeout(this.transientErrorTimer);
+    if (this.cursorPruneTimer) {
+      clearInterval(this.cursorPruneTimer);
+    }
     this.stopSync();
     this.stopPresence();
     this.cardMovesSub?.unsubscribe();
+    this.cursorMovesSub?.unsubscribe();
+    this.cursorLeavesSub?.unsubscribe();
+    this.ideaEventsSub?.unsubscribe();
+    this.commentEventsSub?.unsubscribe();
+    this.drawingEventsSub?.unsubscribe();
+    this.drawingMovesSub?.unsubscribe();
+    this.strokePointsSub?.unsubscribe();
+    this.objectLockedSub?.unsubscribe();
+    this.objectUnlockedSub?.unsubscribe();
+    this.remoteCursors.set(new Map());
     this.realtime.leaveRoom();
     this.positionGuard.clear();
+    this.drawingPositionGuard.clear();
   }
 
   private initPresence(roomId: string): void {
@@ -752,8 +1267,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   private startSync(currentRoomId: string): void {
     this.stopSync();
-    // Fetch immediately, then poll every 5000ms as a fallback so new ideas appear to all participants
-    this.pollSub = timer(0, 5000)
+    this.pollSub = timer(0, 15000)
       .pipe(
         exhaustMap(() => {
           const pollGen = this.positionGuard.nextPollGeneration();
@@ -784,12 +1298,19 @@ export class WorkspaceCanvasComponent implements OnDestroy {
                 return of(null);
               })
             ),
+            drawings: this.drawingsService.getRoomDrawings(currentRoomId).pipe(
+              timeout(10000),
+              catchError(err => {
+                console.error('Error fetching room drawings:', err);
+                return of(null);
+              })
+            ),
           }).pipe(
             map(result => ({ ...result, pollGen }))
           );
         })
       )
-      .subscribe(({ room, ideas, categories, pollGen }) => {
+      .subscribe(({ room, ideas, categories, drawings, pollGen }) => {
         if (room) {
           this.roomChanged.emit(room);
         }
@@ -798,6 +1319,9 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         }
         if (ideas) {
           this.syncServerIdeas(ideas, pollGen);
+        }
+        if (drawings) {
+          this.syncServerDrawings(drawings, pollGen);
         }
       });
   }
@@ -814,11 +1338,23 @@ export class WorkspaceCanvasComponent implements OnDestroy {
       this.positionGuard.onPollReceived(pollGen, ideas);
     }
 
+    const activeIdeas = ideas.filter(idea => !this.isRecentlyDeleted(idea.id));
+
+    for (const idea of activeIdeas) {
+      if (idea.updatedAt) {
+        const v = new Date(idea.updatedAt).getTime();
+        const cur = this.ideaVersions.get(idea.id) || 0;
+        if (v > cur) {
+          this.ideaVersions.set(idea.id, v);
+        }
+      }
+    }
+
     const currentItems = this.items();
     const nonIdeas = currentItems.filter(item => item.kind !== 'idea');
     const currentlyDragging = this.draggingIdea();
 
-    const serverIdeas: IdeaItem[] = ideas.map(idea => {
+    const serverIdeas: IdeaItem[] = activeIdeas.map(idea => {
       const isBeingDragged = currentlyDragging !== null && currentlyDragging.id === idea.id;
       const currentLocal = currentItems.find(i => i.id === idea.id) as IdeaItem | undefined;
       const cached = this.localPositions.get(idea.id);
@@ -834,7 +1370,6 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         x = pending.x;
         y = pending.y;
       } else if (cached) {
-        // Cached local position is preserved; server idea.x/y does NOT override cached position
         x = cached.x;
         y = cached.y;
       } else if (idea.x != null && idea.y != null) {
@@ -896,10 +1431,118 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     }
   }
 
+  private syncServerDrawings(drawings: DrawingResponse[], pollGen?: number): void {
+    if (pollGen != null) {
+      this.drawingPositionGuard.onPollReceived(pollGen, drawings);
+    }
+
+    const activeDrawings = drawings.filter(d => !this.isRecentlyDeletedDrawing(d.id));
+
+    for (const d of activeDrawings) {
+      if (d.updatedAt) {
+        const v = new Date(d.updatedAt).getTime();
+        const cur = this.drawingVersions.get(d.id) || 0;
+        if (v > cur) {
+          this.drawingVersions.set(d.id, v);
+        }
+      }
+    }
+
+    const currentItems = this.items();
+    const currentDrawings = currentItems.filter(i => i.kind === 'stroke' || i.kind === 'shape');
+    const ideaItems = currentItems.filter(i => i.kind === 'idea');
+
+    const mappedDrawings: (StrokeItem | ShapeItem)[] = [];
+    for (const d of activeDrawings) {
+      const item = this.mapDrawingResponseToCanvasItem(d);
+      if (!item) continue;
+
+      if (this.draggingDrawing?.id === d.id) {
+        item.offsetX = this.draggingDrawing.currentOffsetX;
+        item.offsetY = this.draggingDrawing.currentOffsetY;
+      } else {
+        const pending = this.drawingPositionGuard.getPendingMove(d.id);
+        if (pending) {
+          item.offsetX = pending.offsetX;
+          item.offsetY = pending.offsetY;
+        } else {
+          this.drawingPositionGuard.trackConfirmedPosition(d.id, d.offsetX || 0, d.offsetY || 0);
+        }
+      }
+      mappedDrawings.push(item);
+    }
+
+    const isDifferent =
+      currentDrawings.length !== mappedDrawings.length ||
+      mappedDrawings.some((md, idx) => {
+        const cd = currentDrawings[idx];
+        return (
+          !cd ||
+          cd.id !== md.id ||
+          (cd.offsetX || 0) !== (md.offsetX || 0) ||
+          (cd.offsetY || 0) !== (md.offsetY || 0) ||
+          cd.color !== md.color
+        );
+      });
+
+    if (isDifferent) {
+      this.items.set([...ideaItems, ...mappedDrawings]);
+    }
+  }
+
+  private mapDrawingResponseToCanvasItem(d: DrawingResponse): StrokeItem | ShapeItem | null {
+    try {
+      const payload = JSON.parse(d.payload);
+      const authorId = d.author?.id;
+      const authorName = d.author?.username;
+      const version = d.updatedAt ? new Date(d.updatedAt).getTime() : 0;
+
+      if (d.kind === 'pen' || d.kind === 'highlighter') {
+        const points: CanvasPoint[] = Array.isArray(payload) ? payload : (payload.points || []);
+        return {
+          kind: 'stroke',
+          id: d.id,
+          points,
+          color: d.color,
+          width: d.width,
+          opacity: d.opacity,
+          offsetX: d.offsetX || 0,
+          offsetY: d.offsetY || 0,
+          authorId,
+          authorName,
+          version,
+          drawingKind: d.kind,
+        };
+      } else if (d.kind === 'triangle' || d.kind === 'circle' || d.kind === 'rectangle') {
+        return {
+          kind: 'shape',
+          id: d.id,
+          shape: d.kind,
+          x: payload.x || 0,
+          y: payload.y || 0,
+          width: payload.width || 50,
+          height: payload.height || 50,
+          color: d.color,
+          offsetX: d.offsetX || 0,
+          offsetY: d.offsetY || 0,
+          authorId,
+          authorName,
+          version,
+        };
+      }
+    } catch (err) {
+      console.error('Failed to parse drawing payload', d.id, err);
+    }
+    return null;
+  }
+
   protected selectTool(tool: WorkspaceTool): void {
     if (tool === 'idea' && this.isRoomLocked()) return;
     this.selectedTool.set(tool);
     this.shapesOpen.set(tool === 'shapes');
+    if (tool !== 'select') {
+      this.selectedDrawingId.set(null);
+    }
   }
 
   protected selectShape(shape: ShapeOption): void {
@@ -934,12 +1577,58 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     this.startPoint = point;
     this.actionStartItems = this.items();
 
+    if (this.selectedTool() === 'select') {
+      const surfaceWidth = surface.getBoundingClientRect().width;
+      const tolerance = screenToleranceToCanvasUnits(6, surfaceWidth);
+      const allItems = this.items();
+      let hitItem: (StrokeItem | ShapeItem) | null = null;
+
+      for (let i = allItems.length - 1; i >= 0; i--) {
+        const item = allItems[i];
+        if (item.kind === 'stroke') {
+          if (hitTestStroke(point, item.points, item.width, tolerance, item.offsetX, item.offsetY)) {
+            hitItem = item;
+            break;
+          }
+        } else if (item.kind === 'shape') {
+          if (hitTestShape(point, item, tolerance)) {
+            hitItem = item;
+            break;
+          }
+        }
+      }
+
+      if (hitItem) {
+        if (this.isItemLocked('drawing', hitItem.id)) {
+          const holder = this.getItemHolderName('drawing', hitItem.id) || 'another user';
+          this.showTransientError(`This drawing is currently held by ${holder}.`);
+          this.finishPointer(surface);
+          return;
+        }
+
+        this.selectedDrawingId.set(hitItem.id);
+        if (!this.isRoomLocked()) {
+          this.draggingDrawing = {
+            id: hitItem.id,
+            startPointer: point,
+            startOffsetX: hitItem.offsetX || 0,
+            startOffsetY: hitItem.offsetY || 0,
+            currentOffsetX: hitItem.offsetX || 0,
+            currentOffsetY: hitItem.offsetY || 0,
+            hasMoved: false,
+          };
+        }
+      } else {
+        this.selectedDrawingId.set(null);
+      }
+      return;
+    }
+
     if (this.selectedTool() === 'idea') {
       if (this.room()?.closed) {
         this.finishPointer(surface);
         return;
       }
-      // pre-select the active category filter so the new idea stays visible
       this.ideaDraft.set({ x: point.x, y: point.y, title: '', description: '', categoryId: this.filterCategoryId() });
       this.ideaError.set('');
       this.finishPointer(surface);
@@ -947,13 +1636,29 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     }
 
     if (this.selectedTool() === 'eraser') {
-      this.eraseAt(point);
+      this.eraseAt(point, surface.getBoundingClientRect().width);
       return;
     }
 
     if (this.selectedTool() === 'pen' || this.selectedTool() === 'highlighter') {
+      if (this.isRoomLocked()) {
+        this.finishPointer(surface);
+        return;
+      }
+      this.currentStrokeId = typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : 'str-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
       this.draftPoints = [point];
-      this.preview.set(this.createStroke());
+      const preview = this.createStroke();
+      this.preview.set(preview);
+      this.lastStrokePointsBroadcastTime = Date.now();
+      this.realtime.sendStrokePoints(
+        this.currentStrokeId,
+        preview.color,
+        preview.width,
+        preview.opacity,
+        this.draftPoints
+      );
     }
   }
 
@@ -962,15 +1667,51 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     const surface = event.currentTarget as SVGElement;
     const point = this.toCanvasPoint(event, surface);
 
+    if (this.selectedTool() === 'select') {
+      if (this.draggingDrawing) {
+        const dx = point.x - this.draggingDrawing.startPointer.x;
+        const dy = point.y - this.draggingDrawing.startPointer.y;
+        if (!this.draggingDrawing.hasMoved && Math.hypot(dx, dy) > 2) {
+          this.draggingDrawing.hasMoved = true;
+        }
+        if (this.draggingDrawing.hasMoved) {
+          const newOffsetX = Math.round(this.draggingDrawing.startOffsetX + dx);
+          const newOffsetY = Math.round(this.draggingDrawing.startOffsetY + dy);
+          this.draggingDrawing.currentOffsetX = newOffsetX;
+          this.draggingDrawing.currentOffsetY = newOffsetY;
+
+          this.items.update(items =>
+            items.map(i => {
+              if ((i.kind === 'stroke' || i.kind === 'shape') && i.id === this.draggingDrawing!.id) {
+                return { ...i, offsetX: newOffsetX, offsetY: newOffsetY };
+              }
+              return i;
+            })
+          );
+
+          this.realtime.broadcastDrawingMove(this.draggingDrawing.id, newOffsetX, newOffsetY, false);
+        }
+      }
+      return;
+    }
+
     if (this.selectedTool() === 'eraser') {
-      this.eraseAt(point);
+      this.eraseAt(point, surface.getBoundingClientRect().width);
       return;
     }
 
     if (!this.startPoint) return;
     if (this.selectedTool() === 'pen' || this.selectedTool() === 'highlighter') {
       this.draftPoints = [...this.draftPoints, point];
-      this.preview.set(this.createStroke());
+      const preview = this.createStroke();
+      this.preview.set(preview);
+      this.realtime.sendStrokePoints(
+        this.currentStrokeId,
+        preview.color,
+        preview.width,
+        preview.opacity,
+        this.draftPoints
+      );
     } else if (this.selectedTool() === 'shapes') {
       this.preview.set(this.createShape(this.startPoint, point));
     }
@@ -979,10 +1720,174 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   protected onPointerUp(event: PointerEvent): void {
     if (event.pointerId !== this.pointerId) return;
     const surface = event.currentTarget as SVGElement;
-    const currentPreview = this.preview();
-    if (currentPreview && this.selectedTool() !== 'eraser') {
-      this.commit([...this.items(), currentPreview]);
-    } else if (this.selectedTool() === 'eraser' && this.actionStartItems !== this.items()) {
+    const point = this.toCanvasPoint(event, surface);
+
+    if (this.selectedTool() === 'select') {
+      if (this.draggingDrawing) {
+        const dd = this.draggingDrawing;
+        this.draggingDrawing = null;
+        if (dd.hasMoved) {
+          this.realtime.broadcastDrawingMove(dd.id, dd.currentOffsetX, dd.currentOffsetY, true);
+
+          const moveSeq = this.drawingPositionGuard.registerDrop(dd.id, dd.currentOffsetX, dd.currentOffsetY);
+          const roomId = this.roomId();
+          if (roomId) {
+            this.drawingsService.moveDrawing(roomId, dd.id, {
+              offsetX: dd.currentOffsetX,
+              offsetY: dd.currentOffsetY,
+            }).subscribe({
+              next: updated => {
+                this.drawingPositionGuard.onSaveSuccess(dd.id, moveSeq, updated.offsetX, updated.offsetY);
+              },
+              error: err => {
+                console.error('Failed to move drawing', err);
+                const rollback = this.drawingPositionGuard.onSaveFailure(dd.id, moveSeq);
+                if (rollback.rolledBack) {
+                  const rbX = rollback.rollbackPos?.offsetX ?? dd.startOffsetX;
+                  const rbY = rollback.rollbackPos?.offsetY ?? dd.startOffsetY;
+                  this.items.update(items =>
+                    items.map(i => (i.kind === 'stroke' || i.kind === 'shape') && i.id === dd.id ? { ...i, offsetX: rbX, offsetY: rbY } : i)
+                  );
+                }
+                this.showTransientError('Could not move drawing.');
+              },
+            });
+          }
+
+          this.realtime.sendObjectUnlock('drawing', dd.id);
+        }
+      }
+      this.finishPointer(surface);
+      return;
+    }
+
+    if (this.selectedTool() === 'pen' || this.selectedTool() === 'highlighter') {
+      const strokeId = this.currentStrokeId;
+      const simplified = simplifyPoints(this.draftPoints, 1.2);
+      const isHighlighter = this.selectedTool() === 'highlighter';
+      const color = this.selectedColor();
+      const width = isHighlighter ? 30 : 5;
+      const opacity = isHighlighter ? 0.35 : 1;
+
+      const drawingCount = this.items().filter(i => i.kind !== 'idea').length;
+      if (drawingCount >= 500) {
+        this.showTransientError('Maximum of 500 drawings reached for this room.');
+        this.finishPointer(surface);
+        return;
+      }
+
+      const optimisticStroke: StrokeItem = {
+        kind: 'stroke',
+        id: strokeId,
+        points: simplified,
+        color,
+        width,
+        opacity,
+        offsetX: 0,
+        offsetY: 0,
+        authorId: this.userService.currentUser()?.id,
+        authorName: this.userService.currentUser()?.username,
+        drawingKind: isHighlighter ? 'highlighter' : 'pen',
+      };
+
+      this.commit([...this.items(), optimisticStroke]);
+
+      const roomId = this.roomId();
+      if (roomId) {
+        this.drawingsService.createDrawing(roomId, {
+          kind: isHighlighter ? 'highlighter' : 'pen',
+          color,
+          width,
+          opacity,
+          payload: JSON.stringify(simplified),
+          offsetX: 0,
+          offsetY: 0,
+        }).subscribe({
+          next: created => {
+            const ver = created.updatedAt ? new Date(created.updatedAt).getTime() : Date.now();
+            this.drawingVersions.set(created.id, ver);
+            this.items.update(items =>
+              items.map(i => i.id === strokeId ? this.mapDrawingResponseToCanvasItem(created) ?? optimisticStroke : i)
+            );
+          },
+          error: err => {
+            console.error('Failed to create stroke on server', err);
+            this.items.update(items => items.filter(i => i.id !== strokeId));
+            this.showTransientError(err?.error?.message || 'Could not save drawing to server.');
+          },
+        });
+      }
+      this.finishPointer(surface);
+      return;
+    }
+
+    if (this.selectedTool() === 'shapes') {
+      if (this.startPoint) {
+        const shapeKind = this.selectedShape();
+        const x = Math.min(this.startPoint.x, point.x);
+        const y = Math.min(this.startPoint.y, point.y);
+        const width = Math.max(Math.abs(point.x - this.startPoint.x), 12);
+        const height = Math.max(Math.abs(point.y - this.startPoint.y), 12);
+        const color = this.selectedColor();
+        const shapeId = typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : 'shp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
+
+        const drawingCount = this.items().filter(i => i.kind !== 'idea').length;
+        if (drawingCount >= 500) {
+          this.showTransientError('Maximum of 500 drawings reached for this room.');
+          this.finishPointer(surface);
+          return;
+        }
+
+        const optimisticShape: ShapeItem = {
+          kind: 'shape',
+          id: shapeId,
+          shape: shapeKind,
+          x,
+          y,
+          width,
+          height,
+          color,
+          offsetX: 0,
+          offsetY: 0,
+          authorId: this.userService.currentUser()?.id,
+          authorName: this.userService.currentUser()?.username,
+        };
+
+        this.commit([...this.items(), optimisticShape]);
+
+        const roomId = this.roomId();
+        if (roomId) {
+          this.drawingsService.createDrawing(roomId, {
+            kind: shapeKind,
+            color,
+            width: 2,
+            opacity: 1,
+            payload: JSON.stringify({ x, y, width, height }),
+            offsetX: 0,
+            offsetY: 0,
+          }).subscribe({
+            next: created => {
+              const ver = created.updatedAt ? new Date(created.updatedAt).getTime() : Date.now();
+              this.drawingVersions.set(created.id, ver);
+              this.items.update(items =>
+                items.map(i => i.id === shapeId ? this.mapDrawingResponseToCanvasItem(created) ?? optimisticShape : i)
+              );
+            },
+            error: err => {
+              console.error('Failed to create shape on server', err);
+              this.items.update(items => items.filter(i => i.id !== shapeId));
+              this.showTransientError(err?.error?.message || 'Could not save shape to server.');
+            },
+          });
+        }
+      }
+      this.finishPointer(surface);
+      return;
+    }
+
+    if (this.selectedTool() === 'eraser' && this.actionStartItems !== this.items()) {
       this.commit(this.items());
     }
     this.finishPointer(surface);
@@ -994,9 +1899,19 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
     if (this.selectedTool() === 'eraser') {
       event.stopPropagation();
-      if (this.isCreator(idea)) {
+      const isOwner = this.isRoomOwner();
+      const isCreator = this.isCreator(idea);
+      if (isOwner || isCreator) {
         this.eraseIdea(idea);
+      } else {
+        this.showTransientError('You can only erase your own ideas.');
       }
+      return;
+    }
+
+    if (this.isItemLocked('card', idea.id)) {
+      const holder = this.getItemHolderName('card', idea.id) || 'another user';
+      this.showTransientError(`This idea is currently being moved by ${holder}.`);
       return;
     }
 
@@ -1072,13 +1987,13 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     }
 
     if (dragged) {
+      this.realtime.sendObjectUnlock('card', dragged.id);
+
       const currentItem = this.items().find(i => i.id === dragged.id);
       if (currentItem && currentItem.kind === 'idea') {
-        // Record in local cache immediately so background polling never snaps it back
         this.localPositions.set(dragged.id, { x: currentItem.x, y: currentItem.y });
         this.saveLocalPositions();
 
-        // Broadcast final position immediately
         this.realtime.broadcastCardMove(
           {
             id: dragged.id,
@@ -1105,7 +2020,6 @@ export class WorkspaceCanvasComponent implements OnDestroy {
                 const targetX = updated.x ?? currentItem.x;
                 const targetY = updated.y ?? currentItem.y;
                 this.positionGuard.onSaveSuccess(dragged.id, moveSeq, targetX, targetY);
-                // Keep the dropped position as the source of truth (optimistic update)
                 this.localPositions.set(dragged.id, { x: currentItem.x, y: currentItem.y });
                 this.saveLocalPositions();
               },
@@ -1140,6 +2054,10 @@ export class WorkspaceCanvasComponent implements OnDestroy {
 
   private eraseIdea(idea: IdeaItem): void {
     if (this.room()?.closed) return;
+    this.markDeleted(idea.id);
+    if (this.activeCommentIdea()?.id === idea.id) {
+      this.closeComments();
+    }
     this.localPositions.delete(idea.id);
     this.saveLocalPositions();
 
@@ -1346,66 +2264,160 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     return `${value / 5}%`;
   }
 
-    private createStroke(): StrokeItem {
-      const highlighter = this.selectedTool() === 'highlighter';
-      return {
-        kind: 'stroke',
-        id: this.nextItemId++,
-        points: this.draftPoints,
-        color: this.selectedColor(),
-        width: highlighter ? 30 : 5,
-        opacity: highlighter ? 0.35 : 1,
-      };
-    }
+  private createStroke(): StrokeItem {
+    const highlighter = this.selectedTool() === 'highlighter';
+    return {
+      kind: 'stroke',
+      id: this.currentStrokeId || String(this.nextItemId++),
+      points: this.draftPoints,
+      color: this.selectedColor(),
+      width: highlighter ? 30 : 5,
+      opacity: highlighter ? 0.35 : 1,
+      offsetX: 0,
+      offsetY: 0,
+      drawingKind: highlighter ? 'highlighter' : 'pen',
+    };
+  }
 
   private createShape(start: CanvasPoint, end: CanvasPoint): ShapeItem {
     return {
       kind: 'shape',
-      id: this.nextItemId++,
+      id: String(this.nextItemId++),
       shape: this.selectedShape(),
       x: Math.min(start.x, end.x),
       y: Math.min(start.y, end.y),
       width: Math.max(Math.abs(end.x - start.x), 12),
       height: Math.max(Math.abs(end.y - start.y), 12),
       color: this.selectedColor(),
+      offsetX: 0,
+      offsetY: 0,
     };
   }
 
-  private eraseAt(point: CanvasPoint): void {
-    if (this.room()?.closed) return;
-    const currentRoomId = this.roomId();
-    const erasedIdeas = this.items().filter(
-      (item): item is IdeaItem => item.kind === 'idea' && this.isNear(item, point) && this.isCreator(item)
-    );
-
-    if (erasedIdeas.length > 0 && currentRoomId) {
-      for (const erased of erasedIdeas) {
-        this.localPositions.delete(erased.id);
-        this.mindspark.deleteIdea(erased.id).subscribe({
-          error: () => console.error('Could not delete idea from server', erased.id),
-        });
-      }
-      this.saveLocalPositions();
-    }
-
-    this.items.update(items =>
-      items.filter(item => !this.isNear(item, point) || (item.kind === 'idea' && !this.isCreator(item)))
-    );
+  protected onStagePointerMove(event: PointerEvent): void {
+    const stage = event.currentTarget as HTMLElement;
+    const bounds = stage.getBoundingClientRect();
+    if (bounds.width <= 0 || bounds.height <= 0) return;
+    const x = Math.max(0, Math.min(1000, ((event.clientX - bounds.left) / bounds.width) * 1000));
+    const y = Math.max(0, Math.min(500, ((event.clientY - bounds.top) / bounds.height) * 500));
+    this.realtime.sendCursorMove(Math.round(x * 10) / 10, Math.round(y * 10) / 10);
   }
 
-  private isNear(item: CanvasItem, point: CanvasPoint): boolean {
-    if (item.kind === 'idea') {
-      return Math.abs(item.x - point.x) < 70 && Math.abs(item.y - point.y) < 35;
+  protected onStagePointerLeave(event: PointerEvent): void {
+    this.realtime.sendCursorLeave();
+  }
+
+  private eraseAt(point: CanvasPoint, surfaceWidth = 1000): void {
+    if (this.isRoomLocked()) return;
+    const currentRoomId = this.roomId();
+    const currentUserId = this.userService.currentUser()?.id;
+    const isOwner = this.isRoomOwner();
+    const tolerance = screenToleranceToCanvasUnits(12, surfaceWidth);
+
+    const allItems = this.items();
+    const drawingsToDelete: (StrokeItem | ShapeItem)[] = [];
+    let unauthorizedDrawingHit = false;
+
+    for (const item of allItems) {
+      if (item.kind === 'stroke') {
+        if (hitTestStroke(point, item.points, item.width, tolerance, item.offsetX, item.offsetY)) {
+          const canDelete = isOwner || (item.authorId != null && item.authorId === currentUserId);
+          if (canDelete) {
+            drawingsToDelete.push(item);
+          } else {
+            unauthorizedDrawingHit = true;
+          }
+        }
+      } else if (item.kind === 'shape') {
+        if (hitTestShape(point, item, tolerance)) {
+          const canDelete = isOwner || (item.authorId != null && item.authorId === currentUserId);
+          if (canDelete) {
+            drawingsToDelete.push(item);
+          } else {
+            unauthorizedDrawingHit = true;
+          }
+        }
+      }
     }
-    if (item.kind === 'shape') {
-      return (
-        point.x >= item.x - 12 &&
-        point.x <= item.x + item.width + 12 &&
-        point.y >= item.y - 12 &&
-        point.y <= item.y + item.height + 12
-      );
+
+    if (unauthorizedDrawingHit && drawingsToDelete.length === 0) {
+      this.showTransientError('You can only erase your own drawings.');
     }
-    return item.points.some(strokePoint => Math.hypot(strokePoint.x - point.x, strokePoint.y - point.y) < 24);
+
+    const ideasToDelete: IdeaItem[] = [];
+    let unauthorizedIdeaHit = false;
+    for (const item of allItems) {
+      if (item.kind === 'idea') {
+        if (Math.abs(item.x - point.x) < 70 && Math.abs(item.y - point.y) < 35) {
+          const canDelete = isOwner || this.isCreator(item);
+          if (canDelete) {
+            ideasToDelete.push(item);
+          } else {
+            unauthorizedIdeaHit = true;
+          }
+        }
+      }
+    }
+
+    if (unauthorizedIdeaHit && ideasToDelete.length === 0) {
+      this.showTransientError('You can only erase your own ideas.');
+    }
+
+    if (drawingsToDelete.length > 0) {
+      for (const d of drawingsToDelete) {
+        this.markDrawingDeleted(d.id);
+        if (this.selectedDrawingId() === d.id) {
+          this.selectedDrawingId.set(null);
+        }
+        if (currentRoomId) {
+          this.drawingsService.deleteDrawing(currentRoomId, d.id).subscribe({
+            error: err => console.error('Could not delete drawing', d.id, err),
+          });
+        }
+      }
+      const toDeleteIds = new Set(drawingsToDelete.map(d => d.id));
+      this.items.update(items => items.filter(i => !toDeleteIds.has(i.id)));
+    }
+
+    if (ideasToDelete.length > 0) {
+      for (const erased of ideasToDelete) {
+        this.eraseIdea(erased);
+      }
+    }
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  protected handleKeyDown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+    if (isInput) return;
+
+    if (event.key === 'Escape') {
+      this.selectedDrawingId.set(null);
+    } else if (event.key === 'Delete' || event.key === 'Backspace') {
+      const selId = this.selectedDrawingId();
+      if (selId) {
+        const drawing = this.items().find(i => (i.kind === 'stroke' || i.kind === 'shape') && i.id === selId) as (StrokeItem | ShapeItem) | undefined;
+        if (drawing) {
+          const isOwner = this.isRoomOwner();
+          const currentUserId = this.userService.currentUser()?.id;
+          const canDelete = isOwner || (drawing.authorId != null && drawing.authorId === currentUserId);
+          if (canDelete) {
+            this.markDrawingDeleted(selId);
+            this.selectedDrawingId.set(null);
+            this.items.update(items => items.filter(i => i.id !== selId));
+            const roomId = this.roomId();
+            if (roomId) {
+              this.drawingsService.deleteDrawing(roomId, selId).subscribe({
+                error: err => console.error('Failed to delete drawing', err),
+              });
+            }
+          } else {
+            this.showTransientError('You can only erase your own drawings.');
+          }
+        }
+      }
+    }
   }
 
   private toCanvasPoint(event: PointerEvent, surface: SVGElement): CanvasPoint {

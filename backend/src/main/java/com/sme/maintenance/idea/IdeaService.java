@@ -1,10 +1,12 @@
 
 package com.sme.maintenance.idea;
 
-import com.sme.maintenance.vote.VoteRepository;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+
+import com.sme.maintenance.vote.VoteRepository;
 
 
 import org.springframework.http.HttpStatus;
@@ -19,6 +21,8 @@ import com.sme.maintenance.repositories.UserRepository;
 import com.sme.maintenance.room.Room;
 import com.sme.maintenance.room.RoomRepository;
 import com.sme.maintenance.room.RoomService;
+import com.sme.maintenance.websocket.IdeaChangedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 
 @Service
 @Transactional
@@ -30,6 +34,7 @@ public class IdeaService {
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
     private final IdeaFinderService ideaFinderService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public IdeaService(
             IdeaRepository ideaRepository,
@@ -37,13 +42,15 @@ public class IdeaService {
             RoomRepository roomRepository,
             UserRepository userRepository,
             VoteRepository voteRepository,
-            IdeaFinderService ideaFinderService) {
+            IdeaFinderService ideaFinderService,
+            ApplicationEventPublisher eventPublisher) {
         this.ideaRepository = ideaRepository;
         this.roomService = roomService;
         this.roomRepository = roomRepository;
         this.userRepository = userRepository;
         this.voteRepository = voteRepository;
         this.ideaFinderService = ideaFinderService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional(readOnly = true)
@@ -130,7 +137,15 @@ public class IdeaService {
                 category
         );
 
-        return ideaRepository.save(idea);
+        Idea saved = ideaRepository.save(idea);
+        eventPublisher.publishEvent(new IdeaChangedEvent(
+                saved.getRoom().getId(),
+                "idea-created",
+                saved.getId(),
+                toIdeaData(saved),
+                saved.getUpdatedAt().toEpochMilli()
+        ));
+        return saved;
     }
 
     // i can update my idea 
@@ -270,7 +285,15 @@ public class IdeaService {
                 category
         );
 
-        return ideaRepository.save(idea);
+        Idea saved = ideaRepository.save(idea);
+        eventPublisher.publishEvent(new IdeaChangedEvent(
+                saved.getRoom().getId(),
+                "idea-updated",
+                saved.getId(),
+                toIdeaData(saved),
+                saved.getUpdatedAt().toEpochMilli()
+        ));
+        return saved;
     }
 // I can delete my own ideas
     public void delete(UUID ideaId, Long userId) {
@@ -280,7 +303,52 @@ public class IdeaService {
         requireAuthor(idea, userId);
         roomService.requireOpen(idea.getRoom());
 
+        UUID roomId = idea.getRoom().getId();
+        long version = System.currentTimeMillis();
+        voteRepository.deleteByIdea(idea);
         ideaRepository.delete(idea);
+        eventPublisher.publishEvent(new IdeaChangedEvent(
+                roomId,
+                "idea-deleted",
+                ideaId,
+                null,
+                version
+        ));
+    }
+
+    public Map<String, Object> toIdeaData(Idea idea) {
+        Map<String, Object> map = new java.util.LinkedHashMap<>();
+        map.put("id", idea.getId().toString());
+        map.put("text", idea.getText());
+        map.put("title", idea.getTitle());
+        map.put("description", idea.getDescription());
+        map.put("x", idea.getX());
+        map.put("y", idea.getY());
+        map.put("color", idea.getColor());
+        map.put("createdAt", idea.getCreatedAt().toString());
+        map.put("updatedAt", idea.getUpdatedAt().toString());
+        map.put("voteCount", getVoteCount(idea));
+
+        Map<String, Object> roomMap = new java.util.LinkedHashMap<>();
+        roomMap.put("id", idea.getRoom().getId().toString());
+        roomMap.put("name", idea.getRoom().getName());
+        map.put("room", roomMap);
+
+        Map<String, Object> authorMap = new java.util.LinkedHashMap<>();
+        authorMap.put("id", idea.getAuthor().getId());
+        authorMap.put("username", idea.getAuthor().getUsername());
+        authorMap.put("email", idea.getAuthor().getEmail());
+        map.put("author", authorMap);
+
+        if (idea.getCategory() != null) {
+            Map<String, Object> catMap = new java.util.LinkedHashMap<>();
+            catMap.put("id", idea.getCategory().getId());
+            catMap.put("title", idea.getCategory().getTitle());
+            map.put("category", catMap);
+        } else {
+            map.put("category", null);
+        }
+        return map;
     }
 
     @Transactional(readOnly = true)

@@ -18,6 +18,8 @@ public interface VoteRepository extends JpaRepository<Vote, UUID> {
 
     void deleteByIdeaAndUser(Idea idea, User user);
 
+    void deleteByIdea(Idea idea);
+
     long countByIdea(Idea idea);
 
     @org.springframework.data.jpa.repository.Modifying

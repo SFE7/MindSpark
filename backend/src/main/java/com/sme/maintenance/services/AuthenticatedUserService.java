@@ -1,4 +1,3 @@
-
 package com.sme.maintenance.services;
 
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -7,6 +6,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
 import com.sme.maintenance.entities.User;
+import com.sme.maintenance.security.JwtClaimsHelper;
 
 @Service
 public class AuthenticatedUserService {
@@ -26,9 +26,9 @@ public class AuthenticatedUserService {
         }
 
         return userService.getOrCreateUser(
-            jwt.getSubject(),
-            jwt.getClaimAsString("email"),
-            jwt.getClaimAsString("preferred_username")
+            JwtClaimsHelper.getSub(jwt),
+            JwtClaimsHelper.getEmail(jwt),
+            JwtClaimsHelper.getUsername(jwt)
         );
     }
 }

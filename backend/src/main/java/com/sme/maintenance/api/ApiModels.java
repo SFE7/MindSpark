@@ -48,6 +48,22 @@ public final class ApiModels {
         }
     }
 
+    public record DrawingRequest(
+            UUID id,
+            String kind,
+            String color,
+            Double width,
+            Double opacity,
+            String payload,
+            Double offsetX,
+            Double offsetY
+    ) {}
+
+    public record DrawingMoveRequest(
+            Double offsetX,
+            Double offsetY
+    ) {}
+
 
     // Responses records
 
@@ -110,6 +126,21 @@ public final class ApiModels {
             Instant createdAt,
             Instant updatedAt,
             List<CommentResponse> replies
+    ) {}
+
+    public record DrawingResponse(
+            UUID id,
+            UUID roomId,
+            UserResponse author,
+            String kind,
+            String color,
+            Double width,
+            Double opacity,
+            String payload,
+            Double offsetX,
+            Double offsetY,
+            Instant createdAt,
+            Instant updatedAt
     ) {}
 
     // filters

@@ -5,6 +5,8 @@
     [class.eraser-active]="selectedTool() === 'eraser'"
     [class.idea-active]="selectedTool() === 'idea'"
     [class.is-dragging]="draggingIdea() !== null"
+    (pointermove)="onStagePointerMove($event)"
+    (pointerleave)="onStagePointerLeave($event)"
   >
     <!-- SVG Drawing Layer  -->
     <svg
@@ -24,6 +26,7 @@
             [attr.stroke]="item.color"
             [attr.stroke-width]="item.width"
             [attr.opacity]="item.opacity"
+            [attr.transform]="(item.offsetX || item.offsetY) ? 'translate(' + (item.offsetX || 0) + ' ' + (item.offsetY || 0) + ')' : null"
             fill="none"
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -36,9 +39,14 @@
               [attr.rx]="item.width / 2"
               [attr.ry]="item.height / 2"
               [attr.stroke]="item.color"
+              [attr.transform]="(item.offsetX || item.offsetY) ? 'translate(' + (item.offsetX || 0) + ' ' + (item.offsetY || 0) + ')' : null"
             />
           } @else if (item.shape === 'triangle') {
-            <polygon [attr.points]="trianglePoints(item)" [attr.stroke]="item.color" />
+            <polygon
+              [attr.points]="trianglePoints(item)"
+              [attr.stroke]="item.color"
+              [attr.transform]="(item.offsetX || item.offsetY) ? 'translate(' + (item.offsetX || 0) + ' ' + (item.offsetY || 0) + ')' : null"
+            />
           } @else {
             <rect
               [attr.x]="item.x"
@@ -46,9 +54,23 @@
               [attr.width]="item.width"
               [attr.height]="item.height"
               [attr.stroke]="item.color"
+              [attr.transform]="(item.offsetX || item.offsetY) ? 'translate(' + (item.offsetX || 0) + ' ' + (item.offsetY || 0) + ')' : null"
             />
           }
         }
+      }
+      <!-- Remote Stroke Previews -->
+      @for (remotePreview of remotePreviewList(); track remotePreview.strokeId) {
+        <path
+          class="remote-preview"
+          [attr.d]="strokePath(remotePreview.points)"
+          [attr.stroke]="remotePreview.color"
+          [attr.stroke-width]="remotePreview.width"
+          [attr.opacity]="remotePreview.opacity"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
       }
       @if (preview(); as currentPreview) {
         @if (isStroke(currentPreview)) {
@@ -81,10 +103,22 @@
           />
         }
       }
+      <!-- Selection Box -->
+      @if (selectionBox(); as box) {
+        <rect
+          class="drawing-selection-box"
+          [attr.x]="box.x - 4"
+          [attr.y]="box.y - 4"
+          [attr.width]="box.width + 8"
+          [attr.height]="box.height + 8"
+          rx="4"
+          ry="4"
+        />
+      }
     </svg>
 
-    @if (ideaError() && !ideaDraft()) {
-      <div class="canvas-error-banner" role="alert">{{ ideaError() }}</div>
+    @if (transientError() || (ideaError() && !ideaDraft())) {
+      <div class="canvas-error-banner" role="alert">{{ transientError() || ideaError() }}</div>
     }
     @if (isOffline()) {
       <div class="offline-banner" role="alert">Room offline: the owner has left</div>
@@ -98,6 +132,7 @@
           [class.editable]="isCreator(idea) && !isRoomLocked()"
           [class.read-only]="isRoomLocked()"
           [class.dragging]="draggingIdea()?.id === idea.id"
+          [class.is-locked]="isItemLocked('card', idea.id)"
           [style.left]="percentX(idea.x)"
           [style.top]="percentY(idea.y)"
           [style.--idea-color]="idea.color"
@@ -108,8 +143,11 @@
           (keydown.enter)="editIdea(idea)"
           [attr.tabindex]="isCreator(idea) && !isRoomLocked() ? 0 : null"
         >
-       @if (idea.category) {
-        <span class="idea-category-badge">{{ idea.category.title }}</span>
+          @if (isItemLocked('card', idea.id)) {
+            <span class="card-lock-badge">Held by {{ getItemHolderName('card', idea.id) }}</span>
+          }
+          @if (idea.category) {
+            <span class="idea-category-badge">{{ idea.category.title }}</span>
           }
           <h3 class="idea-title">{{ idea.title }}</h3>
           @if (idea.description) {
@@ -197,6 +235,38 @@
         </div>
       </form>
     }
+
+    <!-- Remote Cursors Layer -->
+    <div class="remote-cursors-layer" aria-hidden="true">
+      @for (cursor of remoteCursorList(); track cursor.userId) {
+        <div
+          class="remote-cursor"
+          [style.left.%]="(cursor.x / 1000) * 100"
+          [style.top.%]="(cursor.y / 500) * 100"
+        >
+          <svg
+            class="cursor-pointer"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <path
+              d="M5.65376 12.3673H5.46026L5.31717 12.4976L0.500002 16.8829L0.500002 1.19841L11.7841 12.3673H5.65376Z"
+              [attr.fill]="cursor.color"
+              stroke="#ffffff"
+              stroke-width="1.5"
+            />
+          </svg>
+          <span
+            class="cursor-label"
+            [style.backgroundColor]="cursor.color"
+          >
+            {{ cursor.name }}
+          </span>
+        </div>
+      }
+    </div>
   </div>
 
   <!-- Integrated Floating Top Header -->
@@ -610,7 +680,13 @@
           [attr.aria-label]="tool.label"
           (click)="selectTool(tool.id)"
         >
-          <img class="tool-icon" [src]="tool.iconPath" [alt]="tool.label + ' tool icon'" />
+          @if (tool.id === 'select') {
+            <svg class="tool-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 3l7 18 3-7 7-3L3 3z"/>
+            </svg>
+          } @else {
+            <img class="tool-icon" [src]="tool.iconPath" [alt]="tool.label + ' tool icon'" />
+          }
           <span class="tool-label">{{ tool.label }}</span>
         </button>
       }

@@ -1,4 +1,3 @@
-
 import { Injectable } from '@angular/core';
 import Keycloak from 'keycloak-js';
 
@@ -7,19 +6,20 @@ import Keycloak from 'keycloak-js';
 })
 export class KeycloakAuth {
   private readonly keycloak = new Keycloak({
-    url: 'http://localhost:8180',
+    url: `${window.location.protocol}//${window.location.hostname}:8180`,
     realm: 'mindspark',
     clientId: 'frontend'
   });
 
   init(): Promise<boolean> {
+    // DEV ONLY, remove when the app is served over HTTPS and re-enable PKCE S256 everywhere.
+    const isSecure = typeof window !== 'undefined' && window.isSecureContext;
     return this.keycloak.init({
       onLoad: 'check-sso',
-      pkceMethod: 'S256',
+      pkceMethod: isSecure ? 'S256' : false,
       checkLoginIframe: false
     });
   }
-
 
   async getValidToken(): Promise<string | undefined> {
     if (!this.keycloak.authenticated) {
@@ -44,11 +44,11 @@ export class KeycloakAuth {
   }
 
   login(): Promise<void> {
-    return this.keycloak.login({prompt: 'login'});
+    return this.keycloak.login({ prompt: 'login' });
   }
 
   register(): Promise<void> {
-    return this.keycloak.register({redirectUri: window.location.origin});
+    return this.keycloak.register({ redirectUri: window.location.origin });
   }
 
   logout(): Promise<void> {
@@ -57,6 +57,3 @@ export class KeycloakAuth {
     });
   }
 }
-
-
-

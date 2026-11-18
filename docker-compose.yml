@@ -1,4 +1,53 @@
+include:
+  - path: infra/auth/compose.yaml
+    env_file: .env
+
 services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${APP_DB_PORT:-5433}:5432"
+    environment:
+      POSTGRES_DB: mindspark
+      POSTGRES_USER: ${APP_DB_USER:-mindspark}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD}
+    volumes:
+      - app_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${APP_DB_USER:-mindspark} -d mindspark"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./backend:/app
+    environment:
+      HOST_IP: ${HOST_IP}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/mindspark
+      SPRING_DATASOURCE_USERNAME: ${APP_DB_USER:-mindspark}
+      SPRING_DATASOURCE_PASSWORD: ${APP_DB_PASSWORD}
+      KEYCLOAK_ISSUER_URI: http://${HOST_IP}:8180/realms/mindspark
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/mindspark/protocol/openid-connect/certs
+      CORS_ALLOWED_ORIGINS: http://localhost:4200,http://${HOST_IP}:4200
+    depends_on:
+      db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    networks:
+      - frontend_net
+      - backend_net
+      - auth_net
+
   frontend:
     build:
       context: ./frontend
@@ -13,34 +62,28 @@ services:
     networks:
       - frontend_net
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.dev
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@mindspark.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
     volumes:
-      - ./backend:/app
+      - ./infra/pgadmin/servers.json:/pgadmin4/servers.json:ro
     depends_on:
-      - keycloak
+      db:
+        condition: service_healthy
     networks:
-      - frontend_net
-      - backend_net
-
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.4.0
-    command: start-dev
-    ports:
-      - "8180:8080"
-    env_file:
-      - .env
-    networks:
-      - frontend_net
       - backend_net
 
 volumes:
-  keycloak_data:
+  app_db_data:
 
 networks:
   frontend_net:
   backend_net:
+  auth_net:
+    name: auth_net
