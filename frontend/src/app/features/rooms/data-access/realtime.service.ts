@@ -1,7 +1,7 @@
 import { Injectable, OnDestroy, inject, signal } from '@angular/core';
 import { Observable, Subject } from 'rxjs';
 import { KeycloakAuth } from '../../../core/auth/keycloak-auth';
-import { environment } from '../../../environments/environment';
+import { environment } from '../../../../environments/environment';
 import { Idea } from '../models/idea.model';
 import { CommentItem } from '../models/comment.model';
 
