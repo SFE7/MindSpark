@@ -1,9 +1,15 @@
-
 {
   "/api": {
-    "target": "http://backend:8080",
+    "target": "http://api-gateway:8080",
     "secure": false,
     "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/ws": {
+    "target": "http://api-gateway:8080",
+    "secure": false,
+    "changeOrigin": true,
+    "ws": true,
     "logLevel": "debug"
   }
 }
