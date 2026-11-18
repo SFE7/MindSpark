@@ -7,7 +7,7 @@ def gen_pwd(length=32):
     return ''.join(secrets.choice(chars) for _ in range(length))
 
 def main():
-    host_ip = os.environ.get("HOST_IP", "192.168.0.3")
+    host_ip = os.environ.get("HOST_IP", "localhost")
     app_db_pwd = gen_pwd(32)
     keycloak_db_pwd = gen_pwd(32)
     keycloak_admin_pwd = gen_pwd(32)
@@ -28,7 +28,7 @@ KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/mindspark/protocol/openid-conne
 CORS_ALLOWED_ORIGINS=http://localhost:4200,http://{host_ip}:4200
 """
 
-    example_content = """HOST_IP=192.168.0.3
+    example_content = """HOST_IP=localhost
 APP_DB_USER=mindspark
 APP_DB_PASSWORD=CHANGE_ME
 APP_DB_PORT=5433
@@ -38,9 +38,9 @@ KEYCLOAK_ADMIN=admin
 KEYCLOAK_ADMIN_PASSWORD=CHANGE_ME
 PGADMIN_DEFAULT_EMAIL=admin@mindspark.local
 PGADMIN_DEFAULT_PASSWORD=CHANGE_ME
-KEYCLOAK_ISSUER_URI=http://192.168.0.3:8180/realms/mindspark
+KEYCLOAK_ISSUER_URI=http://localhost:8180/realms/mindspark
 KEYCLOAK_JWK_SET_URI=http://keycloak:8080/realms/mindspark/protocol/openid-connect/certs
-CORS_ALLOWED_ORIGINS=http://localhost:4200,http://192.168.0.3:4200
+CORS_ALLOWED_ORIGINS=http://localhost:4200
 """
 
     with open(".env", "w", encoding="utf-8") as f:

@@ -1,8 +1,11 @@
 package com.sme.maintenance.services;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -13,6 +16,7 @@ import com.sme.maintenance.repositories.CategoryRepository;
 import com.sme.maintenance.room.Room;
 import com.sme.maintenance.room.RoomRepository;
 import com.sme.maintenance.room.RoomService;
+import com.sme.maintenance.websocket.CategoryChangedEvent;
 
 import jakarta.transaction.Transactional;
 
@@ -24,12 +28,14 @@ public class CategoryService {
     private final RoomRepository roomRepository;
     private final CategoryRepository categoryRepository;
     private final IdeaRepository ideaRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public CategoryService(RoomService roomService,RoomRepository roomRepository,CategoryRepository categoryRepository,IdeaRepository ideaRepository){
+    public CategoryService(RoomService roomService, RoomRepository roomRepository, CategoryRepository categoryRepository, IdeaRepository ideaRepository, ApplicationEventPublisher eventPublisher){
         this.roomService = roomService;
         this.roomRepository = roomRepository;
         this.categoryRepository = categoryRepository;
         this.ideaRepository = ideaRepository;
+        this.eventPublisher = eventPublisher;
     }
 
 
@@ -88,14 +94,24 @@ public class CategoryService {
     }
 
         category.setTitle(trimmedNewTitle);
-        return categoryRepository.save(category); //saves the category and returns the saved category
+        Category saved = categoryRepository.save(category);
 
+        eventPublisher.publishEvent(new CategoryChangedEvent(
+                room.getId(),
+                "category-updated",
+                saved.getId(),
+                toCategoryData(saved),
+                System.currentTimeMillis()
+        ));
+
+        return saved;
     }
 
     //to create a room we need to validate 2 checks which are:
     // 1. we check if the string is not blank or null
     // 2. user is eligable for using CRUD operations on the category by calling or validation function
     // 3. the category title doesnt already exists
+    @Transactional
     public Category create(UUID roomId, String title, Long userId){
         if (title== null || title.isBlank()){
             throw new ResponseStatusException(
@@ -118,7 +134,17 @@ public class CategoryService {
         }
 
         Category category = new Category(trimmedTitle, room);
-        return categoryRepository.save(category);
+        Category saved = categoryRepository.save(category);
+
+        eventPublisher.publishEvent(new CategoryChangedEvent(
+                roomId,
+                "category-created",
+                saved.getId(),
+                toCategoryData(saved),
+                System.currentTimeMillis()
+        ));
+
+        return saved;
     }
 
 
@@ -160,7 +186,26 @@ public class CategoryService {
         
         validateUserAndRoom(room.getId(), userId);
 
+        UUID roomId = room.getId();
         ideaRepository.clearCategory(category);
         categoryRepository.delete(category);
+
+        eventPublisher.publishEvent(new CategoryChangedEvent(
+                roomId,
+                "category-deleted",
+                categoryId,
+                null,
+                System.currentTimeMillis()
+        ));
+    }
+
+    public Map<String, Object> toCategoryData(Category category) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", category.getId());
+        map.put("title", category.getTitle());
+        if (category.getRoom() != null && category.getRoom().getId() != null) {
+            map.put("roomId", category.getRoom().getId().toString());
+        }
+        return map;
     }
 }

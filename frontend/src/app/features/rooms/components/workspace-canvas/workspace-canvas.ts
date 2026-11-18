@@ -148,6 +148,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   private strokePointsSub?: Subscription;
   private objectLockedSub?: Subscription;
   private objectUnlockedSub?: Subscription;
+  private categoryEventsSub?: Subscription;
 
   private readonly ideaVersions = new Map<string, number>();
   private readonly recentlyDeletedIds = new Map<string, number>();
@@ -1138,6 +1139,36 @@ export class WorkspaceCanvasComponent implements OnDestroy {
       });
     });
 
+    this.categoryEventsSub = this.realtime.categoryEvents$.subscribe(event => {
+      const currentRoomId = this.roomId();
+      if (currentRoomId) {
+        this.categoriesService.listCategories(currentRoomId).subscribe({
+          next: categories => this.syncCategories(categories),
+          error: err => console.error('Error refreshing room categories:', err),
+        });
+      }
+
+      if (event.type === 'category-updated' && event.category) {
+        const updatedCat = event.category;
+        this.items.update(items =>
+          items.map(item =>
+            item.kind === 'idea' && item.categoryId === updatedCat.id
+              ? { ...item, categoryTitle: updatedCat.title, category: { id: updatedCat.id, title: updatedCat.title } }
+              : item
+          )
+        );
+      } else if (event.type === 'category-deleted' && event.id != null) {
+        const deletedId = Number(event.id);
+        this.items.update(items =>
+          items.map(item =>
+            item.kind === 'idea' && item.categoryId === deletedId
+              ? { ...item, categoryId: null, categoryTitle: null, category: null }
+              : item
+          )
+        );
+      }
+    });
+
     effect(() => {
       const participants = this.onlineParticipants();
       const participantIds = new Set(participants.map(p => String(p.userId)));
@@ -1209,6 +1240,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     this.strokePointsSub?.unsubscribe();
     this.objectLockedSub?.unsubscribe();
     this.objectUnlockedSub?.unsubscribe();
+    this.categoryEventsSub?.unsubscribe();
     this.remoteCursors.set(new Map());
     this.realtime.leaveRoom();
     this.positionGuard.clear();

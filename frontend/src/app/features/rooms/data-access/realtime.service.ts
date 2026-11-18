@@ -4,6 +4,7 @@ import { KeycloakAuth } from '../../../core/auth/keycloak-auth';
 import { environment } from '../../../../environments/environment';
 import { Idea } from '../models/idea.model';
 import { CommentItem } from '../models/comment.model';
+import { Category } from '../models/category.model';
 
 export interface CardMovePayload {
   id: string;
@@ -49,6 +50,13 @@ export interface DrawingEventPayload {
   version: number;
   drawing?: any;
   id?: string;
+}
+
+export interface CategoryEventPayload {
+  type: 'category-created' | 'category-updated' | 'category-deleted';
+  version: number;
+  category?: Category;
+  id?: number | string;
 }
 
 export interface DrawingMovePayload {
@@ -110,6 +118,9 @@ export class RealtimeService implements OnDestroy {
 
   private readonly drawingEventsSubject = new Subject<DrawingEventPayload>();
   readonly drawingEvents$: Observable<DrawingEventPayload> = this.drawingEventsSubject.asObservable();
+
+  private readonly categoryEventsSubject = new Subject<CategoryEventPayload>();
+  readonly categoryEvents$: Observable<CategoryEventPayload> = this.categoryEventsSubject.asObservable();
 
   private readonly drawingMovesSubject = new Subject<DrawingMovePayload>();
   readonly drawingMoves$: Observable<DrawingMovePayload> = this.drawingMovesSubject.asObservable();
@@ -273,6 +284,18 @@ export class RealtimeService implements OnDestroy {
             });
           } else if (type === 'drawing-deleted') {
             this.drawingEventsSubject.next({
+              type,
+              version: Number(data.version),
+              id: data.id,
+            });
+          } else if (type === 'category-created' || type === 'category-updated') {
+            this.categoryEventsSubject.next({
+              type,
+              version: Number(data.version),
+              category: data.category,
+            });
+          } else if (type === 'category-deleted') {
+            this.categoryEventsSubject.next({
               type,
               version: Number(data.version),
               id: data.id,

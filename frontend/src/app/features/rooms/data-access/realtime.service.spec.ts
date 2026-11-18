@@ -41,6 +41,7 @@ describe('RealtimeService', () => {
     expect(service.commentEvents$).toBeDefined();
     expect(service.cursorMoves$).toBeDefined();
     expect(service.cursorLeaves$).toBeDefined();
+    expect(service.categoryEvents$).toBeDefined();
   });
 
   it('dispatches incoming cursor-move and cursor-leave messages', () => {
@@ -129,5 +130,33 @@ describe('RealtimeService', () => {
     expect(events[0].type).toBe('idea-created');
     expect(events[1].type).toBe('idea-updated');
     expect(events[2].type).toBe('idea-deleted');
+  });
+
+  it('dispatches incoming category-created, category-updated, and category-deleted messages', () => {
+    const events: any[] = [];
+    service.categoryEvents$.subscribe(e => events.push(e));
+
+    (service as any).categoryEventsSubject.next({
+      type: 'category-created',
+      version: 1000,
+      category: { id: 1, title: 'Category 1' },
+    });
+
+    (service as any).categoryEventsSubject.next({
+      type: 'category-updated',
+      version: 2000,
+      category: { id: 1, title: 'Category 1 Updated' },
+    });
+
+    (service as any).categoryEventsSubject.next({
+      type: 'category-deleted',
+      version: 3000,
+      id: 1,
+    });
+
+    expect(events.length).toBe(3);
+    expect(events[0].type).toBe('category-created');
+    expect(events[1].type).toBe('category-updated');
+    expect(events[2].type).toBe('category-deleted');
   });
 });

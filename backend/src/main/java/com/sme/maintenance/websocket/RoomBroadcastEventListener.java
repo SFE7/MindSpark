@@ -104,4 +104,32 @@ public class RoomBroadcastEventListener {
             log.error("Failed to broadcast DrawingChangedEvent for room {}: {}", event.roomId(), e.getMessage(), e);
         }
     }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
+    public void handleCategoryChanged(CategoryChangedEvent event) {
+        try {
+            if ("category-deleted".equals(event.type())) {
+                Map<String, Object> payload = Map.of(
+                        "type", "category-deleted",
+                        "id", event.categoryId(),
+                        "version", event.version()
+                );
+                webSocketHandler.broadcastToRoom(event.roomId(), payload, null);
+                return;
+            }
+
+            if (event.categoryData() == null) {
+                return;
+            }
+
+            Map<String, Object> payload = Map.of(
+                    "type", event.type(),
+                    "version", event.version(),
+                    "category", event.categoryData()
+            );
+            webSocketHandler.broadcastToRoom(event.roomId(), payload, null);
+        } catch (Exception e) {
+            log.error("Failed to broadcast CategoryChangedEvent for room {}: {}", event.roomId(), e.getMessage(), e);
+        }
+    }
 }
