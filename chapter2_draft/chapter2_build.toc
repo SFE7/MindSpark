@@ -1,0 +1,33 @@
+\contentsline {chapter}{\numberline {1}State of the Art}{2}{}%
+\contentsline {section}{\numberline {1.1}Introduction}{2}{}%
+\contentsline {section}{\numberline {1.2}Collaborative Platforms \& Digital Brainstorming}{3}{}%
+\contentsline {subsection}{\numberline {1.2.1}Principles of Collaborative Ideation}{3}{}%
+\contentsline {subsubsection}{\numberline {1.2.1.1}The Anonymous Voting Challenge}{3}{}%
+\contentsline {subsection}{\numberline {1.2.2}Real-Time Web Communication}{4}{}%
+\contentsline {subsubsection}{\numberline {1.2.2.1}Evolution of Real-Time Communication Protocols}{4}{}%
+\contentsline {subsubsection}{\numberline {1.2.2.2}Publish-Subscribe Patterns and Room-Level Channel Isolation}{4}{}%
+\contentsline {subsubsection}{\numberline {1.2.2.3}Multiplayer Presence and Live Cursor Synchronization}{5}{}%
+\contentsline {subsubsection}{\numberline {1.2.2.4}Concurrency Control and Transaction-Safe Broadcasting}{6}{}%
+\contentsline {subsubsection}{\numberline {1.2.2.5}Real-Time Implementation in the MindSpark Prototype}{6}{}%
+\contentsline {subsection}{\numberline {1.2.3}Comparative Study Table}{7}{}%
+\contentsline {subsubsection}{\numberline {1.2.3.1}Analytical Synthesis of the Benchmark}{7}{}%
+\contentsline {section}{\numberline {1.3}Generative AI \& Large Language Models}{9}{}%
+\contentsline {subsection}{\numberline {1.3.1}Generative AI \& LLMs}{9}{}%
+\contentsline {subsubsection}{\numberline {1.3.1.1}The Transformer Architecture}{9}{}%
+\contentsline {subsubsection}{\numberline {1.3.1.2}Tokens, Context Windows, and Autoregression}{9}{}%
+\contentsline {subsubsection}{\numberline {1.3.1.3}Vector Embeddings and Semantic Similarity}{9}{}%
+\contentsline {subsection}{\numberline {1.3.2}AI Techniques for MindSpark}{10}{}%
+\contentsline {subsubsection}{\numberline {1.3.2.1}Confirmed Multi-Tier AI Provider Strategy}{10}{}%
+\contentsline {subsubsection}{\numberline {1.3.2.2}Confirmed AI Microservice Architecture (\texttt {ai-service})}{10}{}%
+\contentsline {subsubsection}{\numberline {1.3.2.3}Target Brainstorming Capabilities}{11}{}%
+\contentsline {subsection}{\numberline {1.3.3}Prompt Engineering \& Output Validation}{11}{}%
+\contentsline {subsubsection}{\numberline {1.3.3.1}Prompt Structuring and Context Injection}{11}{}%
+\contentsline {subsubsection}{\numberline {1.3.3.2}Structured Output Enforcement and JSON Schema Validation}{12}{}%
+\contentsline {subsubsection}{\numberline {1.3.3.3}Hallucination Mitigation and Resiliency Strategies}{12}{}%
+\contentsline {section}{\numberline {1.4}SaaS Monetization \& Resource Governance}{13}{}%
+\contentsline {subsection}{\numberline {1.4.1}SaaS Architectural Foundations}{13}{}%
+\contentsline {subsubsection}{\numberline {1.4.1.1}Multi-Tenancy Isolation Models}{13}{}%
+\contentsline {subsubsection}{\numberline {1.4.1.2}Subscription Lifecycles and Tiering}{13}{}%
+\contentsline {subsubsection}{\numberline {1.4.1.3}API Rate Limiting and AI Cost Governance}{13}{}%
+\contentsline {subsection}{\numberline {1.4.2}Resource Governance in the Current MindSpark Prototype}{14}{}%
+\contentsline {section}{\numberline {1.5}Conclusion}{14}{}%
