@@ -77,3 +77,12 @@
 2. **Soft Locking**: Moving cards or drawings claims a 3 s sliding lock. Competing drags are blocked client-side with `"held by <User>"`. Locks auto-release on drop, disconnect, or timeout.
 3. **Resurrection Safety**: Clients keep a 60 s tombstone cache for deleted items so background polling (15 s) cannot revive deleted entities.
 4. **Coordinate Space**: Normalized to `0..1000` (X) and `0..500` (Y). Server clamps values on ingress.
+## Concurrency & Integrity
+1. **Transactional Delivery**: Entity updates use `@TransactionalEventListener(phase = AFTER_COMMIT)` to ensure messages dispatch only after database commits succeed.
+2. **Soft Locking**: Moving cards or drawings claims a 3 s sliding lock. Competing drags are blocked client-side with `"held by <User>"`. Locks auto-release on drop, disconnect, or timeout.
+3. **Resurrection Safety**: Clients keep a 60 s tombstone cache for deleted items so background polling (15 s) cannot revive deleted entities.
+4. **Coordinate Space**: Normalized to `0..1000` (X) and `0..500` (Y). Server clamps values on ingress.## Concurrency & Integrity
+1. **Transactional Delivery**: Entity updates use `@TransactionalEventListener(phase = AFTER_COMMIT)` to ensure messages dispatch only after database commits succeed.
+2. **Soft Locking**: Moving cards or drawings claims a 3 s sliding lock. Competing drags are blocked client-side with `"held by <User>"`. Locks auto-release on drop, disconnect, or timeout.
+3. **Resurrection Safety**: Clients keep a 60 s tombstone cache for deleted items so background polling (15 s) cannot revive deleted entities.
+4. **Coordinate Space**: Normalized to `0..1000` (X) and `0..500` (Y). Server clamps values on ingress.
