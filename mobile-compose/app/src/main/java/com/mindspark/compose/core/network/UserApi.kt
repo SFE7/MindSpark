@@ -7,7 +7,7 @@ import retrofit2.http.POST
 data class UserDto(
     val id: Long,
     val username: String,
-    val email: String
+    val email: String? = null
 )
 
 interface UserApi {

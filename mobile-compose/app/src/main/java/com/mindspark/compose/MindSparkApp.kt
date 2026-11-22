@@ -32,6 +32,8 @@ import androidx.navigation.compose.rememberNavController
 import com.mindspark.compose.core.auth.AuthUiState
 import com.mindspark.compose.core.auth.AuthViewModel
 import com.mindspark.compose.features.auth.LoginScreen
+import com.mindspark.compose.features.rooms.ui.HomeScreen
+import com.mindspark.compose.features.whiteboard.ui.RoomScreen
 import com.mindspark.compose.ui.Routes
 import com.mindspark.compose.ui.theme.MindSparkTheme
 
@@ -77,68 +79,20 @@ fun MindSparkApp() {
                 )
             }
             composable(Routes.HOME) {
-                val user = (authState as? AuthUiState.SignedIn)?.user
-                PlaceholderHomeScreen(
-                    username = user?.username ?: "",
+                HomeScreen(
+                    onOpenRoom = { roomId ->
+                        navController.navigate(Routes.room(roomId))
+                    },
                     onSignOut = { authViewModel.signOut() }
                 )
             }
-            composable(Routes.ROOM) {
-                // Placeholder for room screen (Task 9)
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun PlaceholderHomeScreen(
-    username: String,
-    onSignOut: () -> Unit
-) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "mindspark",
-                        fontFamily = FontFamily.Serif,
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                },
-                actions = {
-                    IconButton(onClick = onSignOut) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = "Sign out"
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
+            composable(Routes.ROOM) { backStackEntry ->
+                val roomId = backStackEntry.arguments?.getString("roomId").orEmpty()
+                RoomScreen(
+                    roomId = roomId,
+                    onBack = { navController.popBackStack() }
                 )
-            )
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "Welcome, $username!",
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Home screen will be built in Task 7.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            }
         }
     }
 }
