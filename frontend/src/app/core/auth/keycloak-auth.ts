@@ -11,14 +11,23 @@ export class KeycloakAuth {
     clientId: 'frontend'
   });
 
-  init(): Promise<boolean> {
+  async init(): Promise<boolean> {
     // DEV ONLY, remove when the app is served over HTTPS and re-enable PKCE S256 everywhere.
     const isSecure = typeof window !== 'undefined' && window.isSecureContext;
-    return this.keycloak.init({
+    const authenticated = await this.keycloak.init({
       onLoad: 'check-sso',
       pkceMethod: isSecure ? 'S256' : false,
       checkLoginIframe: false
     });
+
+    if (typeof window !== 'undefined' && sessionStorage.getItem('pending_account_deletion') === 'true') {
+      sessionStorage.removeItem('pending_account_deletion');
+      if (!authenticated) {
+        sessionStorage.clear();
+      }
+    }
+
+    return authenticated;
   }
 
   async getValidToken(): Promise<string | undefined> {
@@ -49,6 +58,23 @@ export class KeycloakAuth {
 
   register(): Promise<void> {
     return this.keycloak.register({ redirectUri: window.location.origin });
+  }
+
+  updatePassword(): Promise<void> {
+    return this.keycloak.login({
+      action: 'UPDATE_PASSWORD',
+      redirectUri: window.location.origin
+    });
+  }
+
+  deleteAccount(): Promise<void> {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('pending_account_deletion', 'true');
+    }
+    return this.keycloak.login({
+      action: 'delete_account',
+      redirectUri: window.location.origin
+    });
   }
 
   logout(): Promise<void> {

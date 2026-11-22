@@ -125,6 +125,87 @@
   color: #e9784d;
 }
 
+.action-button {
+  border-color: #d9ddd5;
+  background: transparent;
+  color: #233b3b;
+}
+
+.action-button:hover {
+  border-color: #233b3b;
+  background: #f3f5ef;
+}
+
+.danger-button {
+  border-color: #fca5a5;
+  background: transparent;
+  color: #dc2626;
+}
+
+.danger-button:hover {
+  border-color: #dc2626;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.connection-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.account-dropdown {
+  position: relative;
+}
+
+.username-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.account-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  min-width: 11rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 50;
+}
+
+.menu-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+  font: inherit;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  &.danger-button {
+    color: #c62828;
+  }
+}
+
 @media (max-width: 560px) {
   .topbar {
     padding: 16px 18px;

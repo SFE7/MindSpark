@@ -7,8 +7,41 @@
   <div class="connection-buttons">
     @if (isLoggedIn) {
       @if (currentUser(); as user) {
-        <span class="username">{{ user.username }}</span>
+        <div class="account-dropdown">
+          <button
+            class="username-trigger"
+            type="button"
+            [attr.aria-expanded]="accountMenuOpen()"
+            aria-haspopup="menu"
+            (click)="toggleAccountMenu($event)"
+          >
+            <span class="username">{{ user.username }}</span>
+            <span class="chevron" aria-hidden="true">▾</span>
+          </button>
+
+          @if (accountMenuOpen()) {
+            <div class="account-menu" role="menu">
+              <button
+                class="menu-item action-button"
+                type="button"
+                role="menuitem"
+                (click)="changePassword()"
+              >
+                Update password
+              </button>
+              <button
+                class="menu-item danger-button"
+                type="button"
+                role="menuitem"
+                (click)="deleteAccount()"
+              >
+                Delete account
+              </button>
+            </div>
+          }
+        </div>
       }
+
       <button class="auth-button logout-button" type="button" (click)="logout()">
         Log out <span aria-hidden="true">↗</span>
       </button>

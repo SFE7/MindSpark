@@ -14,7 +14,14 @@ describe('Header', () => {
       imports: [Header],
       providers: [
         provideRouter([]),
-        { provide: KeycloakAuth, useValue: { isLoggedIn: false } },
+        {
+          provide: KeycloakAuth,
+          useValue: {
+            isLoggedIn: false,
+            updatePassword: () => Promise.resolve(),
+            deleteAccount: () => Promise.resolve(),
+          },
+        },
         {
           provide: UserService,
           useValue: {
