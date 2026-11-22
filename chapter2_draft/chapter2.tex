@@ -1,11 +1,4 @@
 \chapter{State of the Art}
-
-% ---- Figure placeholder (remove once real images are added) ----
-\providecommand{\figplaceholder}[1]{%
-    \fbox{\parbox[c][6cm][c]{0.85\textwidth}{\centering\texttt{#1}}}%
-}
-
-
 \label{chap:state_of_the_art}
 
 \section{Introduction}
@@ -120,9 +113,9 @@ The empirical audit of the MindSpark repository verifies that these real-time ar
 \begin{itemize}
     \item \textbf{Full-Duplex WebSocket Engine:} MindSpark implements a native Spring WebSocket handler (\texttt{RoomWebSocketHandler.java}) communicating through Spring Cloud Gateway over \texttt{/ws/rooms/\{roomId\}}.
     \item \textbf{Coordinate Normalization \& Guards:} Cursor and object coordinates are mapped to a fixed virtual grid $[0, 1000] \times [0, 500]$ with boundary clamping on both the backend and Angular frontend (\texttt{idea-position-guard.ts}).
-    \item \textbf{Adaptive Throttling:} Per-session rate limiters cap \texttt{cursor-move} at 25 events/sec, \texttt{stroke-points} at 20 events/sec, and \texttt{card-move} at 15 events/sec.
+    \item \textbf{Adaptive Throttling:} Per-session rate limiters cap \texttt{cursor-move} at 25~events/s, \texttt{stroke-points} at 20~events/s, and \texttt{card-move} at 15~events/s.
     \item \textbf{Soft Concurrency Locking:} Dragging an idea or vector drawing claims a 3-second sliding lock in memory (\texttt{heldObjects}), notifying peers with visual ``held by'' labels and preventing write collisions.
-    \item \textbf{Transaction-Safe Event Dispatching:} In \texttt{RoomBroadcastEventListener.java}, domain mutations (\texttt{IdeaChangedEvent}, \texttt{DrawingChangedEvent}, \texttt{CategoryChangedEvent}) are annotated with \path|@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)|, preventing race conditions between persistence and real-time dispatch.
+    \item \textbf{Transaction-Safe Event Dispatching:} In \texttt{RoomBroadcastEventListener.java}, domain mutations (\texttt{IdeaChangedEvent}, \texttt{DrawingChangedEvent}, \texttt{CategoryChangedEvent}) are annotated with \texttt{@TransactionalEventListener(\allowbreak phase = TransactionPhase.\allowbreak AFTER\_COMMIT)}, preventing race conditions between persistence and real-time dispatch.
     \item \textbf{Automated Presence Sweeping:} A dedicated service (\texttt{PresenceSweeper.java}) executes an automated scheduled task every 5 seconds, evaluating client heartbeats (60s expiry + 10s grace) and gracefully removing disconnected members from the active room roster.
 \end{itemize}
 
@@ -146,50 +139,63 @@ Data for commercial systems was gathered from verified official product and pric
 
 \begin{table}[htbp]
 \centering
-\small
+\footnotesize
 \setlength{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{1.3}
-\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}p{2.2cm}|*{4}{>{\raggedright\arraybackslash}X|}>{\raggedright\arraybackslash}p{3.2cm}|}
-\hline
-\textbf{Criterion} & \textbf{Miro}~\cite{miro_pricing} & \textbf{Mural}~\cite{mural_pricing} & \textbf{Klaxoon}~\cite{klaxoon_pricing} & \textbf{FigJam}~\cite{figjam_pricing} & \textbf{MindSpark (Audit)} \\ \hline
+\renewcommand{\arraystretch}{1.35}
+\rowcolors{2}{PrimaryNavy!4}{white}
+\begin{tabularx}{\textwidth}{
+  >{\RaggedRight\arraybackslash}p{2.1cm}
+  *{4}{>{\RaggedRight\arraybackslash}X}
+  >{\RaggedRight\arraybackslash}p{3.6cm}
+}
+\toprule
+\rowcolor{PrimaryNavy!12}
+\textbf{Criterion} & \textbf{Miro}~\cite{miro_pricing} & \textbf{Mural}~\cite{mural_pricing} & \textbf{Klaxoon}~\cite{klaxoon_pricing} & \textbf{FigJam}~\cite{figjam_pricing} & \textbf{MindSpark (Audit)} \\
+\midrule
 \textbf{Real-Time Cursors \& Presence} & 
 Multi-user live cursors, participant following (``Follow me''). & 
 Multi-user live cursors, facilitator ``Summon'', private mode. & 
 Multi-user sticky notes, presenter board focus. & 
 Multi-user live cursors, cursor chat, high-fives, live audio. & 
-\textbf{Verified Implemented:} Normalized live cursors (25~Hz), soft locks (3s TTL), presence sweeper. \\ \hline
+\textbf{Verified Implemented:} Normalized live cursors (25~events/s), soft locks (3s TTL), presence sweeper. \\
+\addlinespace[4pt]
 \textbf{Voting Mechanisms} & 
 Dedicated Voting app: custom timers, multi-vote ballots, anonymous or open. & 
 Facilitation Voting: ballot limits, secret ballots with reveal phase. & 
 Integrated dot-voting, live polls, quizzes, and instant surveys. & 
 Built-in Voting sessions: facilitator limits, timer, masked ballots. & 
-\textbf{Verified Implemented (Non-Anonymous):} Upvote/downvote per idea. Voter ID linked in DB. \textit{Target: Cryptographic anonymous voting.} \\ \hline
+\textbf{Verified Implemented (Non-Anonymous):} Upvote/downvote per idea; voter ID linked in DB. \textit{Target: Cryptographic anonymous voting.} \\
+\addlinespace[4pt]
 \textbf{AI Idea Generation \& Expansion} & 
 Miro AI: Generates mind maps, elaborates notes, summarizes topics. & 
 Mural AI: Prompts brainstorming, mind mapping, and synthesis. & 
-Board Setup Wizard: AI generated board frameworks and seed ideas. & 
+Board Setup Wizard: AI-generated board frameworks and seed ideas. & 
 FigJam AI: Generates templates, starter boards, and prompt expansions. & 
-\textbf{Not Implemented (0\%):} Zero AI dependencies or generation endpoints found in code. \textit{Target: Confirmed ai-service microservice.} \\ \hline
+\textbf{Not Implemented (0\%):} Zero AI dependencies or generation endpoints in code. \textit{Target: Confirmed \texttt{ai-service} microservice.} \\
+\addlinespace[4pt]
 \textbf{AI Semantic Clustering} & 
 Automatic sticky note clustering by theme, keyword, and sentiment. & 
 AI clustering by topic and sentiment; automated affinity mapping. & 
 Automated categorization and synthesis of messy board notes. & 
 Instant AI sort: groups unorganized sticky notes into themed clusters. & 
-\textbf{Not Implemented (0\%):} Categorization is strictly manual via relational categories. \\ \hline
+\textbf{Not Implemented (0\%):} Categorization is strictly manual via relational categories. \\
+\addlinespace[4pt]
 \textbf{Action Plan \& Task Export} & 
 Converts stickies to Jira issues, Azure DevOps, or table summaries. & 
-Exports to Jira, Asana, MS 365 Copilot, and structured PDFs. & 
+Exports to Jira, Asana, MS~365 Copilot, and structured PDFs. & 
 Direct two-way sync with Jira \& Wrike; auto-generates action backlogs. & 
 Converts sticky notes into tables, tasks, or Figma design elements. & 
-\textbf{Not Implemented (0\%):} No export engine (PDF, CSV, Jira, or Markdown summary) exists. \\ \hline
+\textbf{Not Implemented (0\%):} No export engine (PDF, CSV, Jira, or Markdown summary) exists. \\
+\addlinespace[4pt]
 \textbf{Pricing Model} & 
-Free (\$0, 3 boards, 10 AI credits); Starter (\$8/member/mo annual); Business (\$20/member/mo annual, \$25 monthly); Enterprise. & 
-Free (\$0, 3 murals); Team+ (\$9.99/user/\allowbreak mo annual, \$12 monthly); Business (\$17.99/user/\allowbreak mo annual); Enterprise. & 
-Free (\$0, 1 open activity, max 5 participants); Starter (\$24.90/host/\allowbreak mo annual); Enterprise. & 
-Free (\$0, 3 files); Collab Seat (\$3/mo); Dev Seat (\$12/mo); Full Seat (\$16/\allowbreak \$55/\allowbreak \$90/\allowbreak mo annual). & 
-\textbf{Academic Prototype (Public Repo):} Single-tenant containerized environment. Zero billing or tier limits. \\ \hline
+Free (\$0, 3 boards, 10 AI credits); Starter (\$8/user/mo annual); Business (\$20/user/mo annual, \$25 monthly); Enterprise. & 
+Free (\$0, 3 murals); Team+ (\$9.99/user/mo annual, \$12 monthly); Business (\$17.99/user/mo annual); Enterprise. & 
+Free (\$0, 1 open activity, max 5 users); Starter (\$24.90/host/mo annual); Enterprise. & 
+Free (\$0, 3 files); Collab (\$3/mo); Dev (\$12/mo); Full (\$16, \$55, or \$90/mo annual). & 
+\textbf{Academic Prototype (Public Repo):} Single-tenant containerized environment; zero billing or tier limits. \\
+\bottomrule
 \end{tabularx}
-\caption{Comparative Study: Commercial Collaboration Tools vs. MindSpark Prototype}
+\caption{Comparative Study of Commercial Collaboration Tools vs. the MindSpark Prototype}
 \label{tab:comparative_study}
 \end{table}
 
@@ -214,21 +220,21 @@ Modern LLMs are built upon the \textbf{Transformer} architecture introduced by V
 \begin{equation}
     \text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V
 \end{equation}
-Where $Q$, $K$, and $V$ represent the Query, Key, and Value matrices projected from token representations, and $d_k$ denotes the dimensionality of the key vectors. By computing attention scores between all tokens concurrently across multiple heads (Multi-Head Attention), Transformers capture long-range semantic dependencies, contextual nuances, and polysemy with exceptional parallel efficiency during training.
+\noindent where $Q$, $K$, and $V$ represent the Query, Key, and Value matrices projected from token representations, and $d_k$ denotes the dimensionality of the key vectors. By computing attention scores between all tokens concurrently across multiple heads (Multi-Head Attention), Transformers capture long-range semantic dependencies, contextual nuances, and polysemy with exceptional parallel efficiency during training.
 
 \subsubsection{Tokens, Context Windows, and Autoregression}
 LLMs do not process raw text strings directly; input text is parsed into discrete sub-word segments termed \textbf{tokens} (typically $\approx 0.75$ words per token in English) using algorithms such as Byte-Pair Encoding (BPE). As demonstrated in autoregressive models such as GPT-3~\cite{brown2020language}, models operate by predicting the probability distribution of the next token $x_t$ conditioned on preceding tokens:
 \begin{equation}
     P(x_1, x_2, \dots, x_T) = \prod_{t=1}^T P(x_t \mid x_1, \dots, x_{t-1})
 \end{equation}
-The \textbf{Context Window} defines the maximum sequence length (tokens) the model can ingest and attend to in a single forward pass. Recent LLM generations feature context windows ranging from 128,000 to over 1,000,000 tokens, enabling comprehensive ingestion of entire brainstorming sessions, room histories, and participant interactions.
+\noindent The \textbf{Context Window} defines the maximum sequence length (tokens) the model can ingest and attend to in a single forward pass. Recent LLM generations feature context windows ranging from 128,000 to over 1,000,000 tokens, enabling comprehensive ingestion of entire brainstorming sessions, room histories, and participant interactions.
 
 \subsubsection{Vector Embeddings and Semantic Similarity}
-While autoregressive LLMs excel at generation and reasoning, specialized transformer encoders (e.g., Sentence-BERT~\cite{reimers2019sentencebert}) map variable-length texts into fixed-size dense vector spaces $\mathbb{R}^d$ (typically $d \in [768, 1536]$). In this latent embedding space, semantic proximity corresponds directly to geometric distance. The similarity between two textual ideas $u$ and $v$ is quantified using \textbf{Cosine Similarity}:
+While autoregressive LLMs excel at generation and reasoning, specialized transformer encoders (e.g., Sentence-BERT~\cite{reimers2019sentencebert}) map variable-length texts into fixed-size dense vector spaces $\mathbb{R}^d$ (typically $d \in [768, 1536]$). In this latent embedding space, semantic proximity corresponds directly to geometric distance. The similarity between two textual ideas $\mathbf{u}$ and $\mathbf{v}$ is quantified using \textbf{Cosine Similarity}:
 \begin{equation}
-    \text{CosineSimilarity}(u, v) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\|_2 \|\mathbf{v}\|_2}
+    \text{CosineSimilarity}(\mathbf{u}, \mathbf{v}) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\|_2 \|\mathbf{v}\|_2}
 \end{equation}
-Dense embeddings provide the mathematical basis for deduplication, semantic clustering, and similarity retrieval in brainstorming sessions.
+\noindent Dense embeddings provide the mathematical basis for deduplication, semantic clustering, and similarity retrieval in brainstorming sessions.
 
 
 \subsection{AI Techniques for MindSpark}
@@ -342,8 +348,10 @@ Multi-tenancy allows a single software instance to serve multiple distinct custo
 
 \subsubsection{Subscription Lifecycles and Tiering}
 Commercial SaaS platforms operate tier-based subscription lifecycles governed by payment gateways (e.g., Stripe, LemonSqueezy). A tenant transitions through distinct states:
-Trial $\rightarrow$ Active $\rightarrow$ Past Due $\rightarrow$ Canceled $\rightarrow$ Expired.
-Access control middleware inspects tenant entitlement tokens on every API invocation, conditionally gating advanced functionality (e.g., unlimited rooms, export capabilities, AI assistants) based on the active plan tier.
+\begin{center}
+    \texttt{Trial} $\rightarrow$ \texttt{Active} $\rightarrow$ \texttt{Past Due} $\rightarrow$ \texttt{Canceled} $\rightarrow$ \texttt{Expired}
+\end{center}
+\noindent Access control middleware inspects tenant entitlement tokens on every API invocation, conditionally gating advanced functionality (e.g., unlimited rooms, export capabilities, AI assistants) based on the active plan tier.
 
 \subsubsection{API Rate Limiting and AI Cost Governance}
 In traditional web architectures, rate limiting protects servers against Denial of Service (DoS) attacks using algorithms such as the \textbf{Token Bucket} or \textbf{Leaky Bucket}. In AI-powered SaaS platforms, resource governance assumes an even more critical economic dimension: \textbf{AI Token Cost Governance}.
@@ -365,7 +373,7 @@ The verified codebase exhibits the following architectural state:
 \begin{itemize}
     \item \textbf{Single-Tenant Relational Schema:} The database schema operates under a single shared namespace without \texttt{tenant\_id} columns on \texttt{Room}, \texttt{User}, or \texttt{Idea} entities. User identities are managed globally through a single Keycloak realm (\texttt{mindspark}).
     \item \textbf{Absence of Plan Tiers and Billing:} There are no subscription entities, credit balances, or payment webhooks in either backend or frontend services.
-    \item \textbf{Implemented Transport Rate Limiting:} MindSpark does implement strict per-session rate limiting on the WebSocket transport layer in \texttt{RoomWebSocketHandler.java} (capping cursor updates to 25/s and card drags to 15/s) and limits concurrent sessions per user to 10 in \texttt{PresenceService.java}. However, these guards protect server memory and network throughput, rather than governing SaaS business quotas.
+    \item \textbf{Implemented Transport Rate Limiting:} MindSpark does implement strict per-session rate limiting on the WebSocket transport layer in \texttt{RoomWebSocketHandler.java} (capping cursor updates to 25~events/s and card drags to 15~events/s) and limits concurrent sessions per user to 10 in \texttt{PresenceService.java}. However, these guards protect server memory and network throughput, rather than governing SaaS business quotas.
 \end{itemize}
 Designing and integrating a multi-tenant subscription framework and AI quota middleware remains a key objective for the platform's commercial roadmap.
 
