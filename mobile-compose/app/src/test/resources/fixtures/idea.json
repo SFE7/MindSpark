@@ -1,0 +1,49 @@
+{
+  "id": "8fa7b2c1-2345-4a67-8901-bcdef0123456",
+  "room": {
+    "id": "3ddff759-1668-4d92-939b-a05698d5b9f8",
+    "name": "Design Sprint",
+    "invitationCode": "ABC12345",
+    "owner": {
+      "id": 1,
+      "username": "ilyes",
+      "email": null
+    },
+    "createdAt": "2026-11-20T10:00:00Z",
+    "members": [
+      {
+        "id": 1,
+        "username": "ilyes",
+        "email": null
+      },
+      {
+        "id": 2,
+        "username": "sarah",
+        "email": null
+      }
+    ],
+    "memberCount": 2,
+    "member": true,
+    "closed": false,
+    "offline": false
+  },
+  "author": {
+    "id": 1,
+    "username": "ilyes",
+    "email": "ilyes@example.com"
+  },
+  "text": "Unified State Flow",
+  "title": "Unified State Flow",
+  "description": "Keep local and remote state synchronized using StateFlow",
+  "x": 250.0,
+  "y": 180.0,
+  "color": "#273b3b",
+  "createdAt": "2026-11-20T10:15:00Z",
+  "updatedAt": "2026-11-20T10:15:00Z",
+  "voteCount": 3,
+  "voted": true,
+  "category": {
+    "id": 10,
+    "title": "Architecture"
+  }
+}

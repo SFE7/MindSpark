@@ -1,0 +1,31 @@
+{
+  "id": "c1111111-2222-3333-4444-555555555555",
+  "ideaId": "8fa7b2c1-2345-4a67-8901-bcdef0123456",
+  "author": {
+    "id": 2,
+    "username": "sarah",
+    "email": "sarah@example.com"
+  },
+  "content": "Great idea, we should prototype this first.",
+  "text": "Great idea, we should prototype this first.",
+  "parentId": null,
+  "createdAt": "2026-11-20T10:30:00Z",
+  "updatedAt": "2026-11-20T10:30:00Z",
+  "replies": [
+    {
+      "id": "c2222222-3333-4444-5555-666666666666",
+      "ideaId": "8fa7b2c1-2345-4a67-8901-bcdef0123456",
+      "author": {
+        "id": 1,
+        "username": "ilyes",
+        "email": "ilyes@example.com"
+      },
+      "content": "Agreed, let us start today.",
+      "text": "Agreed, let us start today.",
+      "parentId": "c1111111-2222-3333-4444-555555555555",
+      "createdAt": "2026-11-20T10:35:00Z",
+      "updatedAt": "2026-11-20T10:35:00Z",
+      "replies": []
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "type": "presence",
+  "participants": [
+    {
+      "userId": 1,
+      "name": "ilyes"
+    },
+    {
+      "userId": 2,
+      "name": "sarah"
+    }
+  ]
+}

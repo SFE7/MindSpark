@@ -1,0 +1,22 @@
+{
+  "type": "drawing-created",
+  "version": 1,
+  "drawing": {
+    "id": "d1111111-2222-3333-4444-555555555555",
+    "roomId": "3ddff759-1668-4d92-939b-a05698d5b9f8",
+    "author": {
+      "id": 1,
+      "username": "ilyes",
+      "email": "ilyes@example.com"
+    },
+    "kind": "pen",
+    "color": "#273b3b",
+    "width": 5.0,
+    "opacity": 1.0,
+    "payload": "[{\"x\": 100.0, \"y\": 120.0}, {\"x\": 105.0, \"y\": 125.0}, {\"x\": 115.0, \"y\": 130.0}]",
+    "offsetX": 0.0,
+    "offsetY": 0.0,
+    "createdAt": "2026-11-20T10:20:00Z",
+    "updatedAt": "2026-11-20T10:20:00Z"
+  }
+}

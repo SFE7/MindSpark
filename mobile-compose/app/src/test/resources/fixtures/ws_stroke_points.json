@@ -1,0 +1,22 @@
+{
+  "type": "stroke-points",
+  "strokeId": "str-123456",
+  "userId": 2,
+  "color": "#273b3b",
+  "width": 5.0,
+  "opacity": 1.0,
+  "points": [
+    [
+      100.0,
+      120.0
+    ],
+    [
+      105.0,
+      125.0
+    ],
+    [
+      112.0,
+      130.0
+    ]
+  ]
+}

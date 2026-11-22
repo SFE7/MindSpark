@@ -1,0 +1,8 @@
+{
+  "type": "category-created",
+  "version": 1,
+  "category": {
+    "id": 10,
+    "title": "Architecture"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "d4444444-5555-6666-7777-888888888888",
+  "roomId": "3ddff759-1668-4d92-939b-a05698d5b9f8",
+  "author": {
+    "id": 1,
+    "username": "ilyes",
+    "email": "ilyes@example.com"
+  },
+  "kind": "circle",
+  "color": "#9dc7d8",
+  "width": 2.0,
+  "opacity": 1.0,
+  "payload": "{\"x\": 300.0, \"y\": 200.0, \"width\": 90.0, \"height\": 90.0}",
+  "offsetX": 0.0,
+  "offsetY": 0.0,
+  "createdAt": "2026-11-20T10:23:00Z",
+  "updatedAt": "2026-11-20T10:23:00Z"
+}
