@@ -1,0 +1,17 @@
+mindspark:
+  polar:
+    api-base-url: https://sandbox-api.polar.sh
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      keycloakAdmin:
+        baseConfig: default
+        waitDurationInOpenState: 15s
+      polarApi:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 20s
+        permittedNumberOfCallsInHalfOpenState: 3
+        registerHealthIndicator: true

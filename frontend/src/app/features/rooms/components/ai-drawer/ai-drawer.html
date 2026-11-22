@@ -1,0 +1,852 @@
+@if (isOpen) {
+  <aside
+    class="ai-drawer-container"
+    aria-label="AI Brainstorming Assistant"
+    (pointerdown)="$event.stopPropagation()"
+  >
+    <!-- Drawer Header -->
+    <header class="drawer-header">
+      <div class="header-brand">
+        <span class="ai-sparkle">✨</span>
+        <h2 class="drawer-title">MindSpark AI</h2>
+        @if (ai.tier() || ai.usage()?.tier; as t) {
+          <span class="tier-badge" [class.premium]="t === 'PREMIUM'">{{ t }}</span>
+        }
+      </div>
+
+      <div class="header-controls">
+        @if (ai.usage(); as u) {
+          <span class="quota-pill" title="Daily requests remaining today (resets at midnight UTC)">
+            {{ u.remainingToday }}/{{ u.dailyLimit }} left
+          </span>
+        }
+        <button
+          type="button"
+          class="drawer-close-btn"
+          (click)="onClose()"
+          aria-label="Close AI Assistant"
+          title="Close AI panel"
+        >
+          ✕
+        </button>
+      </div>
+    </header>
+
+    <!-- Copied / Action Toast Feedback -->
+    @if (copySuccess(); as msg) {
+      <div class="ai-toast-banner" role="status" aria-live="polite">
+        {{ msg }}
+      </div>
+    }
+
+    <!-- Normalized Error Banners -->
+    @if (ai.currentError(); as err) {
+      <div class="ai-error-box" [attr.data-code]="err.code" role="alert">
+        <div class="error-msg-row">
+          <span class="error-icon">
+            @if (err.code === 'DAILY_LIMIT_REACHED') { ⏳ }
+            @else if (err.code === 'PROVIDER_BUSY') { ⌛ }
+            @else { ⚠️ }
+          </span>
+          <span class="error-text">{{ err.message }}</span>
+        </div>
+
+        @if (err.code === 'DAILY_LIMIT_REACHED' && ai.usage()?.resetsAtUtc; as resets) {
+          <p class="error-subtext">Resets at: {{ resets.substring(11, 16) }} UTC</p>
+        }
+
+        @if (err.code === 'PROVIDER_BUSY' && retryCountdown() > 0) {
+          <p class="retry-countdown">Available in: {{ retryCountdown() }}s</p>
+        }
+
+        @if (err.canRetry && retryCountdown() === 0 && !ai.loading()) {
+          <button type="button" class="error-retry-btn" (click)="retryCurrentTool()">
+            ↻ Retry Now
+          </button>
+        }
+      </div>
+    }
+
+    <!-- Mode Selector Tabs: Room vs Idea -->
+    <nav class="mode-tabs" aria-label="AI Scope Selector">
+      <button
+        type="button"
+        class="mode-tab-btn"
+        [class.active]="activeMode() === 'room'"
+        (click)="setMode('room')"
+      >
+        <span class="tab-icon">🌐</span>
+        <span>Room ({{ ideas.length }})</span>
+      </button>
+      <button
+        type="button"
+        class="mode-tab-btn"
+        [class.active]="activeMode() === 'idea'"
+        (click)="setMode('idea')"
+      >
+        <span class="tab-icon">💡</span>
+        <span>Single Idea</span>
+      </button>
+    </nav>
+
+    <!-- Sub-Tool Navigation -->
+    <div class="subtool-bar" aria-label="AI Tools">
+      @if (activeMode() === 'room') {
+        <button
+          type="button"
+          class="subtool-btn"
+          [class.active]="activeRoomTool() === 'generate'"
+          (click)="setRoomTool('generate')"
+        >
+          Generate
+        </button>
+        <button
+          type="button"
+          class="subtool-btn"
+          [class.active]="activeRoomTool() === 'group'"
+          (click)="setRoomTool('group')"
+        >
+          Group
+        </button>
+        <button
+          type="button"
+          class="subtool-btn"
+          [class.active]="activeRoomTool() === 'summarize'"
+          (click)="setRoomTool('summarize')"
+        >
+          Summarize
+        </button>
+        <button
+          type="button"
+          class="subtool-btn"
+          [class.active]="activeRoomTool() === 'compare'"
+          (click)="setRoomTool('compare')"
+        >
+          Compare
+        </button>
+      } @else {
+        <button
+          type="button"
+          class="subtool-btn"
+          [class.active]="activeIdeaTool() === 'improve'"
+          (click)="setIdeaTool('improve')"
+        >
+          Improve
+        </button>
+        <button
+          type="button"
+          class="subtool-btn"
+          [class.active]="activeIdeaTool() === 'action-plan'"
+          (click)="setIdeaTool('action-plan')"
+        >
+          Action Plan
+        </button>
+        <button
+          type="button"
+          class="subtool-btn"
+          [class.active]="activeIdeaTool() === 'risks'"
+          (click)="setIdeaTool('risks')"
+        >
+          Risks
+        </button>
+      }
+    </div>
+
+    <!-- Drawer Scrollable Body -->
+    <div class="drawer-body">
+      <!-- Loading Overlay / Spinner -->
+      @if (ai.loading()) {
+        <div class="ai-loading-overlay" aria-live="assertive">
+          <div class="ai-spinner"></div>
+          <p class="loading-main-text">AI is thinking...</p>
+          <p class="loading-sub-text">Free tier models may take 3–5 seconds</p>
+        </div>
+      }
+
+      <!-- ========================================== -->
+      <!-- ROOM MODE: 1. GENERATE IDEAS              -->
+      <!-- ========================================== -->
+      @if (activeMode() === 'room' && activeRoomTool() === 'generate') {
+        <section class="tool-section">
+          <div class="input-group">
+            <div class="label-row">
+              <label for="gen-topic">Brainstorm Topic <span class="required">*</span></label>
+              <span class="char-count">{{ generateTopic.length }}/{{ caps.maxTopicChars }}</span>
+            </div>
+            <textarea
+              id="gen-topic"
+              class="ai-textarea"
+              rows="3"
+              [maxlength]="caps.maxTopicChars"
+              placeholder="E.g., Sustainable campus commuting incentives"
+              [(ngModel)]="generateTopic"
+              dir="auto"
+            ></textarea>
+          </div>
+
+          <div class="input-group">
+            <div class="label-row">
+              <label for="gen-context">Additional Context (Optional)</label>
+              <span class="char-count">{{ generateContext.length }}/{{ caps.maxTopicChars }}</span>
+            </div>
+            <input
+              id="gen-context"
+              type="text"
+              class="ai-input"
+              [maxlength]="caps.maxTopicChars"
+              placeholder="E.g., Budget < $10k, university audience"
+              [(ngModel)]="generateContext"
+              dir="auto"
+            />
+          </div>
+
+          <div class="input-row">
+            <div class="input-group-sm">
+              <label for="gen-count">Ideas to generate</label>
+              <select id="gen-count" class="ai-select" [(ngModel)]="generateCount">
+                <option [ngValue]="3">3 ideas</option>
+                <option [ngValue]="5">5 ideas (standard)</option>
+                <option [ngValue]="8">8 ideas</option>
+                <option [ngValue]="10">10 ideas</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              class="ai-submit-btn"
+              [disabled]="!generateTopic.trim() || ai.loading()"
+              (click)="runGenerate()"
+            >
+              Generate
+            </button>
+          </div>
+
+          <!-- Generate Results -->
+          @if (generateResult(); as res) {
+            <div class="result-block">
+              <div class="result-header">
+                <h3>Generated Ideas ({{ res.result.ideas.length }})</h3>
+              </div>
+
+              <div class="generated-ideas-list">
+                @for (item of res.result.ideas; track item.title) {
+                  <article class="generated-idea-card">
+                    <div class="card-content">
+                      <h4 class="card-title" dir="auto">{{ item.title }}</h4>
+                      <p class="card-desc" dir="auto">{{ item.description }}</p>
+                    </div>
+                    <div class="card-action">
+                      @if (addedItems()[item.title]) {
+                        <span class="added-badge">Added ✓</span>
+                      } @else {
+                        <button
+                          type="button"
+                          class="add-to-canvas-btn"
+                          [disabled]="isRoomLocked"
+                          (click)="onAddGeneratedIdea(item)"
+                          title="Add this idea as a card onto the canvas"
+                        >
+                          + Add to canvas
+                        </button>
+                      }
+                    </div>
+                  </article>
+                }
+              </div>
+
+              <footer class="model-caption">
+                Generated by {{ res.meta.model }} ({{ res.meta.tier }})
+              </footer>
+            </div>
+          }
+        </section>
+      }
+
+      <!-- ========================================== -->
+      <!-- ROOM MODE: 2. GROUP IDEAS                 -->
+      <!-- ========================================== -->
+      @if (activeMode() === 'room' && activeRoomTool() === 'group') {
+        <section class="tool-section">
+          <p class="tool-description">
+            Automatically categorizes current canvas ideas into thematic clusters.
+          </p>
+
+          <div class="room-stats-pill">
+            Available room ideas: <strong>{{ ideas.length }}</strong>
+            (min {{ caps.groupMinIdeas }}, max {{ caps.groupMaxIdeas }})
+          </div>
+
+          @if (ideas.length < caps.groupMinIdeas) {
+            <div class="empty-state-notice">
+              At least 2 ideas on the canvas are required to identify thematic groups.
+            </div>
+          } @else {
+            <button
+              type="button"
+              class="ai-submit-btn full-width"
+              [disabled]="ai.loading()"
+              (click)="runGroup()"
+            >
+              Cluster Ideas Thematically
+            </button>
+          }
+
+          @if (groupResult(); as res) {
+            <div class="result-block">
+              <div class="result-header">
+                <h3>Thematic Groups ({{ res.result.groups.length }})</h3>
+              </div>
+
+              <div class="groups-list">
+                @for (g of res.result.groups; track g.name) {
+                  <div class="group-card">
+                    <h4 class="group-name" dir="auto">{{ g.name }}</h4>
+                    @if (g.rationale) {
+                      <p class="group-rationale" dir="auto">{{ g.rationale }}</p>
+                    }
+                    <div class="group-chips">
+                      @for (id of g.ideaIds; track id) {
+                        <span class="idea-chip" dir="auto">
+                          {{ getIdeaTitleById(id) }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (res.result.ungroupedIds && res.result.ungroupedIds.length > 0) {
+                  <div class="group-card ungrouped">
+                    <h4 class="group-name">Ungrouped / Standalone</h4>
+                    <div class="group-chips">
+                      @for (id of res.result.ungroupedIds; track id) {
+                        <span class="idea-chip" dir="auto">
+                          {{ getIdeaTitleById(id) }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+
+              <footer class="model-caption">
+                Generated by {{ res.meta.model }} ({{ res.meta.tier }})
+              </footer>
+            </div>
+          }
+        </section>
+      }
+
+      <!-- ========================================== -->
+      <!-- ROOM MODE: 3. SUMMARIZE SESSION           -->
+      <!-- ========================================== -->
+      @if (activeMode() === 'room' && activeRoomTool() === 'summarize') {
+        <section class="tool-section">
+          <p class="tool-description">
+            Synthesizes all current room ideas into key takeaways, themes, and open questions.
+          </p>
+
+          <div class="input-group">
+            <label for="sum-title">Session / Room Title (Optional)</label>
+            <input
+              id="sum-title"
+              type="text"
+              class="ai-input"
+              maxlength="120"
+              placeholder="E.g., Q1 Brainstorming Session"
+              [(ngModel)]="summarizeSessionTitle"
+              dir="auto"
+            />
+          </div>
+
+          @if (ideas.length < caps.summarizeMinIdeas) {
+            <div class="empty-state-notice">
+              Add ideas to the canvas before generating a session summary.
+            </div>
+          } @else {
+            <button
+              type="button"
+              class="ai-submit-btn full-width"
+              [disabled]="ai.loading()"
+              (click)="runSummarize()"
+            >
+              Summarize Session ({{ ideas.length }} ideas)
+            </button>
+          }
+
+          @if (summarizeResult(); as res) {
+            <div class="result-block">
+              <div class="result-header">
+                <h3>Executive Summary</h3>
+                <button
+                  type="button"
+                  class="copy-btn"
+                  (click)="copyToClipboard(res.result.summary, 'Summary copied!')"
+                >
+                  Copy
+                </button>
+              </div>
+
+              <p class="summary-paragraph" dir="auto">{{ res.result.summary }}</p>
+
+              @if (res.result.themes && res.result.themes.length > 0) {
+                <div class="summary-subpart">
+                  <h4>Key Themes</h4>
+                  <div class="theme-tags">
+                    @for (theme of res.result.themes; track theme) {
+                      <span class="theme-tag" dir="auto">{{ theme }}</span>
+                    }
+                  </div>
+                </div>
+              }
+
+              @if (res.result.topIdeas && res.result.topIdeas.length > 0) {
+                <div class="summary-subpart">
+                  <h4>Top Highlighted Ideas</h4>
+                  <ul class="top-ideas-list">
+                    @for (top of res.result.topIdeas; track top.id) {
+                      <li>
+                        <strong dir="auto">{{ getIdeaTitleById(top.id) }}</strong>:
+                        <span dir="auto">{{ top.reason }}</span>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+
+              @if (res.result.openQuestions && res.result.openQuestions.length > 0) {
+                <div class="summary-subpart">
+                  <h4>Open Questions</h4>
+                  <ul class="questions-list">
+                    @for (q of res.result.openQuestions; track q) {
+                      <li dir="auto">{{ q }}</li>
+                    }
+                  </ul>
+                </div>
+              }
+
+              <footer class="model-caption">
+                Generated by {{ res.meta.model }} ({{ res.meta.tier }})
+              </footer>
+            </div>
+          }
+        </section>
+      }
+
+      <!-- ========================================== -->
+      <!-- ROOM MODE: 4. COMPARE IDEAS               -->
+      <!-- ========================================== -->
+      @if (activeMode() === 'room' && activeRoomTool() === 'compare') {
+        <section class="tool-section">
+          <p class="tool-description">
+            Select 2 to 4 ideas to generate an objective scoring comparison and recommendation.
+          </p>
+
+          <div class="selection-status">
+            Selected: <strong>{{ compareSelectedIds().length }}/{{ caps.compareMaxIdeas }}</strong>
+            (needs {{ caps.compareMinIdeas }}–{{ caps.compareMaxIdeas }})
+          </div>
+
+          @if (ideas.length < caps.compareMinIdeas) {
+            <div class="empty-state-notice">
+              At least 2 ideas are required in the room for comparison.
+            </div>
+          } @else {
+            <div class="compare-checkbox-list">
+              @for (idea of ideas; track idea.id) {
+                <label class="compare-item-label" [class.checked]="compareSelectedIds().includes(idea.id)">
+                  <input
+                    type="checkbox"
+                    [checked]="compareSelectedIds().includes(idea.id)"
+                    (change)="toggleCompareIdea(idea.id)"
+                  />
+                  <span class="compare-idea-name" dir="auto">{{ idea.title }}</span>
+                </label>
+              }
+            </div>
+
+            <button
+              type="button"
+              class="ai-submit-btn full-width"
+              [disabled]="compareSelectedIds().length < caps.compareMinIdeas || compareSelectedIds().length > caps.compareMaxIdeas || ai.loading()"
+              (click)="runCompare()"
+            >
+              Compare Selected ({{ compareSelectedIds().length }})
+            </button>
+          }
+
+          @if (compareResult(); as res) {
+            <div class="result-block">
+              <!-- Highlighted Recommendation -->
+              @if (res.result.recommendation; as rec) {
+                <div class="recommendation-box">
+                  <div class="rec-badge">★ Recommended Pick</div>
+                  <h4 class="rec-title" dir="auto">{{ getIdeaTitleById(rec.ideaId) }}</h4>
+                  <p class="rec-reason" dir="auto">{{ rec.reason }}</p>
+                </div>
+              }
+
+              <div class="result-header">
+                <h3>Criteria & Analysis</h3>
+                <button
+                  type="button"
+                  class="copy-btn"
+                  (click)="copyToClipboard(res.result.recommendation ? res.result.recommendation.reason : 'Comparison', 'Comparison copied!')"
+                >
+                  Copy
+                </button>
+              </div>
+
+              @if (res.result.criteria && res.result.criteria.length > 0) {
+                <div class="criteria-tags">
+                  @for (c of res.result.criteria; track c) {
+                    <span class="criteria-tag" dir="auto">{{ c }}</span>
+                  }
+                </div>
+              }
+
+              <div class="comparison-cards">
+                @for (c of res.result.comparison; track c.ideaId) {
+                  <article class="comparison-card">
+                    <h4 class="card-idea-name" dir="auto">{{ getIdeaTitleById(c.ideaId) }}</h4>
+
+                    @if (c.scores) {
+                      <div class="score-grid">
+                        @for (key of (c.scores | keyvalue); track key.key) {
+                          <div class="score-badge">
+                            <span class="score-name">{{ key.key }}:</span>
+                            <span class="score-val">{{ key.value }}/10</span>
+                          </div>
+                        }
+                      </div>
+                    }
+
+                    @if (c.strengths && c.strengths.length > 0) {
+                      <div class="pros-cons-section">
+                        <strong class="pros-title">Strengths:</strong>
+                        <ul>
+                          @for (s of c.strengths; track s) {
+                            <li dir="auto">{{ s }}</li>
+                          }
+                        </ul>
+                      </div>
+                    }
+
+                    @if (c.weaknesses && c.weaknesses.length > 0) {
+                      <div class="pros-cons-section">
+                        <strong class="cons-title">Weaknesses:</strong>
+                        <ul>
+                          @for (w of c.weaknesses; track w) {
+                            <li dir="auto">{{ w }}</li>
+                          }
+                        </ul>
+                      </div>
+                    }
+                  </article>
+                }
+              </div>
+
+              <footer class="model-caption">
+                Generated by {{ res.meta.model }} ({{ res.meta.tier }})
+              </footer>
+            </div>
+          }
+        </section>
+      }
+
+      <!-- ========================================== -->
+      <!-- IDEA MODE: 1. IMPROVE IDEA                -->
+      <!-- ========================================== -->
+      @if (activeMode() === 'idea' && activeIdeaTool() === 'improve') {
+        <section class="tool-section">
+          <!-- Idea Picker -->
+          <div class="input-group">
+            <label for="improve-idea-select">Selected Idea</label>
+            @if (ideas.length === 0) {
+              <div class="empty-state-notice">No ideas available in this room.</div>
+            } @else {
+              <select id="improve-idea-select" class="ai-select" [(ngModel)]="selectedIdeaId">
+                <option value="" disabled>Select an idea...</option>
+                @for (idea of ideas; track idea.id) {
+                  <option [value]="idea.id">{{ idea.title }}</option>
+                }
+              </select>
+            }
+          </div>
+
+          @if (currentIdea; as idea) {
+            <div class="idea-preview-box">
+              <span class="preview-label">Current:</span>
+              <p class="preview-text" dir="auto">
+                <strong>{{ idea.title }}</strong>
+                @if (idea.description) { — {{ idea.description }} }
+              </p>
+            </div>
+
+            <!-- Mode selector: improve vs expand -->
+            <div class="input-group">
+              <label>Enhancement Goal</label>
+              <div class="radio-toggle-group">
+                <button
+                  type="button"
+                  class="radio-toggle-btn"
+                  [class.selected]="improveMode === 'improve'"
+                  (click)="improveMode = 'improve'"
+                >
+                  Clarify & Polish
+                </button>
+                <button
+                  type="button"
+                  class="radio-toggle-btn"
+                  [class.selected]="improveMode === 'expand'"
+                  (click)="improveMode = 'expand'"
+                >
+                  Expand Details
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              class="ai-submit-btn full-width"
+              [disabled]="ai.loading()"
+              (click)="runImprove()"
+            >
+              Improve Idea
+            </button>
+          }
+
+          @if (improveResult(); as res) {
+            <div class="result-block">
+              <div class="result-header">
+                <h3>Improved Version</h3>
+                <button
+                  type="button"
+                  class="copy-btn"
+                  (click)="copyToClipboard(res.result.title + '\n\n' + res.result.text, 'Idea copied!')"
+                >
+                  Copy
+                </button>
+              </div>
+
+              <div class="improved-card">
+                <h4 class="improved-title" dir="auto">{{ res.result.title }}</h4>
+                <p class="improved-desc" dir="auto">{{ res.result.text }}</p>
+
+                @if (res.result.changes && res.result.changes.length > 0) {
+                  <div class="changes-list">
+                    <span class="changes-label">Changes:</span>
+                    <ul>
+                      @for (ch of res.result.changes; track ch) {
+                        <li dir="auto">{{ ch }}</li>
+                      }
+                    </ul>
+                  </div>
+                }
+              </div>
+
+              <div class="action-buttons-row">
+                <button
+                  type="button"
+                  class="action-btn primary"
+                  [disabled]="isRoomLocked"
+                  (click)="onUpdateCurrentIdea()"
+                  title="Replace existing title and description on canvas"
+                >
+                  Update idea on canvas
+                </button>
+                <button
+                  type="button"
+                  class="action-btn secondary"
+                  [disabled]="isRoomLocked"
+                  (click)="onAddImprovedAsNew()"
+                  title="Add as a new standalone card on canvas"
+                >
+                  Add as new
+                </button>
+              </div>
+
+              <footer class="model-caption">
+                Generated by {{ res.meta.model }} ({{ res.meta.tier }})
+              </footer>
+            </div>
+          }
+        </section>
+      }
+
+      <!-- ========================================== -->
+      <!-- IDEA MODE: 2. ACTION PLAN                 -->
+      <!-- ========================================== -->
+      @if (activeMode() === 'idea' && activeIdeaTool() === 'action-plan') {
+        <section class="tool-section">
+          <div class="input-group">
+            <label for="plan-idea-select">Selected Idea</label>
+            @if (ideas.length === 0) {
+              <div class="empty-state-notice">No ideas available in this room.</div>
+            } @else {
+              <select id="plan-idea-select" class="ai-select" [(ngModel)]="selectedIdeaId">
+                <option value="" disabled>Select an idea...</option>
+                @for (idea of ideas; track idea.id) {
+                  <option [value]="idea.id">{{ idea.title }}</option>
+                }
+              </select>
+            }
+          </div>
+
+          @if (currentIdea; as idea) {
+            <div class="input-group">
+              <label for="plan-goal">Target Goal / Milestone (Optional)</label>
+              <input
+                id="plan-goal"
+                type="text"
+                class="ai-input"
+                maxlength="500"
+                placeholder="E.g., Launch MVP in 4 weeks"
+                [(ngModel)]="actionPlanGoal"
+                dir="auto"
+              />
+            </div>
+
+            <button
+              type="button"
+              class="ai-submit-btn full-width"
+              [disabled]="ai.loading()"
+              (click)="runActionPlan()"
+            >
+              Generate Action Plan
+            </button>
+          }
+
+          @if (actionPlanResult(); as res) {
+            <div class="result-block">
+              <div class="result-header">
+                <h3 dir="auto">{{ res.result.title || 'Action Plan' }}</h3>
+                <button
+                  type="button"
+                  class="copy-btn"
+                  (click)="copyToClipboard(res.result.title, 'Plan copied!')"
+                >
+                  Copy
+                </button>
+              </div>
+
+              @if (res.result.quickWins && res.result.quickWins.length > 0) {
+                <div class="quick-wins-box">
+                  <strong>⚡ Quick Wins:</strong>
+                  <ul>
+                    @for (w of res.result.quickWins; track w) {
+                      <li dir="auto">{{ w }}</li>
+                    }
+                  </ul>
+                </div>
+              }
+
+              <div class="steps-timeline">
+                @for (s of res.result.steps; track s.order) {
+                  <div class="step-card">
+                    <div class="step-badge-row">
+                      <span class="step-number">Step {{ s.order }}</span>
+                      <span class="priority-pill" [attr.data-prio]="s.priority">
+                        {{ s.priority }}
+                      </span>
+                    </div>
+                    <h4 class="step-title" dir="auto">{{ s.title }}</h4>
+                    <p class="step-desc" dir="auto">{{ s.description }}</p>
+                  </div>
+                }
+              </div>
+
+              <footer class="model-caption">
+                Generated by {{ res.meta.model }} ({{ res.meta.tier }})
+              </footer>
+            </div>
+          }
+        </section>
+      }
+
+      <!-- ========================================== -->
+      <!-- IDEA MODE: 3. RISKS                       -->
+      <!-- ========================================== -->
+      @if (activeMode() === 'idea' && activeIdeaTool() === 'risks') {
+        <section class="tool-section">
+          <div class="input-group">
+            <label for="risks-idea-select">Selected Idea</label>
+            @if (ideas.length === 0) {
+              <div class="empty-state-notice">No ideas available in this room.</div>
+            } @else {
+              <select id="risks-idea-select" class="ai-select" [(ngModel)]="selectedIdeaId">
+                <option value="" disabled>Select an idea...</option>
+                @for (idea of ideas; track idea.id) {
+                  <option [value]="idea.id">{{ idea.title }}</option>
+                }
+              </select>
+            }
+          </div>
+
+          @if (currentIdea; as idea) {
+            <div class="input-group">
+              <label for="risks-context">Context / Constraints (Optional)</label>
+              <input
+                id="risks-context"
+                type="text"
+                class="ai-input"
+                maxlength="500"
+                placeholder="E.g., High regulation, low budget"
+                [(ngModel)]="risksContext"
+                dir="auto"
+              />
+            </div>
+
+            <button
+              type="button"
+              class="ai-submit-btn full-width"
+              [disabled]="ai.loading()"
+              (click)="runRisks()"
+            >
+              Analyze Risks & Mitigations
+            </button>
+          }
+
+          @if (risksResult(); as res) {
+            <div class="result-block">
+              <div class="result-header">
+                <h3>Identified Risks ({{ res.result.risks.length }})</h3>
+                <button
+                  type="button"
+                  class="copy-btn"
+                  (click)="copyToClipboard('Identified Risks: ' + res.result.risks.map(r => r.title).join(', '), 'Risks copied!')"
+                >
+                  Copy
+                </button>
+              </div>
+
+              <div class="risks-list">
+                @for (r of res.result.risks; track r.title) {
+                  <article class="risk-card">
+                    <div class="risk-head">
+                      <span class="severity-tag" [attr.data-sev]="r.severity">
+                        {{ r.severity }}
+                      </span>
+                      <h4 class="risk-title" dir="auto">{{ r.title }}</h4>
+                    </div>
+                    @if (r.description) {
+                      <p class="risk-desc" dir="auto">{{ r.description }}</p>
+                    }
+                    @if (r.mitigation) {
+                      <div class="mitigation-box">
+                        <strong>Mitigation:</strong>
+                        <span dir="auto">{{ r.mitigation }}</span>
+                      </div>
+                    }
+                  </article>
+                }
+              </div>
+
+              <footer class="model-caption">
+                Generated by {{ res.meta.model }} ({{ res.meta.tier }})
+              </footer>
+            </div>
+          }
+        </section>
+      }
+    </div>
+  </aside>
+}

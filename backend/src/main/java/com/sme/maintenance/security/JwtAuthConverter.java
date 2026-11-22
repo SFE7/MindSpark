@@ -37,7 +37,6 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
         return new JwtAuthenticationToken(jwt, authorities, principalClaimValue);
     }
 
-    @SuppressWarnings("unchecked")
     private Collection<GrantedAuthority> extractRealmRoles(Jwt jwt) {
         Map<String, Object> realmAccess = jwt.getClaim("realm_access");
         if (realmAccess == null || !realmAccess.containsKey("roles")) {
@@ -49,10 +48,22 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
             return Collections.emptyList();
         }
 
-        return rolesList.stream()
-                .filter(role -> role instanceof String)
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + ((String) role).replace("-", "_")))
-                .collect(Collectors.toSet());
+        java.util.Set<GrantedAuthority> authorities = new java.util.HashSet<>();
+        for (Object role : rolesList) {
+            if (role instanceof String roleStr) {
+                String trimmed = roleStr.trim();
+                if (trimmed.isEmpty()) continue;
+                // Add original-case version: e.g. ROLE_admin, ROLE_premium
+                authorities.add(new SimpleGrantedAuthority("ROLE_" + trimmed.replace("-", "_")));
+                // Add normalized uppercase version: e.g. ROLE_ADMIN, ROLE_SUPER_ADMIN, ROLE_PREMIUM
+                String normalized = trimmed.toUpperCase(java.util.Locale.ROOT).replace("-", "_");
+                authorities.add(new SimpleGrantedAuthority("ROLE_" + normalized));
+                if ("SUPER_ADMIN".equals(normalized) || "SUPERADMIN".equals(normalized)) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_SUPER_ADMIN"));
+                }
+            }
+        }
+        return authorities;
     }
 
     private static Collection<GrantedAuthority> StreamUtils(Collection<GrantedAuthority> c1, Collection<GrantedAuthority> c2) {

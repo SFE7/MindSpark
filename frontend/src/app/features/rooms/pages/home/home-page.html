@@ -1,10 +1,303 @@
-<main class="workspace">
-  @if (error()) { <div class="notice error" role="alert">{{ error() }}</div> }
-  <section class="hero"><div><p class="eyebrow">Collaborative thinking space</p><h1>Turn bright sparks<br><em>into momentum.</em></h1><p class="intro">Open a room, invite your crew, and shape the best ideas together.</p></div><div class="hero-note"><span>01</span><p>Make space for<br>every voice.</p></div></section>
-  <section class="actions" aria-label="Room actions">
-    <article class="action-card create-card"><div class="card-label"><span class="number">01</span><span>Start fresh</span></div><h2>Create a room</h2><p>Give your next conversation a place to grow.</p><form (ngSubmit)="createRoom()"><label for="room-name">Room name</label><div class="input-row"><input id="room-name" [ngModel]="roomName()" (ngModelChange)="roomName.set($event)" name="roomName" placeholder="e.g. Product launch" maxlength="120" [disabled]="!isLoggedIn"><button type="submit" [disabled]="loading() || !isLoggedIn" aria-label="Create room">+</button></div></form></article>
-    <article class="action-card join-card"><div class="card-label"><span class="number">02</span><span>Join in</span></div><h2>Use an invite</h2><p>Have a code? Step into an existing room.</p><form (ngSubmit)="joinRoom()"><label for="invite-code">Invitation code</label><div class="input-row"><input id="invite-code" [ngModel]="invitationCode()" (ngModelChange)="invitationCode.set($event)" name="invitationCode" placeholder="6 character code" maxlength="8" [disabled]="!isLoggedIn"><button type="submit" [disabled]="loading() || !isLoggedIn" aria-label="Join room">&#8594;</button></div></form></article>
-  </section>
-  <section class="rooms-section" aria-labelledby="rooms-title"><div class="section-heading"><div><p class="eyebrow">Your constellation</p><h2 id="rooms-title">Created rooms</h2></div><span class="count">{{ rooms().length | number:'2.0-0' }}</span></div>@if (rooms().length === 0) {<div class="empty-state">Your rooms will appear here after you create one.</div>} @else {<div class="room-list">@for (room of rooms(); track room.id) {<div class="room-row-wrap"><button class="room-row" type="button" (click)="reopenRoom(room)"><span class="room-symbol">&#9733;</span><span class="room-info"><strong>{{ room.name }}</strong><small>{{ room.invitationCode }} · {{ room.memberCount }} member{{ room.memberCount === 1 ? '' : 's' }}@if (room.closed) { · <span class="closed-tag">Closed (read-only)</span>}</small></span><span class="room-arrow">&#8599;</span></button><button class="delete-room-btn-home" type="button" (click)="deleteRoom($event, room)" title="Delete room" aria-label="Delete room">Delete</button></div>}</div>}</section>
-  <footer><span>mind<span>spark</span> / signed-in workspace</span><span>Your account is managed securely.</span></footer>
+<main class="home-workspace">
+  <!-- Cosmic Starry Backdrop with Top Navbar Refracting Sparks -->
+  <div class="cosmic-backdrop" aria-hidden="true">
+    <div class="nebula-top-nav"></div>
+    <div class="nebula-upper-right"></div>
+    <div class="nebula-lower-left"></div>
+
+    <!-- Extra Top Sparks Behind and Around Floating Liquid-Glass Island -->
+    <div class="top-nav-sparks-band">
+      <svg class="sparkle-gold spark-top st-1" viewBox="0 0 24 24"><path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/></svg>
+      <svg class="sparkle-gold spark-top st-2" viewBox="0 0 24 24"><path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/></svg>
+      <svg class="sparkle-peri spark-top st-3" viewBox="0 0 24 24"><path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/></svg>
+      <svg class="sparkle-gold spark-top st-4" viewBox="0 0 24 24"><path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/></svg>
+      <svg class="sparkle-gold spark-top st-5" viewBox="0 0 24 24"><path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/></svg>
+      <svg class="sparkle-peri spark-top st-6" viewBox="0 0 24 24"><path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/></svg>
+      <svg class="sparkle-gold spark-top st-7" viewBox="0 0 24 24"><path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/></svg>
+      <svg class="sparkle-peri spark-top st-8" viewBox="0 0 24 24"><path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/></svg>
+      <svg class="sparkle-gold spark-top st-9" viewBox="0 0 24 24"><path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/></svg>
+      <svg class="sparkle-gold spark-top st-10" viewBox="0 0 24 24"><path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/></svg>
+      <svg class="sparkle-peri spark-top st-11" viewBox="0 0 24 24"><path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/></svg>
+      <svg class="sparkle-gold spark-top st-12" viewBox="0 0 24 24"><path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/></svg>
+    </div>
+
+    <svg class="starfield" viewBox="0 0 1200 800" preserveAspectRatio="none">
+      <circle cx="150" cy="80" r="1.5" fill="#FFFFFF" opacity="0.8"/>
+      <circle cx="280" cy="180" r="1.2" fill="#B4BEFF" opacity="0.6"/>
+      <circle cx="420" cy="60" r="2" fill="#FFC83D" opacity="0.75"/>
+      <circle cx="560" cy="140" r="1" fill="#FFFFFF" opacity="0.5"/>
+      <circle cx="700" cy="90" r="1.8" fill="#B4BEFF" opacity="0.7"/>
+      <circle cx="850" cy="170" r="1.5" fill="#FFFFFF" opacity="0.85"/>
+      <circle cx="980" cy="80" r="2.2" fill="#FFC83D" opacity="0.8"/>
+      <circle cx="1100" cy="160" r="1.2" fill="#B4BEFF" opacity="0.6"/>
+      <circle cx="80" cy="320" r="1.4" fill="#FFFFFF" opacity="0.6"/>
+      <circle cx="220" cy="400" r="2" fill="#B4BEFF" opacity="0.7"/>
+      <circle cx="360" cy="280" r="1" fill="#FFFFFF" opacity="0.45"/>
+      <circle cx="520" cy="360" r="1.5" fill="#FFC83D" opacity="0.65"/>
+      <circle cx="680" cy="420" r="1.2" fill="#FFFFFF" opacity="0.55"/>
+      <circle cx="820" cy="310" r="1.8" fill="#B4BEFF" opacity="0.8"/>
+      <circle cx="950" cy="390" r="1.3" fill="#FFFFFF" opacity="0.7"/>
+      <circle cx="1120" cy="340" r="2" fill="#FFC83D" opacity="0.75"/>
+      <circle cx="140" cy="580" r="1.2" fill="#B4BEFF" opacity="0.6"/>
+      <circle cx="300" cy="650" r="1.8" fill="#FFFFFF" opacity="0.7"/>
+      <circle cx="480" cy="540" r="1.4" fill="#FFFFFF" opacity="0.5"/>
+      <circle cx="640" cy="620" r="2.2" fill="#FFC83D" opacity="0.8"/>
+      <circle cx="780" cy="560" r="1.1" fill="#B4BEFF" opacity="0.55"/>
+      <circle cx="910" cy="670" r="1.6" fill="#FFFFFF" opacity="0.75"/>
+      <circle cx="1060" cy="590" r="1.3" fill="#B4BEFF" opacity="0.65"/>
+      <circle cx="1160" cy="710" r="2" fill="#FFFFFF" opacity="0.8"/>
+    </svg>
+  </div>
+
+  <div class="home-content">
+    @if (error()) {
+      <div class="notice error" role="alert">{{ error() }}</div>
+    }
+
+    @if (roomLimitHit(); as limitInfo) {
+      <div class="limit-alert" role="alert">
+        <div class="limit-alert-content">
+          <span class="limit-icon" aria-hidden="true">⚠️</span>
+          <div class="limit-text">
+            <strong>Room limit reached ({{ limitInfo.current }}/{{ limitInfo.limit }} active rooms)</strong>
+            <p>{{ limitInfo.message }}</p>
+          </div>
+        </div>
+        <a routerLink="/billing" class="upgrade-btn">Upgrade Plan &rarr;</a>
+      </div>
+    }
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+      <div class="hero-text-col">
+        <h1 class="hero-title">
+          <span class="title-line">
+            Turn bright
+            <svg class="sparkle-gold inline-sparkle" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/>
+            </svg>
+          </span>
+          <span class="title-line">
+            <span class="spark-accent">sparks</span> into
+          </span>
+          <span class="title-line">momentum.</span>
+        </h1>
+        <p class="hero-subtitle">Open a room, invite your crew, and shape the best ideas together.</p>
+      </div>
+    </section>
+
+    <!-- Action Cards Row -->
+    <section class="actions-grid" aria-label="Room actions">
+      <!-- Card A: Create a room -->
+      <article class="action-card create-card">
+        <div class="card-header">
+          <div class="card-icon-badge periwinkle-badge" aria-hidden="true">
+            <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="16"/>
+              <line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+          </div>
+          <h2 class="card-title">Create a room</h2>
+        </div>
+        <form class="action-form" (ngSubmit)="createRoom()">
+          <label for="room-name" class="visually-hidden">Room name</label>
+          <div class="input-row">
+            <input
+              id="room-name"
+              class="ms-input"
+              [ngModel]="roomName()"
+              (ngModelChange)="roomName.set($event)"
+              name="roomName"
+              placeholder="e.g. Product launch"
+              maxlength="120"
+              autocomplete="off"
+            />
+            <button
+              type="submit"
+              class="ms-btn create-btn"
+              [disabled]="loading() || !isLoggedIn"
+              aria-label="Create room"
+            >
+              Create
+            </button>
+          </div>
+        </form>
+      </article>
+
+      <!-- Card B: Join with a code (with Scaled-Up Peeking Mascot anchored above) -->
+      <div class="action-card-wrapper join-wrapper">
+        <div class="mascot-peeking-anchor" aria-hidden="true">
+          <div class="floating-sparkles">
+            <svg class="sparkle-gold sparkle-float s-1" viewBox="0 0 24 24">
+              <path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/>
+            </svg>
+            <svg class="sparkle-gold sparkle-float s-2" viewBox="0 0 24 24">
+              <path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/>
+            </svg>
+            <svg class="sparkle-gold sparkle-float s-3" viewBox="0 0 24 24">
+              <path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/>
+            </svg>
+            <svg class="sparkle-gold sparkle-float s-4" viewBox="0 0 24 24">
+              <path d="M12 0C12 6.627 6.627 12 0 12C6.627 12 12 17.373 12 24C12 17.373 17.373 12 24 12C17.373 12 12 6.627 12 0Z"/>
+            </svg>
+          </div>
+          <img
+            src="/assets/mindspark-mascot.png"
+            alt=""
+            class="peeking-mascot-img"
+          />
+        </div>
+
+        <article class="action-card join-card">
+          <div class="card-header">
+            <div class="card-icon-badge coral-badge" aria-hidden="true">
+              <svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <h2 class="card-title">Join with a code</h2>
+          </div>
+          <form class="action-form" (ngSubmit)="joinRoom()">
+            <label class="visually-hidden">6-character room code</label>
+            <div class="join-row">
+              <div class="otp-container" role="group" aria-label="Room invitation code">
+                @for (slot of otpSlots(); track $index; let i = $index) {
+                  <input
+                    id="otp-slot-{{ i }}"
+                    type="text"
+                    inputmode="text"
+                    maxlength="1"
+                    class="otp-slot"
+                    [value]="slot"
+                    (input)="onOtpInput(i, $event)"
+                    (keydown)="onOtpKeyDown(i, $event)"
+                    (paste)="onOtpPaste($event, i)"
+                    aria-label="Code character {{ i + 1 }}"
+                    autocomplete="off"
+                  />
+                }
+              </div>
+              <button
+                type="submit"
+                class="ms-btn join-btn"
+                [disabled]="loading() || !isLoggedIn"
+                aria-label="Join room"
+              >
+                Join
+              </button>
+            </div>
+          </form>
+        </article>
+      </div>
+    </section>
+
+    <!-- Your Rooms Section -->
+    <section class="rooms-section" aria-labelledby="rooms-title">
+      <div class="rooms-header">
+        <h2 id="rooms-title" class="rooms-heading">Your rooms</h2>
+        @if (isLoggedIn && rooms().length > 0) {
+          <span class="rooms-count-pill">{{ rooms().length | number:'2.0-0' }}</span>
+        }
+      </div>
+
+      @if (!isLoggedIn) {
+        <div class="empty-state logged-out-card">
+          <div class="empty-icon" aria-hidden="true">🔒</div>
+          <div class="empty-content">
+            <h3 class="empty-title">Sign in to view your rooms</h3>
+            <p class="empty-desc">Sign in or create an account above to create rooms, invite collaborators, and save ideas.</p>
+          </div>
+        </div>
+      } @else if (rooms().length === 0) {
+        <div class="empty-state">
+          <span class="empty-sparkle" aria-hidden="true">✨</span>
+          <p class="empty-desc">No rooms yet — create your first room above to spark an idea.</p>
+        </div>
+      } @else {
+        <div class="rooms-grid">
+          @for (room of rooms(); track room.id; let idx = $index) {
+            <article
+              class="room-card"
+              tabindex="0"
+              role="button"
+              [attr.aria-label]="'Open room ' + room.name"
+              (click)="navigateToRoom(room)"
+              (keydown.enter)="navigateToRoom(room)"
+            >
+              <div class="room-card-top">
+                <div class="room-icon-badge" [attr.data-type]="getRoomIconType(idx)" aria-hidden="true">
+                  @switch (getRoomIconType(idx)) {
+                    @case ('bulb') {
+                      <svg class="room-type-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 18h6"/>
+                        <path d="M10 22h4"/>
+                        <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.76.76 1.23 1.52 1.41 2.5"/>
+                      </svg>
+                    }
+                    @case ('chart') {
+                      <svg class="room-type-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="20" x2="18" y2="10"/>
+                        <line x1="12" y1="20" x2="12" y2="4"/>
+                        <line x1="6" y1="20" x2="6" y2="14"/>
+                      </svg>
+                    }
+                    @case ('code') {
+                      <svg class="room-type-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="16 18 22 12 16 6"/>
+                        <polyline points="8 6 2 12 8 18"/>
+                      </svg>
+                    }
+                  }
+                </div>
+
+                <div class="room-title-block">
+                  <div class="room-title-row">
+                    <h3 class="room-title" [title]="room.name">{{ room.name }}</h3>
+                    @if (room.closed) {
+                      <span class="closed-badge closed-tag">Closed</span>
+                    }
+                  </div>
+                  <span class="code-pill">{{ room.invitationCode }}</span>
+                </div>
+              </div>
+
+              <div class="room-card-bottom">
+                <div class="metadata-cluster">
+                  <div class="avatar-badges" aria-label="Room members">
+                    @for (badge of getInitialsBadge(room); track $index; let bIdx = $index) {
+                      <span class="avatar-badge" [style.z-index]="10 - bIdx">{{ badge }}</span>
+                    }
+                  </div>
+                  <span class="meta-divider" aria-hidden="true"></span>
+                  <span class="meta-time">{{ formatRelativeTime(room.createdAt) }}</span>
+                </div>
+
+                <div class="room-card-actions">
+                  <button
+                    type="button"
+                    class="delete-room-btn-home"
+                    (click)="deleteRoom($event, room)"
+                    title="Delete room"
+                    aria-label="Delete room"
+                  >
+                    Delete
+                  </button>
+                  <span class="chevron-arrow" aria-hidden="true">&rsaquo;</span>
+                </div>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    </section>
+
+    <!-- Micro Footer -->
+    <footer class="micro-footer">
+      <span>MindSpark • Brainstorm together, in real time.</span>
+    </footer>
+  </div>
 </main>

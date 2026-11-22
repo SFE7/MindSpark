@@ -1,0 +1,7 @@
+resilience4j:
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 15s
+      aiServiceCB:
+        timeoutDuration: 60s

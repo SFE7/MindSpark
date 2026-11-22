@@ -48,6 +48,7 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
     private final JwtDecoder jwtDecoder;
     private final AuthenticatedUserService authenticatedUserService;
     private final RoomService roomService;
+    private final com.sme.maintenance.presence.PresenceService presenceService;
     private final ObjectMapper objectMapper;
 
     private static final int CARD_MOVE_RATE_LIMIT = 15;
@@ -83,10 +84,12 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
             JwtDecoder jwtDecoder,
             AuthenticatedUserService authenticatedUserService,
             RoomService roomService,
+            com.sme.maintenance.presence.PresenceService presenceService,
             ObjectMapper objectMapper) {
         this.jwtDecoder = jwtDecoder;
         this.authenticatedUserService = authenticatedUserService;
         this.roomService = roomService;
+        this.presenceService = presenceService;
         this.objectMapper = objectMapper;
     }
 
@@ -522,8 +525,9 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
         }
 
         // Check room access rules
+        com.sme.maintenance.room.Room room;
         try {
-            roomService.memberRoom(context.roomId, user.getId());
+            room = roomService.memberRoom(context.roomId, user.getId());
         } catch (ResponseStatusException e) {
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
                 log.warn("Room {} not found for user {}", context.roomId, user.getId());
@@ -540,6 +544,11 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
         context.userName = user.getUsername() != null ? user.getUsername() : ("User #" + user.getId());
 
         roomSessions.computeIfAbsent(context.roomId, k -> ConcurrentHashMap.newKeySet()).add(context.session.getId());
+
+        if (presenceService != null) {
+            boolean isOwner = room != null && room.getOwnerId() != null && room.getOwnerId().equals(user.getId());
+            presenceService.heartbeat(context.roomId, user.getId(), context.session.getId(), isOwner);
+        }
 
         // Send auth success acknowledgement
         Map<String, Object> ack = Map.of("type", "auth.success", "userId", context.userId, "name", context.userName);
@@ -627,6 +636,13 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
             if (context.authenticated) {
                 log.info("Session {} closed for user {} in room {}", session.getId(), context.userId, context.roomId);
                 if (context.userId != null) {
+                    if (presenceService != null) {
+                        try {
+                            com.sme.maintenance.room.Room r = roomService.find(context.roomId);
+                            boolean isOwner = r != null && context.userId.equals(r.getOwnerId());
+                            presenceService.leave(context.roomId, context.userId, session.getId(), isOwner);
+                        } catch (Exception ignored) {}
+                    }
                     releaseLocksForUser(context.roomId, context.userId);
                     Map<String, Object> leave = Map.of(
                             "type", "cursor-leave",
@@ -676,6 +692,13 @@ public class RoomWebSocketHandler extends TextWebSocketHandler {
                         rSessions.remove(session.getId());
                     }
                     if (ctx.userId != null) {
+                        if (presenceService != null) {
+                            try {
+                                com.sme.maintenance.room.Room r = roomService.find(ctx.roomId);
+                                boolean isOwner = r != null && ctx.userId.equals(r.getOwnerId());
+                                presenceService.leave(ctx.roomId, ctx.userId, session.getId(), isOwner);
+                            } catch (Exception ignored) {}
+                        }
                         releaseLocksForUser(ctx.roomId, ctx.userId);
                         Map<String, Object> leave = Map.of(
                                 "type", "cursor-leave",

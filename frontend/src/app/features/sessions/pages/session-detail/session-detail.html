@@ -1,0 +1,238 @@
+<div class="session-detail-page">
+  @if (sessionService.loading()) {
+    <div class="loading-state" aria-live="polite">
+      <div class="spinner"></div>
+      <p>Loading session report…</p>
+    </div>
+  } @else if (sessionService.selectedSnapshot(); as session) {
+    <!-- Top Action Bar (hidden in print) -->
+    <header class="detail-header no-print">
+      <div class="nav-breadcrumbs">
+        <a routerLink="/sessions" class="btn-back">← All Sessions</a>
+        <span class="sep">/</span>
+        <span class="current-title">{{ session.title }}</span>
+      </div>
+
+      <div class="actions-group">
+        <button type="button" class="btn-print" (click)="printReport()" title="Print report or save as PDF">
+          🖨️ Print / Save as PDF
+        </button>
+
+        <div class="export-buttons">
+          <button type="button" class="btn-export" (click)="exportSession('md')">
+            Export Markdown
+          </button>
+          <button type="button" class="btn-export" (click)="exportSession('json')">
+            Export JSON
+          </button>
+          <button type="button" class="btn-export" (click)="exportSession('csv')">
+            Export CSV
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Printable Report Container -->
+    <main class="report-content" id="printable-report">
+      <!-- Report Header -->
+      <section class="report-heading">
+        <div class="report-badge-group">
+          <span class="badge room-badge">{{ session.roomName }}</span>
+          @if (session.invitationCode) {
+            <span class="badge code-badge">#{{ session.invitationCode }}</span>
+          }
+          <span class="badge date-badge">Frozen on {{ session.createdAt | date:'medium' }}</span>
+        </div>
+
+        <h1 class="report-title" dir="auto">{{ session.title }}</h1>
+
+        @if (session.notes) {
+          <div class="notes-callout" dir="auto">
+            <h3>📝 Session Notes</h3>
+            <p>{{ session.notes }}</p>
+          </div>
+        }
+      </section>
+
+      <!-- KPI Summary Strip -->
+      <section class="kpi-strip" aria-label="Session summary metrics">
+        <div class="kpi-card">
+          <span class="kpi-value">{{ session.ideaCount }}</span>
+          <span class="kpi-label">Ideas Generated</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-value">{{ session.totalVotes }}</span>
+          <span class="kpi-label">Total Votes</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-value">{{ session.categoryCount }}</span>
+          <span class="kpi-label">Categories</span>
+        </div>
+        <div class="kpi-card">
+          <span class="kpi-value">{{ session.participantCount }}</span>
+          <span class="kpi-label">Participants</span>
+        </div>
+      </section>
+
+      <!-- AI Summary & Action Plan (if present) -->
+      @if (session.aiSummary) {
+        <section class="ai-summary-card" dir="auto">
+          <div class="ai-summary-header">
+            <span class="ai-spark">✨</span>
+            <h2>AI Assistant Summary &amp; Action Plan</h2>
+          </div>
+          <div class="ai-summary-body markdown-body">
+            <p>{{ session.aiSummary }}</p>
+          </div>
+        </section>
+      }
+
+      <!-- Top Voted Ideas Podium / Leaderboard -->
+      @if (topVotedIdeas().length > 0) {
+        <section class="section-block leaderboard-section">
+          <div class="section-title-wrap">
+            <h2>🏆 Top Voted Ideas</h2>
+            <span class="section-sub">Highest community support during the session</span>
+          </div>
+
+          <div class="leaderboard-grid">
+            @for (idea of topVotedIdeas(); track idea.id; let idx = $index) {
+              <div class="podium-card" [class.rank-1]="idx === 0" [class.rank-2]="idx === 1" [class.rank-3]="idx === 2" dir="auto">
+                <div class="podium-header">
+                  <span class="rank-badge">#{{ idx + 1 }}</span>
+                  <span class="vote-badge">{{ idea.voteCount }} votes</span>
+                </div>
+                <h3 class="idea-title">{{ idea.title }}</h3>
+                @if (idea.text && idea.text !== idea.title) {
+                  <p class="idea-desc">{{ idea.text }}</p>
+                }
+                <div class="idea-footer">
+                  <span class="category-pill">{{ idea.categoryName || 'Uncategorized' }}</span>
+                  <span class="author-tag">by {{ idea.authorName }}</span>
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- Categorized Ideas Tree -->
+      <section class="section-block categories-section">
+        <div class="section-title-wrap">
+          <h2>📁 Ideas by Category</h2>
+          <span class="section-sub">Structured workspace breakdown with comments preserved</span>
+        </div>
+
+        @for (cat of groupedCategories(); track cat.id) {
+          <div class="category-group">
+            <div class="category-heading">
+              <h3 dir="auto">{{ cat.name }}</h3>
+              <span class="count-pill">{{ cat.ideas.length }} ideas</span>
+            </div>
+
+            <div class="ideas-deck">
+              @for (idea of cat.ideas; track idea.id) {
+                <div class="idea-card-item" dir="auto">
+                  <div class="card-item-top">
+                    <h4 class="item-title">{{ idea.title }}</h4>
+                    <span class="item-votes">★ {{ idea.voteCount }}</span>
+                  </div>
+
+                  @if (idea.text && idea.text !== idea.title) {
+                    <p class="item-body">{{ idea.text }}</p>
+                  }
+
+                  <div class="item-meta">
+                    <span class="item-author">Author: {{ idea.authorName }}</span>
+                    <time class="item-time">{{ idea.createdAt | date:'short' }}</time>
+                  </div>
+
+                  <!-- Nested Comments -->
+                  @if (idea.comments && idea.comments.length > 0) {
+                    <div class="comments-list">
+                      <div class="comments-header">
+                        💬 Comments ({{ idea.comments.length }})
+                      </div>
+                      @for (c of idea.comments; track c.id) {
+                        <div class="comment-bubble" dir="auto">
+                          <strong class="comment-author">{{ c.authorName }}:</strong>
+                          <span class="comment-text">{{ c.content }}</span>
+                          <span class="comment-time">{{ c.createdAt | date:'shortTime' }}</span>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Uncategorized Ideas -->
+        @if (uncategorizedIdeas().length > 0) {
+          <div class="category-group uncategorized">
+            <div class="category-heading">
+              <h3 dir="auto">Uncategorized Ideas</h3>
+              <span class="count-pill">{{ uncategorizedIdeas().length }} ideas</span>
+            </div>
+
+            <div class="ideas-deck">
+              @for (idea of uncategorizedIdeas(); track idea.id) {
+                <div class="idea-card-item" dir="auto">
+                  <div class="card-item-top">
+                    <h4 class="item-title">{{ idea.title }}</h4>
+                    <span class="item-votes">★ {{ idea.voteCount }}</span>
+                  </div>
+                  @if (idea.text && idea.text !== idea.title) {
+                    <p class="item-body">{{ idea.text }}</p>
+                  }
+                  <div class="item-meta">
+                    <span class="item-author">Author: {{ idea.authorName }}</span>
+                    <time class="item-time">{{ idea.createdAt | date:'short' }}</time>
+                  </div>
+
+                  @if (idea.comments && idea.comments.length > 0) {
+                    <div class="comments-list">
+                      <div class="comments-header">💬 Comments ({{ idea.comments.length }})</div>
+                      @for (c of idea.comments; track c.id) {
+                        <div class="comment-bubble" dir="auto">
+                          <strong class="comment-author">{{ c.authorName }}:</strong>
+                          <span class="comment-text">{{ c.content }}</span>
+                          <span class="comment-time">{{ c.createdAt | date:'shortTime' }}</span>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </section>
+
+      <!-- Participants List Footer -->
+      @if (session.snapshotData && session.snapshotData.participants && session.snapshotData.participants.length > 0) {
+        <section class="section-block participants-section">
+          <h3>Session Contributors</h3>
+          <div class="participants-pills">
+            @for (p of session.snapshotData.participants; track p.keycloakId) {
+              <span class="participant-badge" [class.owner]="p.role === 'OWNER'">
+                {{ p.displayName }} ({{ p.role }})
+              </span>
+            }
+          </div>
+        </section>
+      }
+
+      <footer class="report-footer">
+        <p>MindSpark Collaborative Brainstorming Platform · Frozen Report</p>
+      </footer>
+    </main>
+  } @else {
+    <div class="empty-state">
+      <h2>Session Not Found</h2>
+      <p>The requested session snapshot does not exist or you do not have permission to access it.</p>
+      <a routerLink="/sessions" class="btn-primary">Back to Sessions</a>
+    </div>
+  }
+</div>

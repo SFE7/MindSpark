@@ -1,0 +1,119 @@
+﻿=== 1. Direct Health Check session-service:8084 ===
+HTTP/1.1 200 
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Type: text/plain;charset=UTF-8
+Content-Length: 2
+Date: Sat, 21 Nov 2026 00:03:09 GMT
+
+OK
+
+=== 2. Gateway Route Check api-gateway:8080/api/sessions/health ===
+HTTP/1.1 200 OK
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Type: text/plain;charset=UTF-8
+Content-Length: 2
+Date: Sat, 21 Nov 2026 00:03:09 GMT
+Vary: Origin
+
+OK
+
+=== 3. Gateway CORS + Auth Check POST /api/sessions/snapshots ===
+HTTP/1.1 401 Unauthorized
+Access-Control-Expose-Headers: Content-Disposition
+Access-Control-Expose-Headers: Content-Disposition
+WWW-Authenticate: Bearer resource_metadata="http://session-service:8084/.well-known/oauth-protected-resource"
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Length: 0
+Date: Sat, 21 Nov 2026 00:03:09 GMT
+Access-Control-Allow-Origin: http://localhost:4200
+Access-Control-Allow-Credentials: true
+Vary: Origin
+
+
+=== 4. Gateway Internal Route Block Check /internal/rooms/test/export-data ===
+HTTP/1.1 404 Not Found
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+Content-Type: application/json
+Content-Length: 146
+
+{"timestamp":"2026-11-21T00:03:09.559+00:00","path":"/internal/rooms/test/export-data","status":404,"error":"Not Found","requestId":"8d4037db-10"}
+
+=== 5. Backend Internal Endpoint Keyless (Should be 403 Forbidden) ===
+HTTP/1.1 403 
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Length: 0
+Date: Sat, 21 Nov 2026 00:03:10 GMT
+
+
+=== 6. Backend Internal Endpoint With Key (Should be 404 Room Not Found) ===
+HTTP/1.1 404 
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Length: 0
+Date: Sat, 21 Nov 2026 00:03:11 GMT
+
+
+=== 7. Non-Regression Subscription Service: /api/plans ===
+HTTP/1.1 200 OK
+transfer-encoding: chunked
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Type: application/json
+Date: Sat, 21 Nov 2026 00:03:12 GMT
+Vary: Origin
+
+[{"id":"cea37846-194a-45e3-a6dd-ca9060433005","code":"FREE","name":"Free","description":"Essential collaborative whiteboard tools for small sessions.","priceCents":0,"currency":"USD","billingInterval":"MONTHLY","maxActiveRooms":3,"maxParticipantsPerRoom":5,"aiDailyLimit":10,"aiTier":"FREE","sortOrder":1},{"id":"f75a9aa3-7431-4760-8e10-669e783fe6ee","code":"PREMIUM","name":"Premium","description":"Expanded rooms, larger audiences, and high-performance AI capabilities.","priceCents":900,"currency":"USD","billingInterval":"MONTHLY","maxActiveRooms":20,"maxParticipantsPerRoom":25,"aiDailyLimit":20,"aiTier":"PREMIUM","sortOrder":2},{"id":"9c324a45-8029-46c1-ae6c-23c147d44887","code":"TEAM","name":"Team","description":"Full scale workshop capacity for organizations and large teams.","priceCents":2400,"currency":"USD","billingInterval":"MONTHLY","maxActiveRooms":100,"maxParticipantsPerRoom":100,"aiDailyLimit":20,"aiTier":"PREMIUM","sortOrder":3}]
+
+=== 8. Non-Regression AI Service: /api/ai/health ===
+HTTP/1.1 200 OK
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Type: text/plain;charset=UTF-8
+Content-Length: 2
+Date: Sat, 21 Nov 2026 00:03:12 GMT
+Vary: Origin
+
+OK

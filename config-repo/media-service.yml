@@ -1,0 +1,9 @@
+resilience4j:
+  circuitbreaker:
+    instances:
+      backendRoomAccess:
+        baseConfig: default
+        waitDurationInOpenState: 15s
+        ignoreExceptions:
+          - com.mindspark.media.exception.RoomNotFoundException
+          - com.mindspark.media.exception.RoomForbiddenException

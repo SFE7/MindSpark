@@ -22,6 +22,9 @@ public interface CommentRepository extends JpaRepository<Comment, UUID> {
     @EntityGraph(attributePaths = {"author", "replies.author"})
     List<Comment> findByIdeaAndParentCommentIsNullOrderByCreatedAtAsc(Idea idea);
 
+    @EntityGraph(attributePaths = {"author", "parentComment"})
+    List<Comment> findByIdeaOrderByCreatedAtAsc(Idea idea);
+
     @EntityGraph(attributePaths = {"author"})
     List<Comment> findByParentCommentOrderByCreatedAtAsc(Comment parentComment);
 

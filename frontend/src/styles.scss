@@ -1,3 +1,19 @@
+:root {
+  --ms-bg: #060A22;
+  --ms-surface: #0D1438;
+  --ms-surface-raised: #141D4F;
+  --ms-border: #27316E;
+  --ms-primary: #6F82F2;
+  --ms-primary-light: #B4BEFF;
+  --ms-gold: #FFC83D;
+  --ms-coral: #FF9A8F;
+  --ms-text: #F4F6FF;
+  --ms-text-muted: #9AA5CE;
+  --ms-font-display: 'Bricolage Grotesque', system-ui, sans-serif;
+  --ms-font-sans: 'Inter', system-ui, sans-serif;
+  --ms-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
 @font-face {
   font-family: 'DM Mono';
   font-style: normal;

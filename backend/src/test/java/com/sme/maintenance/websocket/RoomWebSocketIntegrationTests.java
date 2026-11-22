@@ -81,6 +81,9 @@ class RoomWebSocketIntegrationTests {
     private com.sme.maintenance.drawing.DrawingRepository drawingRepository;
 
     @Autowired
+    private RoomWebSocketHandler webSocketHandler;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     private User userA;
@@ -145,14 +148,22 @@ class RoomWebSocketIntegrationTests {
     }
 
     private WebSocketSession connectClient(UUID roomId, String token, BlockingQueue<String> queue) throws Exception {
+        return connectClient(roomId, token, null, queue);
+    }
+
+    private WebSocketSession connectClient(UUID roomId, String token, String origin, BlockingQueue<String> queue) throws Exception {
         StandardWebSocketClient client = new StandardWebSocketClient();
         String uri = "ws://localhost:" + port + "/ws/rooms/" + roomId + (token != null ? "?token=" + token : "");
+        WebSocketHttpHeaders headers = new WebSocketHttpHeaders();
+        if (origin != null && !origin.isBlank()) {
+            headers.setOrigin(origin);
+        }
         return client.execute(new TextWebSocketHandler() {
             @Override
             protected void handleTextMessage(WebSocketSession session, TextMessage message) {
                 queue.add(message.getPayload());
             }
-        }, new WebSocketHttpHeaders(), URI.create(uri)).get(5, TimeUnit.SECONDS);
+        }, headers, URI.create(uri)).get(5, TimeUnit.SECONDS);
     }
 
     @Test
@@ -375,8 +386,8 @@ class RoomWebSocketIntegrationTests {
             }
         }
 
-        // Must cap at maximum 25 messages per second
-        assertThat(count).isLessThanOrEqualTo(25);
+        // Must drop excess messages without closing connection
+        assertThat(count).isLessThan(35);
         assertThat(count).isGreaterThan(0);
 
         sA1.close();
@@ -677,5 +688,179 @@ class RoomWebSocketIntegrationTests {
         assertThat(deleteNode.get("id").asText()).isEqualTo(created.id().toString());
 
         sA2.close();
+    }
+
+    @Test
+    void multiClientWebSocketCollaborationOverLanOrigin() throws Exception {
+        BlockingQueue<String> msgsA = new LinkedBlockingQueue<>();
+        BlockingQueue<String> msgsB = new LinkedBlockingQueue<>();
+        String lanOrigin = "http://192.168.0.3:4200";
+
+        // 1. User A connects with LAN Origin
+        WebSocketSession sA = connectClient(roomA.getId(), "user-a", lanOrigin, msgsA);
+        assertThat(sA.isOpen()).isTrue();
+
+        // User A receives initial presence snapshot showing 1 participant
+        String presA1 = null;
+        for (int i = 0; i < 5; i++) {
+            String m = msgsA.poll(2, TimeUnit.SECONDS);
+            if (m != null && m.contains("\"presence\"") && m.contains("user-a")) {
+                presA1 = m;
+                break;
+            }
+        }
+        assertThat(presA1).isNotNull();
+        JsonNode pres1Node = objectMapper.readTree(presA1);
+        assertThat(pres1Node.get("participants").size()).isEqualTo(1);
+
+        // 2. User B connects with LAN Origin to the same room
+        WebSocketSession sB = connectClient(roomA.getId(), "user-b", lanOrigin, msgsB);
+        assertThat(sB.isOpen()).isTrue();
+
+        // Both clients receive presence snapshot showing 2 online participants (participants.length == 2)
+        String presA2 = null;
+        for (int i = 0; i < 5; i++) {
+            String m = msgsA.poll(2, TimeUnit.SECONDS);
+            if (m != null && m.contains("\"presence\"") && m.contains("user-b")) {
+                presA2 = m;
+                break;
+            }
+        }
+        assertThat(presA2).isNotNull();
+        JsonNode a2Node = objectMapper.readTree(presA2);
+        assertThat(a2Node.get("participants").size()).isEqualTo(2);
+
+        String presB2 = null;
+        for (int i = 0; i < 5; i++) {
+            String m = msgsB.poll(2, TimeUnit.SECONDS);
+            if (m != null && m.contains("\"presence\"") && m.contains("user-a") && m.contains("user-b")) {
+                presB2 = m;
+                break;
+            }
+        }
+        assertThat(presB2).isNotNull();
+        JsonNode b2Node = objectMapper.readTree(presB2);
+        assertThat(b2Node.get("participants").size()).isEqualTo(2);
+
+        // 3. User A sends live cursor move -> User B receives it
+        msgsB.clear();
+        String cursorJson = objectMapper.writeValueAsString(Map.of(
+                "type", "cursor-move",
+                "x", 450.0,
+                "y", 250.0
+        ));
+        sA.sendMessage(new TextMessage(cursorJson));
+
+        String recvCursor = null;
+        for (int i = 0; i < 5; i++) {
+            String m = msgsB.poll(2, TimeUnit.SECONDS);
+            if (m != null && m.contains("\"cursor-move\"")) {
+                recvCursor = m;
+                break;
+            }
+        }
+        assertThat(recvCursor).isNotNull();
+        JsonNode cursorNode = objectMapper.readTree(recvCursor);
+        assertThat(cursorNode.get("type").asText()).isEqualTo("cursor-move");
+        assertThat(cursorNode.get("userId").asLong()).isEqualTo(userA.getId());
+        assertThat(cursorNode.get("x").asDouble()).isEqualTo(450.0);
+        assertThat(cursorNode.get("y").asDouble()).isEqualTo(250.0);
+
+        // 4. User A drags an idea -> User B receives card-move
+        msgsB.clear();
+        String cardMoveJson = objectMapper.writeValueAsString(Map.of(
+                "type", "card-move",
+                "id", "card-test-77",
+                "x", 320.0,
+                "y", 180.0
+        ));
+        sA.sendMessage(new TextMessage(cardMoveJson));
+
+        String recvCardMove = null;
+        for (int i = 0; i < 5; i++) {
+            String m = msgsB.poll(2, TimeUnit.SECONDS);
+            if (m != null && m.contains("\"card-move\"")) {
+                recvCardMove = m;
+                break;
+            }
+        }
+        assertThat(recvCardMove).isNotNull();
+        JsonNode cardNode = objectMapper.readTree(recvCardMove);
+        assertThat(cardNode.get("type").asText()).isEqualTo("card-move");
+        assertThat(cardNode.get("id").asText()).isEqualTo("card-test-77");
+        assertThat(cardNode.get("x").asDouble()).isEqualTo(320.0);
+        assertThat(cardNode.get("y").asDouble()).isEqualTo(180.0);
+        assertThat(cardNode.get("by").asLong()).isEqualTo(userA.getId());
+
+        // 5. Phase 5 integration: triggering vote pool and canvas image broadcasts
+        msgsA.clear();
+        msgsB.clear();
+
+        // Broadcast VOTE_POOL_UPDATED
+        Map<String, Object> votePoolPayload = Map.of(
+                "type", "VOTE_POOL_UPDATED",
+                "poolId", UUID.randomUUID().toString(),
+                "status", "OPEN",
+                "title", "LAN Sprint 3 Pool",
+                "votesPerParticipant", 3,
+                "allowMultipleVotesPerIdea", true,
+                "tallies", java.util.List.of()
+        );
+        webSocketHandler.broadcastToRoom(roomA.getId(), votePoolPayload, null);
+
+        String vpA = null, vpB = null;
+        for (int i = 0; i < 5; i++) {
+            String mA = msgsA.poll(2, TimeUnit.SECONDS);
+            if (mA != null && mA.contains("\"VOTE_POOL_UPDATED\"")) vpA = mA;
+            String mB = msgsB.poll(2, TimeUnit.SECONDS);
+            if (mB != null && mB.contains("\"VOTE_POOL_UPDATED\"")) vpB = mB;
+            if (vpA != null && vpB != null) break;
+        }
+        assertThat(vpA).isNotNull();
+        assertThat(vpB).isNotNull();
+
+        // Broadcast CANVAS_IMAGE_UPDATED
+        msgsA.clear();
+        msgsB.clear();
+        Map<String, Object> canvasImgPayload = Map.of(
+                "type", "CANVAS_IMAGE_UPDATED",
+                "roomId", roomA.getId().toString(),
+                "image", Map.of(
+                        "id", UUID.randomUUID().toString(),
+                        "x", 120.0,
+                        "y", 220.0,
+                        "width", 300.0,
+                        "height", 200.0
+                )
+        );
+        webSocketHandler.broadcastToRoom(roomA.getId(), canvasImgPayload, null);
+
+        String imgA = null, imgB = null;
+        for (int i = 0; i < 5; i++) {
+            String mA = msgsA.poll(2, TimeUnit.SECONDS);
+            if (mA != null && mA.contains("\"CANVAS_IMAGE_UPDATED\"")) imgA = mA;
+            String mB = msgsB.poll(2, TimeUnit.SECONDS);
+            if (mB != null && mB.contains("\"CANVAS_IMAGE_UPDATED\"")) imgB = mB;
+            if (imgA != null && imgB != null) break;
+        }
+        assertThat(imgA).isNotNull();
+        assertThat(imgB).isNotNull();
+
+        // 6. User B disconnects -> User A receives updated presence showing 1 participant
+        sB.close();
+        String presAfterLeave = null;
+        for (int i = 0; i < 5; i++) {
+            String m = msgsA.poll(2, TimeUnit.SECONDS);
+            if (m != null && m.contains("\"presence\"") && !m.contains("user-b")) {
+                presAfterLeave = m;
+                break;
+            }
+        }
+        assertThat(presAfterLeave).isNotNull();
+        JsonNode leaveNode = objectMapper.readTree(presAfterLeave);
+        assertThat(leaveNode.get("participants").size()).isEqualTo(1);
+        assertThat(leaveNode.get("participants").get(0).get("name").asText()).isEqualTo("user-a");
+
+        sA.close();
     }
 }

@@ -1,0 +1,14 @@
+resilience4j:
+  circuitbreaker:
+    instances:
+      subscriptionEntitlement:
+        baseConfig: default
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+  retry:
+    instances:
+      subscriptionEntitlement:
+        maxAttempts: 2
+        waitDuration: 500ms

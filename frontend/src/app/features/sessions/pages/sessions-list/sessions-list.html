@@ -1,0 +1,178 @@
+<div class="sessions-page">
+  <header class="page-header">
+    <div class="header-content">
+      <span class="eyebrow">MindSpark Archive</span>
+      <h1>Saved <em>Sessions</em></h1>
+      <p class="subtitle">
+        Browse, revisit, and export frozen snapshots from your collaborative brainstorming rooms.
+      </p>
+    </div>
+    <div class="header-actions">
+      <a routerLink="/" class="back-home-btn">← Back to Workspace</a>
+    </div>
+  </header>
+
+  <!-- Filter / Search Toolbar -->
+  <section class="toolbar" aria-label="Session filters">
+    <div class="search-box">
+      <span class="search-icon" aria-hidden="true">🔍</span>
+      <input
+        type="search"
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="onSearchChange()"
+        placeholder="Search sessions by title or room name…"
+        aria-label="Search saved sessions"
+      />
+    </div>
+
+    @if (roomIdFilter) {
+      <div class="filter-chip">
+        <span>Room: {{ roomIdFilter }}</span>
+        <button type="button" (click)="clearRoomFilter()" aria-label="Clear room filter">×</button>
+      </div>
+    }
+
+    <button type="button" class="refresh-btn" (click)="refresh()" [disabled]="sessionService.loading()">
+      ↻ Refresh
+    </button>
+  </section>
+
+  <!-- Error Alert -->
+  @if (sessionService.error()) {
+    <div class="alert-banner error" role="alert">
+      <span>{{ sessionService.error() }}</span>
+      <button type="button" (click)="refresh()">Try Again</button>
+    </div>
+  }
+
+  <!-- Loading State -->
+  @if (sessionService.loading()) {
+    <div class="loading-state" aria-live="polite">
+      <div class="spinner"></div>
+      <p>Loading your saved sessions…</p>
+    </div>
+  } @else {
+    <!-- Sessions Grid -->
+    @if (sessionService.snapshots().length > 0) {
+      <div class="sessions-grid">
+        @for (session of sessionService.snapshots(); track session.id) {
+          <article class="session-card" [class.has-ai]="session.hasAiSummary">
+            <div class="card-top">
+              <div class="room-pill-group">
+                <span class="room-name">{{ session.roomName }}</span>
+                @if (session.invitationCode) {
+                  <span class="code-badge">{{ session.invitationCode }}</span>
+                }
+                @if (session.hasAiSummary) {
+                  <span class="ai-badge" title="Includes saved AI summary and action plan">✨ AI</span>
+                }
+              </div>
+              <time class="save-date" [attr.datetime]="session.createdAt">
+                {{ session.createdAt | date:'mediumDate' }}
+              </time>
+            </div>
+
+            <h2 class="card-title">
+              <a [routerLink]="['/sessions', session.id]">{{ session.title }}</a>
+            </h2>
+
+            @if (session.notes) {
+              <p class="card-notes">{{ session.notes }}</p>
+            }
+
+            <div class="stats-strip">
+              <span class="stat-item"><strong>{{ session.ideaCount }}</strong> ideas</span>
+              <span class="stat-divider">·</span>
+              <span class="stat-item"><strong>{{ session.totalVotes }}</strong> votes</span>
+              <span class="stat-divider">·</span>
+              <span class="stat-item"><strong>{{ session.categoryCount }}</strong> categories</span>
+              <span class="stat-divider">·</span>
+              <span class="stat-item"><strong>{{ session.participantCount }}</strong> people</span>
+            </div>
+
+            <div class="card-meta">
+              <small class="saved-by">Saved by {{ session.savedByName || 'User' }}</small>
+            </div>
+
+            <div class="card-actions">
+              <a [routerLink]="['/sessions', session.id]" class="btn-open">
+                Open Report →
+              </a>
+
+              <div class="export-dropdown-wrapper">
+                <button
+                  type="button"
+                  class="btn-export-toggle"
+                  (click)="toggleExportMenu(session.id, $event)"
+                  aria-haspopup="true"
+                  [attr.aria-expanded]="activeExportId() === session.id"
+                >
+                  Export ▾
+                </button>
+
+                @if (activeExportId() === session.id) {
+                  <div class="export-menu" (click)="$event.stopPropagation()">
+                    <button type="button" (click)="exportSession(session.id, 'md')">
+                      Markdown (.md)
+                    </button>
+                    <button type="button" (click)="exportSession(session.id, 'json')">
+                      JSON (.json)
+                    </button>
+                    <button type="button" (click)="exportSession(session.id, 'csv')">
+                      CSV (.csv)
+                    </button>
+                  </div>
+                }
+              </div>
+
+              <button
+                type="button"
+                class="btn-delete"
+                (click)="confirmDelete(session)"
+                title="Delete this saved snapshot"
+                aria-label="Delete saved session"
+              >
+                🗑️
+              </button>
+            </div>
+          </article>
+        }
+      </div>
+    } @else {
+      <!-- Empty State -->
+      <div class="empty-state">
+        <div class="empty-icon" aria-hidden="true">📑</div>
+        <h2>No saved sessions found</h2>
+        @if (searchQuery || roomIdFilter) {
+          <p>No snapshots match your current search criteria.</p>
+          <button type="button" class="btn-reset" (click)="resetFilters()">Clear Filters</button>
+        } @else {
+          <p>You haven't saved any session snapshots yet.</p>
+          <p class="empty-hint">
+            Open any room workspace and click <strong>Save / Export</strong> in the top bar to freeze an immutable snapshot of your ideas, votes, and AI insights.
+          </p>
+          <a routerLink="/" class="btn-primary">Go to Rooms</a>
+        }
+      </div>
+    }
+  }
+
+  <!-- Delete Confirmation Modal -->
+  @if (deleteTarget()) {
+    <div class="modal-backdrop" (click)="cancelDelete()">
+      <div class="modal-card" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="delete-title">
+        <h3 id="delete-title">Delete Saved Session?</h3>
+        <p>
+          Are you sure you want to delete <strong>{{ deleteTarget()?.title }}</strong>?
+        </p>
+        <p class="modal-hint">
+          This removes the frozen snapshot and export record. The live room in your workspace is <em>not</em> affected.
+        </p>
+        <div class="modal-actions">
+          <button type="button" class="btn-cancel" (click)="cancelDelete()">Cancel</button>
+          <button type="button" class="btn-confirm-delete" (click)="executeDelete()">Delete Snapshot</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

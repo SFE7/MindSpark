@@ -1,0 +1,26 @@
+{
+  "name": "notification-service",
+  "version": "1.0.0",
+  "description": "MindSpark Express.js Notification Microservice",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/**/*.test.js"
+  },
+  "dependencies": {
+    "@opentelemetry/auto-instrumentations-node": "^0.83.1",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.301.2",
+    "@opentelemetry/sdk-node": "^0.301.2",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "jose": "^5.9.6",
+    "kafkajs": "^2.2.4",
+    "prom-client": "^15.1.3",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0"
+  }
+}

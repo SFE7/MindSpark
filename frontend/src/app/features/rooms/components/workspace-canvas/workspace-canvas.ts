@@ -1,7 +1,7 @@
-import { Component, HostListener, OnDestroy, computed, effect, inject, input, output, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, ViewChild, computed, effect, inject, input, output, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { Subscription, forkJoin, of, timer } from 'rxjs';
 import { catchError, exhaustMap, map, timeout } from 'rxjs/operators';
 import { IdeaPositionGuard } from './idea-position-guard';
@@ -32,6 +32,14 @@ import { IdeaFilters, IdeaSortBy, Room } from '../../models/room.model';
 import { KeycloakAuth } from '../../../../core/auth/keycloak-auth';
 import { User } from '../../../../core/models/User';
 import { UserService } from '../../../../core/user-service';
+import { AiDrawerComponent } from '../ai-drawer/ai-drawer';
+import { SessionHistoryService } from '../../../../core/sessions/session-history.service';
+import { ExportFormat } from '../../../../core/sessions/session.models';
+import { MediaService } from '../../../../core/media/media.service';
+import { RoomMediaService } from '../../../../core/media/room-media.service';
+import { CanvasImage, IdeaAttachment, RoomMediaBundle } from '../../../../core/media/media.model';
+import { VotePoolService } from '../../../../core/votepool/vote-pool.service';
+import { VotePool, VotePoolTally } from '../../../../core/votepool/vote-pool.model';
 
 type WorkspaceTool = 'select' | 'pen' | 'highlighter' | 'shapes' | 'idea' | 'eraser';
 type WorkspaceShape = 'triangle' | 'circle' | 'rectangle';
@@ -99,6 +107,24 @@ export interface IdeaItem {
   voted?: boolean;
 }
 
+export interface CanvasImageItem {
+  kind: 'image';
+  id: string;
+  mediaId: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  naturalWidth?: number;
+  naturalHeight?: number;
+  zIndex: number;
+  contentType?: string;
+  uploadedById?: number;
+  uploadedByName?: string;
+  uploadedBySub?: string;
+  createdAt?: string;
+}
+
 export interface RemoteCursor {
   userId: number | string;
   name: string;
@@ -108,12 +134,12 @@ export interface RemoteCursor {
   lastSeen: number;
 }
 
-type CanvasItem = StrokeItem | ShapeItem | IdeaItem;
+type CanvasItem = StrokeItem | ShapeItem | IdeaItem | CanvasImageItem;
 
 @Component({
   selector: 'app-workspace-canvas',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterModule, AiDrawerComponent],
   templateUrl: './workspace-canvas.html',
   styleUrl: './workspace-canvas.scss',
 })
@@ -122,6 +148,10 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   readonly room = input<Room | null>(null);
   readonly leave = output<void>();
   readonly roomChanged = output<Room>();
+
+  protected readonly leftPanelCollapsed = signal<boolean>(false);
+  protected readonly aiDrawerOpen = signal<boolean>(false);
+  protected readonly aiSelectedIdea = signal<IdeaItem | null>(null);
 
   private readonly mindspark = inject(IdeasService);
   private readonly roomsService = inject(RoomsService);
@@ -132,6 +162,57 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   private readonly auth = inject(KeycloakAuth);
   private readonly router = inject(Router);
   protected readonly realtime = inject(RealtimeService);
+  protected readonly sessionHistory = inject(SessionHistoryService);
+  protected readonly votePoolService = inject(VotePoolService);
+  protected readonly mediaService = inject(MediaService);
+  protected readonly roomMediaService = inject(RoomMediaService);
+  @ViewChild(AiDrawerComponent) protected readonly aiDrawerComponent?: AiDrawerComponent;
+
+  // Vote Pool signals (Story 37)
+  protected readonly activeVotePool = this.votePoolService.activePool;
+  protected readonly latestClosedVotePool = this.votePoolService.latestClosedPool;
+  protected readonly myVotesRemaining = this.votePoolService.myVotesRemaining;
+  protected readonly myVotesUsed = this.votePoolService.myVotesUsed;
+  protected readonly showStartVotePoolModal = signal<boolean>(false);
+  protected readonly votePoolTitle = signal<string>('');
+  protected readonly votePoolVotesPerParticipant = signal<number>(3);
+  protected readonly votePoolAllowMultiple = signal<boolean>(true);
+  protected readonly votePoolSubmitting = signal<boolean>(false);
+  protected readonly votePoolModalError = signal<string>('');
+  protected readonly showVotePoolResultsModal = signal<boolean>(false);
+
+  // Media signals (Story 26)
+  protected readonly ideaAttachments = signal<Map<string, IdeaAttachment[]>>(new Map());
+  protected readonly targetIdeaForAttach = signal<IdeaItem | null>(null);
+  protected readonly lightboxAttachment = signal<IdeaAttachment | null>(null);
+  protected readonly lightboxCanDelete = signal<boolean>(false);
+  protected readonly isUploadingMedia = signal<boolean>(false);
+
+  protected readonly canvasImages = signal<CanvasImageItem[]>([]);
+  protected readonly selectedCanvasImageId = signal<string | null>(null);
+
+  private activeCanvasImageDragPointerId: number | null = null;
+  private canvasImageDragStartPointer = { x: 0, y: 0 };
+  private canvasImageDragStartPos = { x: 0, y: 0 };
+  private canvasImageHasDragged = false;
+
+  private activeCanvasImageResizePointerId: number | null = null;
+  private canvasImageResizeStartPointer = { x: 0, y: 0 };
+  private canvasImageResizeStartSize = { width: 0, height: 0 };
+  private canvasImageResizeItem: CanvasImageItem | null = null;
+
+  private votePoolSub?: Subscription;
+  private ideaAttachmentSub?: Subscription;
+  private canvasImageSub?: Subscription;
+
+  protected readonly saveExportMenuOpen = signal<boolean>(false);
+  protected readonly saveModalOpen = signal<boolean>(false);
+  protected readonly saveSnapshotTitle = signal<string>('');
+  protected readonly saveSnapshotNotes = signal<string>('');
+  protected readonly includeAiSummary = signal<boolean>(false);
+  protected readonly availableAiSummary = signal<string | null>(null);
+  protected readonly savedToast = signal<{ id: string; title: string } | null>(null);
+  protected readonly isSavingSnapshot = signal<boolean>(false);
 
   protected readonly onlineParticipants = this.realtime.onlineParticipants;
   protected readonly connectionStatus = this.realtime.connectionStatus;
@@ -1169,6 +1250,81 @@ export class WorkspaceCanvasComponent implements OnDestroy {
       }
     });
 
+    this.votePoolSub = this.realtime.votePoolEvents$.subscribe(pool => {
+      if (pool) {
+        if (pool.status === 'OPEN') {
+          this.votePoolService.activePool.set(pool);
+        } else if (pool.status === 'CLOSED') {
+          this.votePoolService.activePool.set(null);
+          this.votePoolService.latestClosedPool.set(pool);
+        }
+      }
+    });
+
+    this.ideaAttachmentSub = this.realtime.ideaAttachmentEvents$.subscribe(evt => {
+      if (!evt || !evt.attachment) return;
+      const att = evt.attachment;
+      this.ideaAttachments.update(currentMap => {
+        const nextMap = new Map(currentMap);
+        const list = nextMap.get(att.ideaId) ? [...nextMap.get(att.ideaId)!] : [];
+        if (evt.type === 'CREATED') {
+          if (!list.some(a => a.id === att.id)) {
+            list.push(att);
+            this.mediaService.fetchImageBlobUrl(this.roomId(), att.mediaId).subscribe();
+          }
+        } else if (evt.type === 'DELETED') {
+          const idx = list.findIndex(a => a.id === att.id);
+          if (idx !== -1) list.splice(idx, 1);
+        }
+        nextMap.set(att.ideaId, list);
+        return nextMap;
+      });
+    });
+
+    this.canvasImageSub = this.realtime.canvasImageEvents$.subscribe(evt => {
+      if (!evt || !evt.canvasImage) return;
+      const ci = evt.canvasImage;
+      if (evt.type === 'CREATED') {
+        this.canvasImages.update(list => {
+          if (list.some(i => i.id === ci.id)) return list;
+          this.mediaService.fetchImageBlobUrl(this.roomId(), ci.mediaId).subscribe();
+          return [...list, {
+            kind: 'image',
+            id: ci.id,
+            mediaId: ci.mediaId,
+            x: ci.x,
+            y: ci.y,
+            width: ci.width,
+            height: ci.height,
+            naturalWidth: ci.naturalWidth,
+            naturalHeight: ci.naturalHeight,
+            zIndex: ci.zIndex,
+            contentType: ci.contentType,
+            uploadedById: ci.uploadedById,
+            uploadedByName: ci.uploadedByName,
+            uploadedBySub: ci.uploadedBySub,
+            createdAt: ci.createdAt
+          }];
+        });
+      } else if (evt.type === 'UPDATED') {
+        this.canvasImages.update(list =>
+          list.map(item => item.id === ci.id ? {
+            ...item,
+            x: ci.x,
+            y: ci.y,
+            width: ci.width,
+            height: ci.height,
+            zIndex: ci.zIndex
+          } : item)
+        );
+      } else if (evt.type === 'DELETED') {
+        this.canvasImages.update(list => list.filter(item => item.id !== ci.id));
+        if (this.selectedCanvasImageId() === ci.id) {
+          this.selectedCanvasImageId.set(null);
+        }
+      }
+    });
+
     effect(() => {
       const participants = this.onlineParticipants();
       const participantIds = new Set(participants.map(p => String(p.userId)));
@@ -1241,6 +1397,11 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     this.objectLockedSub?.unsubscribe();
     this.objectUnlockedSub?.unsubscribe();
     this.categoryEventsSub?.unsubscribe();
+    this.votePoolSub?.unsubscribe();
+    this.ideaAttachmentSub?.unsubscribe();
+    this.canvasImageSub?.unsubscribe();
+    this.votePoolService.reset();
+    this.mediaService.revokeAll();
     this.remoteCursors.set(new Map());
     this.realtime.leaveRoom();
     this.positionGuard.clear();
@@ -1337,12 +1498,26 @@ export class WorkspaceCanvasComponent implements OnDestroy {
                 return of(null);
               })
             ),
+            attachments: this.roomMediaService.getRoomAttachments(currentRoomId).pipe(
+              timeout(10000),
+              catchError(err => {
+                console.error('Error fetching room attachments:', err);
+                return of(null);
+              })
+            ),
+            votePool: this.votePoolService.loadPool(currentRoomId, true).pipe(
+              timeout(10000),
+              catchError(err => {
+                console.error('Error fetching vote pool:', err);
+                return of(null);
+              })
+            ),
           }).pipe(
             map(result => ({ ...result, pollGen }))
           );
         })
       )
-      .subscribe(({ room, ideas, categories, drawings, pollGen }) => {
+      .subscribe(({ room, ideas, categories, drawings, attachments, pollGen }) => {
         if (room) {
           this.roomChanged.emit(room);
         }
@@ -1354,6 +1529,9 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         }
         if (drawings) {
           this.syncServerDrawings(drawings, pollGen);
+        }
+        if (attachments) {
+          this.syncRoomMediaBundle(attachments);
         }
       });
   }
@@ -1608,6 +1786,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     const point = this.toCanvasPoint(event, surface);
     this.startPoint = point;
     this.actionStartItems = this.items();
+    this.selectedCanvasImageId.set(null);
 
     if (this.selectedTool() === 'select') {
       const surfaceWidth = surface.getBoundingClientRect().width;
@@ -2473,5 +2652,666 @@ export class WorkspaceCanvasComponent implements OnDestroy {
     this.history = [...this.history.slice(0, this.historyIndex() + 1), items];
     this.historyIndex.set(this.historyIndex() + 1);
     this.items.set(items);
+  }
+
+  protected toggleLeftPanel(): void {
+    this.leftPanelCollapsed.update(v => !v);
+  }
+
+  protected toggleAiDrawer(): void {
+    this.saveExportMenuOpen.set(false);
+    this.aiDrawerOpen.update(v => !v);
+    if (!this.aiDrawerOpen()) {
+      this.aiSelectedIdea.set(null);
+    }
+  }
+
+  protected closeAiDrawer(): void {
+    this.aiDrawerOpen.set(false);
+    this.aiSelectedIdea.set(null);
+  }
+
+  protected openAiForIdea(event: MouseEvent, idea: IdeaItem): void {
+    event.stopPropagation();
+    this.aiSelectedIdea.set(idea);
+    this.aiDrawerOpen.set(true);
+  }
+
+  protected onAiAddIdeaToCanvas(payload: { title: string; description?: string }): void {
+    if (this.isRoomLocked()) return;
+    const currentRoomId = this.roomId();
+    const title = payload.title.trim();
+    const description = (payload.description || '').trim();
+    if (!title) return;
+
+    // Calculate placement: safe area within 1000x500 board bounds
+    const x = Math.floor(250 + Math.random() * 450);
+    const y = Math.floor(150 + Math.random() * 200);
+
+    if (!currentRoomId) {
+      const localIdea: IdeaItem = {
+        kind: 'idea',
+        id: String(this.nextItemId++),
+        x,
+        y,
+        color: this.selectedColor(),
+        creatorId: this.userService.currentUser()?.id ?? null,
+        title,
+        description,
+        categoryId: null,
+        categoryTitle: null,
+        category: null,
+        voteCount: 0,
+        voted: false,
+      };
+      this.localPositions.set(localIdea.id, { x, y });
+      this.saveLocalPositions();
+      this.commit([...this.items(), localIdea]);
+      return;
+    }
+
+    this.mindspark
+      .createIdea(currentRoomId, {
+        title,
+        description,
+        x,
+        y,
+        color: this.selectedColor(),
+        categoryId: null,
+      })
+      .subscribe({
+        next: newIdea => {
+          const ideaItem: IdeaItem = {
+            kind: 'idea',
+            id: newIdea.id,
+            x: newIdea.x ?? x,
+            y: newIdea.y ?? y,
+            color: newIdea.color || this.selectedColor(),
+            creatorId: newIdea.author?.id ?? this.userService.currentUser()?.id ?? null,
+            title: newIdea.title || newIdea.text || title,
+            description: newIdea.description || description,
+            categoryId: newIdea.category?.id ?? null,
+            categoryTitle: newIdea.category?.title ?? null,
+            category: newIdea.category ?? null,
+            voteCount: newIdea.voteCount ?? 0,
+            voted: !!newIdea.voted,
+          };
+          this.localPositions.set(ideaItem.id, { x: ideaItem.x, y: ideaItem.y });
+          this.saveLocalPositions();
+          this.commit([...this.items(), ideaItem]);
+        },
+        error: () => {
+          this.showTransientError('Could not add AI idea to canvas.');
+        },
+      });
+  }
+
+  protected onAiUpdateIdeaOnCanvas(payload: { id: string; title: string; description?: string }): void {
+    if (this.isRoomLocked()) return;
+    const currentRoomId = this.roomId();
+    const ideaId = payload.id;
+    const title = payload.title.trim();
+    const description = (payload.description || '').trim();
+
+    if (!currentRoomId) {
+      this.commit(
+        this.items().map(item =>
+          item.kind === 'idea' && item.id === ideaId
+            ? { ...item, title, description }
+            : item
+        )
+      );
+      return;
+    }
+
+    this.mindspark.updateIdea(ideaId, { title, description }).subscribe({
+      next: updated => {
+        this.commit(
+          this.items().map(item =>
+            item.kind === 'idea' && item.id === ideaId
+              ? {
+                  ...item,
+                  title: updated.title || updated.text || title,
+                  description: updated.description || description,
+                }
+              : item
+          )
+        );
+      },
+      error: () => {
+        this.showTransientError('Could not update idea from AI.');
+      },
+    });
+  }
+
+  protected toggleSaveExportMenu(): void {
+    this.saveExportMenuOpen.update(v => !v);
+  }
+
+  protected closeSaveExportMenu(): void {
+    this.saveExportMenuOpen.set(false);
+  }
+
+  protected openSaveSnapshotModal(): void {
+    this.closeSaveExportMenu();
+    const activeAi = this.aiDrawerComponent?.getActiveSummaryOrActionPlan() || null;
+    this.availableAiSummary.set(activeAi);
+    this.includeAiSummary.set(!!activeAi);
+    const roomName = this.room()?.name || 'Session Snapshot';
+    this.saveSnapshotTitle.set(roomName);
+    this.saveSnapshotNotes.set('');
+    this.saveModalOpen.set(true);
+  }
+
+  protected closeSaveSnapshotModal(): void {
+    this.saveModalOpen.set(false);
+  }
+
+  protected submitSaveSnapshot(): void {
+    const roomId = this.roomId();
+    if (!roomId) return;
+
+    this.isSavingSnapshot.set(true);
+    const title = this.saveSnapshotTitle().trim();
+    const notes = this.saveSnapshotNotes().trim();
+    const aiSummary = this.includeAiSummary() ? this.availableAiSummary() || undefined : undefined;
+
+    this.sessionHistory.saveSnapshot({
+      roomId,
+      title: title || undefined,
+      notes: notes || undefined,
+      aiSummary,
+    }).subscribe({
+      next: saved => {
+        this.isSavingSnapshot.set(false);
+        this.saveModalOpen.set(false);
+        this.savedToast.set({ id: saved.id, title: saved.title });
+        setTimeout(() => {
+          if (this.savedToast()?.id === saved.id) {
+            this.savedToast.set(null);
+          }
+        }, 6000);
+      },
+      error: () => {
+        this.isSavingSnapshot.set(false);
+        this.showTransientError('Failed to save session snapshot.');
+      },
+    });
+  }
+
+  protected onExportLive(format: ExportFormat): void {
+    this.closeSaveExportMenu();
+    const roomId = this.roomId();
+    if (!roomId) return;
+    this.sessionHistory.exportLiveRoom(roomId, format).subscribe({
+      error: () => {
+        this.showTransientError('Failed to export room.');
+      },
+    });
+  }
+
+  protected onPrintLiveRoom(): void {
+    this.closeSaveExportMenu();
+    window.print();
+  }
+
+  // =========================================================================
+  // VOTE POOL (Story 37)
+  // =========================================================================
+
+  protected openStartVotePoolModal(): void {
+    if (this.isRoomLocked() || !this.isRoomOwner()) return;
+    this.votePoolTitle.set('');
+    this.votePoolVotesPerParticipant.set(3);
+    this.votePoolAllowMultiple.set(true);
+    this.votePoolModalError.set('');
+    this.showStartVotePoolModal.set(true);
+  }
+
+  protected closeStartVotePoolModal(): void {
+    this.showStartVotePoolModal.set(false);
+    this.votePoolModalError.set('');
+  }
+
+  protected submitStartVotePool(): void {
+    const currentRoomId = this.roomId();
+    const title = this.votePoolTitle().trim();
+    const votesPer = Math.max(1, Math.min(20, Math.round(this.votePoolVotesPerParticipant())));
+    if (!title) {
+      this.votePoolModalError.set('Pool title is required.');
+      return;
+    }
+
+    this.votePoolSubmitting.set(true);
+    this.votePoolModalError.set('');
+    this.votePoolService.createPool(currentRoomId, {
+      title,
+      votesPerParticipant: votesPer,
+      allowMultipleVotesPerIdea: this.votePoolAllowMultiple(),
+    }).subscribe({
+      next: () => {
+        this.votePoolSubmitting.set(false);
+        this.showStartVotePoolModal.set(false);
+      },
+      error: err => {
+        this.votePoolSubmitting.set(false);
+        this.votePoolModalError.set(err.error?.message || err.message || 'Could not start vote pool.');
+      }
+    });
+  }
+
+  protected castPoolVote(event: Event, idea: IdeaItem): void {
+    event.stopPropagation();
+    const pool = this.activeVotePool();
+    if (this.isRoomLocked() || !pool || pool.status !== 'OPEN') return;
+    if (this.myVotesRemaining() <= 0) {
+      this.showTransientError('You have used all your pool votes.');
+      return;
+    }
+    if (!pool.allowMultipleVotesPerIdea && this.myVotesOnIdea(idea.id) > 0) {
+      this.showTransientError('Only 1 vote per idea is allowed in this pool.');
+      return;
+    }
+
+    this.votePoolService.castVote(this.roomId(), pool.id, idea.id).subscribe({
+      error: err => {
+        const msg = err.error?.message || err.error?.error || 'Failed to cast pool vote.';
+        this.showTransientError(msg);
+      }
+    });
+  }
+
+  protected removePoolVote(event: Event, idea: IdeaItem): void {
+    event.stopPropagation();
+    const pool = this.activeVotePool();
+    if (this.isRoomLocked() || !pool || pool.status !== 'OPEN') return;
+    if (this.myVotesOnIdea(idea.id) <= 0) return;
+
+    this.votePoolService.removeVote(this.roomId(), pool.id, idea.id).subscribe({
+      error: err => {
+        const msg = err.error?.message || 'Failed to remove vote.';
+        this.showTransientError(msg);
+      }
+    });
+  }
+
+  protected closeCurrentVotePool(): void {
+    const pool = this.activeVotePool();
+    if (this.isRoomLocked() || !pool || !this.isRoomOwner()) return;
+    const confirmed = window.confirm(`End the vote pool "${pool.title}" and lock final results?`);
+    if (!confirmed) return;
+
+    this.votePoolService.closePool(this.roomId(), pool.id).subscribe({
+      next: () => {
+        this.showVotePoolResultsModal.set(true);
+      },
+      error: err => {
+        this.showTransientError(err.error?.message || 'Failed to close vote pool.');
+      }
+    });
+  }
+
+  protected openVotePoolResultsModal(): void {
+    this.showVotePoolResultsModal.set(true);
+  }
+
+  protected closeVotePoolResultsModal(): void {
+    this.showVotePoolResultsModal.set(false);
+  }
+
+  protected myVotesOnIdea(ideaId: string): number {
+    return this.activeVotePool()?.myVotesByIdeaId?.[ideaId] ?? 0;
+  }
+
+  // =========================================================================
+  // IDEA ATTACHMENTS & LIGHTBOX (Story 26)
+  // =========================================================================
+
+  protected getIdeaAttachments(ideaId: string): IdeaAttachment[] {
+    return this.ideaAttachments().get(ideaId) || [];
+  }
+
+  protected triggerIdeaAttach(event: Event, idea: IdeaItem, fileInput: HTMLInputElement): void {
+    event.stopPropagation();
+    if (this.isRoomLocked()) return;
+    if (this.getIdeaAttachments(idea.id).length >= 3) {
+      this.showTransientError('Maximum 3 images per idea.');
+      return;
+    }
+    this.targetIdeaForAttach.set(idea);
+    fileInput.value = '';
+    fileInput.click();
+  }
+
+  protected onIdeaImageFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    const idea = this.targetIdeaForAttach();
+    if (!file || !idea) return;
+
+    const validationErr = this.mediaService.validateClientSide(file);
+    if (validationErr) {
+      this.showTransientError(validationErr);
+      return;
+    }
+
+    this.isUploadingMedia.set(true);
+    this.mediaService.uploadRoomImage(this.roomId(), file).subscribe({
+      next: mediaResp => {
+        this.roomMediaService.addIdeaAttachment(this.roomId(), idea.id, {
+          mediaId: mediaResp.mediaId,
+          contentType: mediaResp.contentType,
+          width: mediaResp.width,
+          height: mediaResp.height,
+        }).subscribe({
+          next: att => {
+            this.isUploadingMedia.set(false);
+            this.mediaService.fetchImageBlobUrl(this.roomId(), att.mediaId).subscribe();
+          },
+          error: err => {
+            this.isUploadingMedia.set(false);
+            this.showTransientError(err.error?.message || 'Failed to attach image to idea.');
+          }
+        });
+      },
+      error: err => {
+        this.isUploadingMedia.set(false);
+        this.showTransientError(err.error?.message || err.message || 'Failed to upload image.');
+      }
+    });
+  }
+
+  protected openLightbox(event: Event, att: IdeaAttachment): void {
+    event.stopPropagation();
+    this.lightboxAttachment.set(att);
+    const myId = this.userService.currentUser()?.id;
+    const isOwner = this.isRoomOwner();
+    const isUploader = myId != null && att.uploadedById === myId;
+    this.lightboxCanDelete.set(isOwner || isUploader);
+  }
+
+  protected closeLightbox(): void {
+    this.lightboxAttachment.set(null);
+  }
+
+  protected deleteLightboxAttachment(): void {
+    const att = this.lightboxAttachment();
+    if (!att || this.isRoomLocked()) return;
+    this.roomMediaService.deleteIdeaAttachment(this.roomId(), att.ideaId, att.id).subscribe({
+      next: () => {
+        this.closeLightbox();
+      },
+      error: err => {
+        this.showTransientError(err.error?.message || 'Failed to delete attachment.');
+      }
+    });
+  }
+
+  // =========================================================================
+  // CANVAS STANDALONE IMAGES (Story 26)
+  // =========================================================================
+
+  protected triggerCanvasImageUpload(fileInput: HTMLInputElement): void {
+    if (this.isRoomLocked()) return;
+    if (this.canvasImages().length >= 15) {
+      this.showTransientError('Maximum of 15 canvas images reached for this room.');
+      return;
+    }
+    fileInput.value = '';
+    fileInput.click();
+  }
+
+  protected onCanvasImageFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    const valErr = this.mediaService.validateClientSide(file);
+    if (valErr) {
+      this.showTransientError(valErr);
+      return;
+    }
+
+    this.isUploadingMedia.set(true);
+    this.mediaService.uploadRoomImage(this.roomId(), file).subscribe({
+      next: mediaResp => {
+        let w = 240;
+        let h = 180;
+        if (mediaResp.width && mediaResp.height) {
+          const ratio = mediaResp.width / mediaResp.height;
+          if (ratio >= 1) {
+            w = 240;
+            h = Math.round(240 / ratio);
+          } else {
+            h = 240;
+            w = Math.round(240 * ratio);
+          }
+        }
+        w = Math.max(60, Math.min(1200, w));
+        h = Math.max(60, Math.min(1200, h));
+
+        this.roomMediaService.addCanvasImage(this.roomId(), {
+          mediaId: mediaResp.mediaId,
+          contentType: mediaResp.contentType,
+          x: 380,
+          y: 160,
+          width: w,
+          height: h,
+          naturalWidth: mediaResp.width || w,
+          naturalHeight: mediaResp.height || h,
+          zIndex: 1,
+        }).subscribe({
+          next: canvasImg => {
+            this.isUploadingMedia.set(false);
+            this.mediaService.fetchImageBlobUrl(this.roomId(), canvasImg.mediaId).subscribe();
+          },
+          error: err => {
+            this.isUploadingMedia.set(false);
+            this.showTransientError(err.error?.message || 'Failed to place image on canvas.');
+          }
+        });
+      },
+      error: err => {
+        this.isUploadingMedia.set(false);
+        this.showTransientError(err.error?.message || err.message || 'Failed to upload canvas image.');
+      }
+    });
+  }
+
+  protected onCanvasImagePointerDown(event: PointerEvent, img: CanvasImageItem): void {
+    if (this.isRoomLocked() || event.button !== 0) return;
+
+    if (this.selectedTool() === 'eraser') {
+      event.stopPropagation();
+      const myId = this.userService.currentUser()?.id;
+      const isOwner = this.isRoomOwner();
+      const isUploader = myId != null && img.uploadedById === myId;
+      if (isOwner || isUploader) {
+        this.deleteCanvasImage(event, img);
+      } else {
+        this.showTransientError('You can only erase your own images.');
+      }
+      return;
+    }
+
+    event.stopPropagation();
+    this.selectedCanvasImageId.set(img.id);
+    const el = event.currentTarget as HTMLElement;
+    el.setPointerCapture(event.pointerId);
+    this.activeCanvasImageDragPointerId = event.pointerId;
+    this.canvasImageDragStartPointer = { x: event.clientX, y: event.clientY };
+    this.canvasImageDragStartPos = { x: img.x, y: img.y };
+    this.canvasImageHasDragged = false;
+  }
+
+  protected onCanvasImagePointerMove(event: PointerEvent): void {
+    if (this.isRoomLocked() || this.activeCanvasImageDragPointerId !== event.pointerId) return;
+
+    const dxPixels = event.clientX - this.canvasImageDragStartPointer.x;
+    const dyPixels = event.clientY - this.canvasImageDragStartPointer.y;
+
+    if (!this.canvasImageHasDragged && Math.hypot(dxPixels, dyPixels) > 3) {
+      this.canvasImageHasDragged = true;
+    }
+
+    if (this.canvasImageHasDragged) {
+      const stage = (event.currentTarget as HTMLElement).closest('.canvas-stage') as HTMLElement | null;
+      const bounds = stage ? stage.getBoundingClientRect() : { width: 1000, height: 500 };
+      const dxCanvas = (dxPixels / bounds.width) * 1000;
+      const dyCanvas = (dyPixels / bounds.height) * 500;
+
+      const imgId = this.selectedCanvasImageId();
+      const target = this.canvasImages().find(i => i.id === imgId);
+      const w = target ? target.width : 200;
+      const h = target ? target.height : 150;
+
+      const newX = Math.round(Math.max(0, Math.min(1000 - w, this.canvasImageDragStartPos.x + dxCanvas)));
+      const newY = Math.round(Math.max(0, Math.min(500 - h, this.canvasImageDragStartPos.y + dyCanvas)));
+
+      this.canvasImages.update(list =>
+        list.map(i => i.id === imgId ? { ...i, x: newX, y: newY } : i)
+      );
+    }
+  }
+
+  protected onCanvasImagePointerUp(event: PointerEvent): void {
+    if (this.activeCanvasImageDragPointerId !== event.pointerId) return;
+    const el = event.currentTarget as HTMLElement;
+    try {
+      el.releasePointerCapture(event.pointerId);
+    } catch {}
+
+    const imgId = this.selectedCanvasImageId();
+    const wasDragged = this.canvasImageHasDragged;
+    this.activeCanvasImageDragPointerId = null;
+    this.canvasImageHasDragged = false;
+
+    if (wasDragged && imgId) {
+      const updated = this.canvasImages().find(i => i.id === imgId);
+      if (updated) {
+        this.roomMediaService.updateCanvasImage(this.roomId(), updated.id, {
+          x: updated.x,
+          y: updated.y,
+          width: updated.width,
+          height: updated.height,
+          zIndex: updated.zIndex,
+        }).subscribe({
+          error: (err) => console.error('Failed to persist canvas image position', err)
+        });
+      }
+    }
+  }
+
+  protected onCanvasImageResizeStart(event: PointerEvent, img: CanvasImageItem): void {
+    if (this.isRoomLocked() || event.button !== 0) return;
+    event.stopPropagation();
+    const el = event.currentTarget as HTMLElement;
+    el.setPointerCapture(event.pointerId);
+    this.activeCanvasImageResizePointerId = event.pointerId;
+    this.canvasImageResizeStartPointer = { x: event.clientX, y: event.clientY };
+    this.canvasImageResizeStartSize = { width: img.width, height: img.height };
+    this.canvasImageResizeItem = img;
+  }
+
+  protected onCanvasImageResizeMove(event: PointerEvent): void {
+    if (this.isRoomLocked() || this.activeCanvasImageResizePointerId !== event.pointerId || !this.canvasImageResizeItem) return;
+
+    const dxPixels = event.clientX - this.canvasImageResizeStartPointer.x;
+    const dyPixels = event.clientY - this.canvasImageResizeStartPointer.y;
+
+    const stage = (event.currentTarget as HTMLElement).closest('.canvas-stage') as HTMLElement | null;
+    const bounds = stage ? stage.getBoundingClientRect() : { width: 1000, height: 500 };
+    const dxCanvas = (dxPixels / bounds.width) * 1000;
+    const dyCanvas = (dyPixels / bounds.height) * 500;
+
+    const newW = Math.round(Math.max(60, Math.min(1200, this.canvasImageResizeStartSize.width + dxCanvas)));
+    const newH = Math.round(Math.max(60, Math.min(1200, this.canvasImageResizeStartSize.height + dyCanvas)));
+
+    const imgId = this.canvasImageResizeItem.id;
+    this.canvasImages.update(list =>
+      list.map(i => i.id === imgId ? { ...i, width: newW, height: newH } : i)
+    );
+  }
+
+  protected onCanvasImageResizeUp(event: PointerEvent): void {
+    if (this.activeCanvasImageResizePointerId !== event.pointerId) return;
+    const el = event.currentTarget as HTMLElement;
+    try {
+      el.releasePointerCapture(event.pointerId);
+    } catch {}
+
+    const img = this.canvasImageResizeItem;
+    this.activeCanvasImageResizePointerId = null;
+    this.canvasImageResizeItem = null;
+
+    if (img) {
+      const current = this.canvasImages().find(i => i.id === img.id);
+      if (current) {
+        this.roomMediaService.updateCanvasImage(this.roomId(), current.id, {
+          x: current.x,
+          y: current.y,
+          width: current.width,
+          height: current.height,
+          zIndex: current.zIndex,
+        }).subscribe({
+          error: (err) => console.error('Failed to persist canvas image resize', err)
+        });
+      }
+    }
+  }
+
+  protected deleteCanvasImage(event: Event, img: CanvasImageItem): void {
+    event.stopPropagation();
+    if (this.isRoomLocked()) return;
+    this.roomMediaService.deleteCanvasImage(this.roomId(), img.id).subscribe({
+      next: () => {
+        if (this.selectedCanvasImageId() === img.id) {
+          this.selectedCanvasImageId.set(null);
+        }
+      },
+      error: err => this.showTransientError(err.error?.message || 'Failed to delete canvas image.')
+    });
+  }
+
+  private syncRoomMediaBundle(bundle: RoomMediaBundle): void {
+    if (!bundle) return;
+    const attMap = new Map<string, IdeaAttachment[]>();
+    if (bundle.ideaAttachmentsByIdeaId) {
+      for (const [ideaId, list] of Object.entries(bundle.ideaAttachmentsByIdeaId)) {
+        attMap.set(ideaId, list);
+        for (const att of list) {
+          this.mediaService.fetchImageBlobUrl(this.roomId(), att.mediaId).subscribe();
+        }
+      }
+    }
+    this.ideaAttachments.set(attMap);
+
+    const isDragging = this.activeCanvasImageDragPointerId !== null;
+    const currentList = this.canvasImages();
+    const mapped: CanvasImageItem[] = (bundle.canvasImages || []).map(ci => {
+      const existing = currentList.find(i => i.id === ci.id);
+      this.mediaService.fetchImageBlobUrl(this.roomId(), ci.mediaId).subscribe();
+      if (isDragging && existing && existing.id === this.selectedCanvasImageId()) {
+        return existing;
+      }
+      return {
+        kind: 'image',
+        id: ci.id,
+        mediaId: ci.mediaId,
+        x: ci.x,
+        y: ci.y,
+        width: ci.width,
+        height: ci.height,
+        naturalWidth: ci.naturalWidth,
+        naturalHeight: ci.naturalHeight,
+        zIndex: ci.zIndex,
+        contentType: ci.contentType,
+        uploadedById: ci.uploadedById,
+        uploadedByName: ci.uploadedByName,
+        uploadedBySub: ci.uploadedBySub,
+        createdAt: ci.createdAt,
+      };
+    });
+    this.canvasImages.set(mapped);
   }
 }

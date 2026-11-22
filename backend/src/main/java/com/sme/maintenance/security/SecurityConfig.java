@@ -28,10 +28,20 @@ public class SecurityConfig {
             JwtAuthConverter jwtAuthConverter,
             @Value("${mindspark.cors.allowed-origins:http://localhost:4200,http://127.0.0.1:4200}") String allowedOrigins) {
         this.jwtAuthConverter = jwtAuthConverter;
-        this.allowedOrigins = Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toArray(String[]::new);
+        java.util.Set<String> origins = new java.util.LinkedHashSet<>();
+        origins.add("http://localhost:4200");
+        origins.add("http://127.0.0.1:4200");
+        if (allowedOrigins != null && !allowedOrigins.isBlank()) {
+            Arrays.stream(allowedOrigins.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .forEach(origins::add);
+        }
+        this.allowedOrigins = origins.toArray(String[]::new);
+    }
+
+    public String[] getAllowedOrigins() {
+        return allowedOrigins.clone();
     }
 
     @Bean
@@ -42,7 +52,12 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/health").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/internal/rooms/**").permitAll()
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers("/ws/**").permitAll() // WebSocket authentication is performed per-socket in RoomWebSocketHandler
+                        .requestMatchers("/api/admin/admins/**").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/users/sync").authenticated()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter)))
@@ -52,7 +67,11 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins));
+        java.util.List<String> patterns = new java.util.ArrayList<>(Arrays.asList(allowedOrigins));
+        if (!patterns.contains("*")) {
+            patterns.add("*");
+        }
+        configuration.setAllowedOriginPatterns(patterns);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

@@ -4,14 +4,16 @@ server:
 spring:
   application:
     name: api-gateway
+  reactor:
+    context-propagation: auto
+  config:
+    import: optional:configserver:${CONFIG_SERVER_URL:http://config-server:8888}
   cloud:
     gateway:
-      default-filters:
-        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Vary, RETAIN_FIRST
       globalcors:
         add-to-simple-url-handler-mapping: true
         corsConfigurations:
-          '[/**]':
+          '/api/**':
             allowedOriginPatterns: "*"
             allowedMethods:
               - GET
@@ -21,6 +23,8 @@ spring:
               - DELETE
               - OPTIONS
             allowedHeaders: "*"
+            exposedHeaders:
+              - Content-Disposition
             allowCredentials: true
       routes:
         - id: collaboration-websocket-service
@@ -32,36 +36,176 @@ spring:
           uri: lb://mindspark-backend
           predicates:
             - Path=/api/users/**, /api/health/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Vary, RETAIN_FIRST
+            - name: CircuitBreaker
+              args:
+                name: backendServiceCB
+                fallbackUri: forward:/fallback/backend
 
         - id: room-management-service
           uri: lb://mindspark-backend
           predicates:
             - Path=/api/rooms/**, /api/presence/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Vary, RETAIN_FIRST
+            - name: CircuitBreaker
+              args:
+                name: backendServiceCB
+                fallbackUri: forward:/fallback/backend
 
         - id: idea-voting-service
           uri: lb://mindspark-backend
           predicates:
             - Path=/api/ideas/**, /api/votes/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Vary, RETAIN_FIRST
+            - name: CircuitBreaker
+              args:
+                name: backendServiceCB
+                fallbackUri: forward:/fallback/backend
 
         - id: comment-service
           uri: lb://mindspark-backend
           predicates:
             - Path=/api/comments/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Vary, RETAIN_FIRST
+            - name: CircuitBreaker
+              args:
+                name: backendServiceCB
+                fallbackUri: forward:/fallback/backend
 
         - id: category-service
           uri: lb://mindspark-backend
           predicates:
             - Path=/api/categories/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Vary, RETAIN_FIRST
+            - name: CircuitBreaker
+              args:
+                name: backendServiceCB
+                fallbackUri: forward:/fallback/backend
 
         - id: drawing-service
           uri: lb://mindspark-backend
           predicates:
             - Path=/api/drawings/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Vary, RETAIN_FIRST
+            - name: CircuitBreaker
+              args:
+                name: backendServiceCB
+                fallbackUri: forward:/fallback/backend
+
+        - id: ai-service
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/ai/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Vary, RETAIN_FIRST
+            - name: CircuitBreaker
+              args:
+                name: aiServiceCB
+                fallbackUri: forward:/fallback/ai-service
+          metadata:
+            response-timeout: 60000
+            connect-timeout: 5000
+
+        - id: subscription-service
+          uri: lb://subscription-service
+          predicates:
+            - Path=/api/plans/**, /api/subscriptions/**, /api/billing/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Vary, RETAIN_FIRST
+            - name: CircuitBreaker
+              args:
+                name: subscriptionServiceCB
+                fallbackUri: forward:/fallback/subscription-service
+          metadata:
+            response-timeout: 15000
+            connect-timeout: 5000
+
+        - id: subscription-admin-service
+          uri: lb://subscription-service
+          predicates:
+            - Path=/api/admin/plans/**, /api/admin/subscriptions/**, /api/admin/stats/billing, /api/admin/admins/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Vary, RETAIN_FIRST
+            - name: CircuitBreaker
+              args:
+                name: subscriptionServiceCB
+                fallbackUri: forward:/fallback/subscription-service
+          metadata:
+            response-timeout: 15000
+            connect-timeout: 5000
+
+        - id: ai-admin-service
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/admin/stats/ai
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Vary, RETAIN_FIRST
+            - name: CircuitBreaker
+              args:
+                name: aiServiceCB
+                fallbackUri: forward:/fallback/ai-service
+          metadata:
+            response-timeout: 15000
+            connect-timeout: 5000
+
+        - id: session-service
+          uri: lb://session-service
+          predicates:
+            - Path=/api/sessions/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Vary, RETAIN_FIRST
+            - name: CircuitBreaker
+              args:
+                name: sessionServiceCB
+                fallbackUri: forward:/fallback/session-service
+          metadata:
+            response-timeout: 15000
+            connect-timeout: 5000
+
+        - id: media-service
+          uri: lb://media-service
+          predicates:
+            - Path=/api/media/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Vary, RETAIN_FIRST
+            - name: CircuitBreaker
+              args:
+                name: mediaServiceCB
+                fallbackUri: forward:/fallback/media-service
+          metadata:
+            response-timeout: 20000
+            connect-timeout: 5000
+
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Vary, RETAIN_FIRST
+            - name: CircuitBreaker
+              args:
+                name: notificationServiceCB
+                fallbackUri: forward:/fallback/notification-service
+          metadata:
+            response-timeout: 15000
+            connect-timeout: 5000
 
         - id: monolith-fallback-service
           uri: lb://mindspark-backend
           predicates:
             - Path=/api/**
+          filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Expose-Headers Vary, RETAIN_FIRST
+            - name: CircuitBreaker
+              args:
+                name: backendServiceCB
+                fallbackUri: forward:/fallback/backend
 
 eureka:
   instance:
@@ -79,4 +223,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,gateway
+        include: health,info,circuitbreakers,prometheus,metrics
+  health:
+    circuitbreakers:
+      enabled: true

@@ -1,0 +1,95 @@
+======================================================================
+MindSpark Phase 7D - Live Observability Verification
+Date: 2026-11-21 18:35:39
+======================================================================
+
+--- 1. PROMETHEUS ACTIVE TARGETS (http://localhost:9090/api/v1/targets) ---
+Total Active Targets: 8
+Target: job=ai-service             | health=UP   | lastScrape=2026-11-21T17:35:37.540446655Z | scrapeUrl=http://ai-service:8081/actuator/prometheus
+Target: job=api-gateway            | health=UP   | lastScrape=2026-11-21T17:35:29.824438157Z | scrapeUrl=http://api-gateway:8080/actuator/prometheus
+Target: job=media-service          | health=UP   | lastScrape=2026-11-21T17:35:36.952124451Z | scrapeUrl=http://media-service:8085/actuator/prometheus
+Target: job=mindspark-backend      | health=UP   | lastScrape=2026-11-21T17:35:30.69466896Z | scrapeUrl=http://backend:8082/actuator/prometheus
+Target: job=notification-service   | health=UP   | lastScrape=2026-11-21T17:35:35.576714014Z | scrapeUrl=http://notification-service:8086/metrics
+Target: job=prometheus             | health=UP   | lastScrape=2026-11-21T17:35:38.242376738Z | scrapeUrl=http://localhost:9090/metrics
+Target: job=session-service        | health=UP   | lastScrape=2026-11-21T17:35:31.277595902Z | scrapeUrl=http://session-service:8084/actuator/prometheus
+Target: job=subscription-service   | health=UP   | lastScrape=2026-11-21T17:35:39.52302698Z | scrapeUrl=http://subscription-service:8083/actuator/prometheus
+
+--- 2. PROMETHEUS METRIC QUERIES ---
+Query: up
+  ai-service             (ai-service:8081             ) => 1
+  api-gateway            (api-gateway:8080            ) => 1
+  media-service          (media-service:8085          ) => 1
+  mindspark-backend      (backend:8082                ) => 1
+  notification-service   (notification-service:8086   ) => 1
+  prometheus             (localhost:9090              ) => 1
+  session-service        (session-service:8084        ) => 1
+  subscription-service   (subscription-service:8083   ) => 1
+
+Query: resilience4j_circuitbreaker_state{state='closed'}
+  ai-service             [aiExternalProvider      ] state=closed => 1 (HEALTHY)
+  api-gateway            [mediaServiceCB          ] state=closed => 1 (HEALTHY)
+  api-gateway            [backendServiceCB        ] state=closed => 1 (HEALTHY)
+  api-gateway            [aiServiceCB             ] state=closed => 1 (HEALTHY)
+  api-gateway            [subscriptionServiceCB   ] state=closed => 1 (HEALTHY)
+  api-gateway            [sessionServiceCB        ] state=closed => 1 (HEALTHY)
+  api-gateway            [notificationServiceCB   ] state=closed => 1 (HEALTHY)
+  media-service          [backendRoomAccess       ] state=closed => 1 (HEALTHY)
+  mindspark-backend      [subscriptionEntitlement ] state=closed => 1 (HEALTHY)
+  session-service        [backendRoomExport       ] state=closed => 1 (HEALTHY)
+  subscription-service   [polarApi                ] state=closed => 1 (HEALTHY)
+  subscription-service   [keycloakAdmin           ] state=closed => 1 (HEALTHY)
+
+Query: sum by (job) (http_server_requests_seconds_count) [Spring Boot]
+  ai-service             => 57 requests
+  api-gateway            => 227 requests
+  media-service          => 67 requests
+  mindspark-backend      => 149 requests
+  session-service        => 71 requests
+  subscription-service   => 77 requests
+
+Query: sum by (job) (http_requests_total) [Express.js prom-client]
+  notification-service   => 70 requests
+
+--- 3. GRAFANA TEMPO DISTRIBUTED TRACES (http://localhost:3200) ---
+Total Distributed Traces Recorded in Tempo: 100
+
+Trace Count Breakdown by Root Service:
+  ai-service              : 8 traces
+  api-gateway             : 15 traces
+  media-service           : 12 traces
+  mindspark-backend       : 14 traces
+  notification-service    : 37 traces
+  session-service         : 7 traces
+  subscription-service    : 7 traces
+
+Sample Distributed Traces Across Stack:
+  Service: api-gateway            | TraceID: 9cab03f17c25af6bc31873f515e7f24e | Operation: http get /actuator/prometheus | Duration: 11ms
+    Spans: [api-gateway: http get /actuator/prometheus]
+  Service: mindspark-backend      | TraceID: a78fc5f944b80367ac13dc103480e227 | Operation: task roomWebSocketHandler.sweepExpiredLocks | Duration: ms
+    Spans: [mindspark-backend: task roomWebSocketHandler.sweepExpiredLocks]
+  Service: session-service        | TraceID: 73aa61f932e28c624a9163dad679aa0d | Operation: http get /actuator/prometheus | Duration: 19ms
+    Spans: [session-service: security filterchain before] -> [session-service: authorize request] -> [session-service: security filterchain after] -> [session-service: http get /actuator/prometheus] -> [session-service: secured request]
+  Service: media-service          | TraceID: fc9059d890947e95b7ad90f32244365 | Operation: http get /actuator/prometheus | Duration: 13ms
+    Spans: [media-service: authorize request] -> [media-service: secured request] -> [media-service: security filterchain before] -> [media-service: http get /actuator/prometheus] -> [media-service: security filterchain after]
+  Service: subscription-service   | TraceID: 5db4311f39d0434ed784d5d34f05481c | Operation: http get /actuator/prometheus | Duration: 22ms
+    Spans: [subscription-service: authorize request] -> [subscription-service: http get /actuator/prometheus] -> [subscription-service: security filterchain before] -> [subscription-service: security filterchain after] -> [subscription-service: secured request]
+  Service: ai-service             | TraceID: 857c91665f0420281aea5e39c106e3a3 | Operation: http get /actuator/prometheus | Duration: 29ms
+    Spans: [ai-service: security filterchain after] -> [ai-service: secured request] -> [ai-service: http get /actuator/prometheus] -> [ai-service: security filterchain before] -> [ai-service: authorize request]
+  Service: notification-service   | TraceID: de2191c091d355b77569da758df832d2 | Operation: PUT | Duration: 141ms
+    Spans: [notification-service: PUT]
+
+--- 4. GRAFANA HEALTH, DATASOURCES & DASHBOARDS (http://localhost:3000) ---
+Grafana Health: database=ok, version=11.3.0, commit=d9455ff7db73b694db7d412e49a68bec767f2b5a
+
+Provisioned Datasources in Grafana:
+  UID: prometheus   | Name: Prometheus   | Type: prometheus   | URL: http://prometheus:9090   | IsDefault: True
+  UID: tempo        | Name: Tempo        | Type: tempo        | URL: http://tempo:3200        | IsDefault: False
+
+Provisioned Dashboards in Grafana:
+  UID: mindspark-overview     | Title: MindSpark Microservices Overview    | URL: /d/mindspark-overview/mindspark-microservices-overview
+
+--- 5. SECURITY CHECK: GATEWAY ACTUATOR / METRICS ROUTING HARDENING ---
+  http://localhost:8080/api/actuator/prometheus (Gateway proxy to backend /api/actuator/prometheus) => HTTP 401 (Unauthorized) [SECURE: Blocked/Rejected]
+  http://localhost:8080/api/metrics (Gateway proxy to non-existent /api/metrics) => HTTP 401 (Unauthorized) [SECURE: Blocked/Rejected]
+  http://localhost:8080/metrics (Gateway root /metrics) => HTTP 404 (Not Found) [SECURE: Blocked/Rejected]
+  http://localhost:8080/api/internal/secret (Unrouted /api/internal endpoint) => HTTP 401 (Unauthorized) [SECURE: Blocked/Rejected]

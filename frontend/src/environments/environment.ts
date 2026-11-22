@@ -8,6 +8,6 @@ export const environment = {
   },
   get wsUrl(): string {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${proto}//${window.location.hostname}:8080`;
+    return `${proto}//${window.location.host}`;
   },
 };

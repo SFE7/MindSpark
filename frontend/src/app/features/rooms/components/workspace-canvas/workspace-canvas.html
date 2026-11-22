@@ -124,6 +124,52 @@
       <div class="offline-banner" role="alert">Room offline: the owner has left</div>
     }
 
+    <!-- Canvas Standalone Images Layer (Story 26) -->
+    <div class="canvas-image-layer">
+      @for (cImg of canvasImages(); track cImg.id) {
+        <div
+          class="canvas-image-item"
+          [class.selected]="selectedCanvasImageId() === cImg.id"
+          [style.left]="percentX(cImg.x)"
+          [style.top]="percentY(cImg.y)"
+          [style.width]="percentX(cImg.width)"
+          [style.height]="percentY(cImg.height)"
+          [style.z-index]="cImg.zIndex || 1"
+          (pointerdown)="onCanvasImagePointerDown($event, cImg)"
+          (pointermove)="onCanvasImagePointerMove($event)"
+          (pointerup)="onCanvasImagePointerUp($event)"
+          (pointercancel)="onCanvasImagePointerUp($event)"
+        >
+          <img
+            [src]="mediaService.getCachedBlobUrl(roomId(), cImg.mediaId)"
+            class="canvas-image-img"
+            [alt]="'Canvas image ' + cImg.mediaId"
+            draggable="false"
+          />
+          @if (selectedCanvasImageId() === cImg.id && !isRoomLocked()) {
+            <div class="canvas-image-controls" (pointerdown)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="canvas-image-delete-btn"
+                (click)="deleteCanvasImage($event, cImg)"
+                title="Delete image"
+              >
+                ✕
+              </button>
+              <div
+                class="canvas-image-resize-handle"
+                (pointerdown)="onCanvasImageResizeStart($event, cImg)"
+                (pointermove)="onCanvasImageResizeMove($event)"
+                (pointerup)="onCanvasImageResizeUp($event)"
+                (pointercancel)="onCanvasImageResizeUp($event)"
+                title="Drag to resize"
+              ></div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
     <!-- Canvas Idea Layer -->
     <div class="canvas-idea-layer">
       @for (idea of ideaList(); track idea.id) {
@@ -153,6 +199,28 @@
           @if (idea.description) {
             <p class="idea-desc">{{ idea.description }}</p>
           }
+
+          <!-- Idea Attachment Thumbnail Strip (Story 26) -->
+          @if (getIdeaAttachments(idea.id).length > 0) {
+            <div class="idea-attachment-strip" (pointerdown)="$event.stopPropagation()">
+              @for (att of getIdeaAttachments(idea.id); track att.id) {
+                <button
+                  type="button"
+                  class="attachment-thumb-btn"
+                  (click)="openLightbox($event, att)"
+                  [title]="'View image (' + att.contentType + ')'"
+                >
+                  <img
+                    [src]="mediaService.getCachedBlobUrl(roomId(), att.mediaId)"
+                    class="attachment-thumb-img"
+                    alt="Idea image attachment"
+                    loading="lazy"
+                  />
+                </button>
+              }
+            </div>
+          }
+
           <div class="idea-card-footer">
             <button
               type="button"
@@ -166,6 +234,49 @@
               <span class="vote-icon">&#9650;</span>
               <span class="vote-count">{{ idea.voteCount || 0 }}</span>
             </button>
+
+            <!-- Vote Pool Chip (Story 37) -->
+            @if (activeVotePool(); as pool) {
+              @if (pool.status === 'OPEN') {
+                <div class="pool-vote-chip" (pointerdown)="$event.stopPropagation()">
+                  <button
+                    type="button"
+                    class="pool-vote-btn minus"
+                    [disabled]="isRoomLocked() || myVotesOnIdea(idea.id) <= 0"
+                    (click)="removePoolVote($event, idea)"
+                    title="Remove pool vote"
+                  >−</button>
+                  <span class="pool-vote-count" [title]="'Your pool votes: ' + myVotesOnIdea(idea.id)">
+                    🗳️ {{ myVotesOnIdea(idea.id) }}
+                  </span>
+                  <button
+                    type="button"
+                    class="pool-vote-btn plus"
+                    [disabled]="isRoomLocked() || myVotesRemaining() <= 0 || (!pool.allowMultipleVotesPerIdea && myVotesOnIdea(idea.id) > 0)"
+                    (click)="castPoolVote($event, idea)"
+                    title="Add pool vote"
+                  >+</button>
+                </div>
+              }
+            }
+
+            <!-- Attach Image Button (Story 26) -->
+            @if (getIdeaAttachments(idea.id).length < 3 && !isRoomLocked()) {
+              <button
+                type="button"
+                class="idea-attach-badge"
+                (click)="triggerIdeaAttach($event, idea, ideaFileInput)"
+                (pointerdown)="$event.stopPropagation()"
+                title="Attach image (up to 3)"
+                aria-label="Attach image to idea"
+              >
+                <span class="attach-icon">🖼️</span>
+                @if (getIdeaAttachments(idea.id).length > 0) {
+                  <span class="attach-count">{{ getIdeaAttachments(idea.id).length }}/3</span>
+                }
+              </button>
+            }
+
             <button
               type="button"
               class="idea-comment-badge"
@@ -175,6 +286,17 @@
               title="Comments"
             >
               <span class="comment-icon">💬</span>
+            </button>
+            <button
+              type="button"
+              class="idea-ai-badge"
+              (click)="openAiForIdea($event, idea)"
+              (pointerdown)="$event.stopPropagation()"
+              title="Ask AI about this idea"
+              aria-label="AI actions for idea"
+            >
+              <span class="ai-spark-icon">✨</span>
+              <span class="ai-badge-label">AI</span>
             </button>
             @if (isCreator(idea) && !isRoomLocked()) {
               <span class="idea-edit-hint">Edit</span>
@@ -335,6 +457,54 @@
         }
       }
       <button
+        class="header-pill-btn ai-pill-btn"
+        type="button"
+        (click)="toggleAiDrawer()"
+        [class.active]="aiDrawerOpen()"
+        aria-label="MindSpark AI Assistant"
+        title="MindSpark AI Assistant"
+      >
+        <span class="ai-spark-icon">✨</span>
+        <span class="ai-pill-text">AI</span>
+      </button>
+
+      <!-- Compact Save / Export Popover Button -->
+      <div class="save-export-wrapper">
+        <button
+          class="header-pill-btn save-export-pill-btn"
+          type="button"
+          (click)="toggleSaveExportMenu()"
+          [class.active]="saveExportMenuOpen()"
+          aria-label="Save or Export Session"
+          title="Save session snapshot or export workspace results"
+        >
+          <span class="save-export-icon">💾</span>
+          <span class="save-export-text">Save / Export</span>
+        </button>
+
+        @if (saveExportMenuOpen()) {
+          <div class="save-export-popover" (click)="$event.stopPropagation()">
+            <button type="button" class="popover-item primary-action" (click)="openSaveSnapshotModal()">
+              <span>📸</span> Save Session Snapshot…
+            </button>
+            <div class="popover-divider"></div>
+            <button type="button" class="popover-item" (click)="onExportLive('md')">
+              <span>📄</span> Export Markdown (.md)
+            </button>
+            <button type="button" class="popover-item" (click)="onExportLive('json')">
+              <span>📦</span> Export JSON (.json)
+            </button>
+            <button type="button" class="popover-item" (click)="onExportLive('csv')">
+              <span>📊</span> Export CSV (.csv)
+            </button>
+            <div class="popover-divider"></div>
+            <button type="button" class="popover-item" (click)="onPrintLiveRoom()">
+              <span>🖨️</span> Print / Save as PDF
+            </button>
+          </div>
+        }
+      </div>
+      <button
         class="participants-btn"
         type="button"
         (click)="toggleParticipants()"
@@ -404,6 +574,80 @@
       {{ sortBy() === 'createdAt' ? 'Newest' : 'Most voted' }}
     </button>
   </div>
+
+  <!-- Vote Pool Banner (Story 37) -->
+  @if (activeVotePool(); as pool) {
+    @if (pool.status === 'OPEN') {
+      <div class="vote-pool-banner" role="region" aria-label="Active Vote Pool">
+        <div class="pool-info">
+          <span class="pool-icon">🗳️</span>
+          <span class="pool-title"><strong>Vote Pool:</strong> {{ pool.title }}</span>
+          <span class="pool-budget-pill">
+            <strong>{{ myVotesRemaining() }}</strong> / {{ pool.votesPerParticipant }} votes left
+          </span>
+          @if (!pool.allowMultipleVotesPerIdea) {
+            <span class="pool-rule-tag">Max 1/idea</span>
+          }
+        </div>
+        <div class="pool-actions">
+          @if (isRoomOwner() && !isRoomLocked()) {
+            <button
+              type="button"
+              class="btn-close-pool"
+              (click)="closeCurrentVotePool()"
+              title="End voting and view final ranked results"
+            >
+              End Pool
+            </button>
+          }
+          <button
+            type="button"
+            class="btn-view-results"
+            (click)="openVotePoolResultsModal()"
+            title="View current rankings"
+          >
+            Live Tallies
+          </button>
+        </div>
+      </div>
+    } @else if (pool.status === 'CLOSED') {
+      <div class="vote-pool-banner closed" role="region" aria-label="Closed Vote Pool">
+        <div class="pool-info">
+          <span class="pool-icon">🏆</span>
+          <span class="pool-title"><strong>Vote Pool Closed:</strong> {{ pool.title }}</span>
+        </div>
+        <div class="pool-actions">
+          <button
+            type="button"
+            class="btn-view-results"
+            (click)="openVotePoolResultsModal()"
+          >
+            View Results
+          </button>
+          @if (isRoomOwner() && !isRoomLocked()) {
+            <button
+              type="button"
+              class="btn-start-pool"
+              (click)="openStartVotePoolModal()"
+            >
+              New Pool…
+            </button>
+          }
+        </div>
+      </div>
+    }
+  } @else if (isRoomOwner() && !isRoomLocked()) {
+    <div class="vote-pool-starter-bar">
+      <button
+        type="button"
+        class="btn-start-pool-pill"
+        (click)="openStartVotePoolModal()"
+        title="Create a vote pool for participants"
+      >
+        🗳️ Start Vote Pool
+      </button>
+    </div>
+  }
 
   @if (participantsOpen()) {
     <div class="participants-backdrop" (click)="toggleParticipants()"></div>
@@ -577,94 +821,116 @@
     </aside>
   }
 
-  <!-- Subtle Guide Text Under Logo -->
-  <div class="canvas-guide-text">A shared space for loose thoughts</div>
-
-  <!-- Floating "ROOM IDEAS" Panel (Left Side) -->
-  <aside class="room-ideas-panel" aria-label="Room ideas">
-    <div class="room-ideas-title">ROOM IDEAS</div>
-    <div class="room-ideas-divider"></div>
-    <div class="room-ideas-list">
-      @if (ideaList().length === 0) {
-        <div class="room-ideas-empty">No ideas yet</div>
-      } @else {
-        @for (idea of ideaList(); track idea.id) {
-          <div
-            class="room-idea-chip"
-            [class.chip-read-only]="isRoomLocked()"
-            (click)="!isRoomLocked() && editIdea(idea)"
-            [title]="idea.title"
-          >
-            <span class="chip-title">{{ idea.title }}</span>
-            <button
-              type="button"
-              class="chip-vote-btn"
-              [class.voted]="idea.voted"
-              [disabled]="isRoomLocked()"
-              (click)="toggleVote($event, idea)"
-              (pointerdown)="$event.stopPropagation()"
-              [attr.aria-label]="idea.voted ? 'Remove vote' : 'Vote for idea'"
-            >
-              <span class="chip-vote-icon">&#9650;</span>
-              <span class="chip-vote-count">{{ idea.voteCount || 0 }}</span>
-            </button>
-          </div>
-        }
-      }
-    </div>
-
-        <div class="room-ideas-divider"></div>
-    <div class="room-ideas-title">CATEGORIES</div>
-    <div class="room-ideas-divider"></div>
-
-    <div class="category-list">
-      @for (cat of categories(); track cat.id) {
-        <div class="category-item">
-          @if (editingCategoryId() === cat.id) {
-            <input
-              class="category-edit-input"
-              maxlength="40"
-              [value]="editingCategoryTitle()"
-              (input)="editingCategoryTitle.set($any($event.target).value)"
-              (keydown.enter)="saveCategory()"
-              (keydown.escape)="cancelEditingCategory()"
-            />
-            <button type="button" class="category-icon-btn" (click)="saveCategory()" title="Save">✓</button>
-            <button type="button" class="category-icon-btn" (click)="cancelEditingCategory()" title="Cancel">✕</button>
-          } @else {
-            <span class="category-name" [title]="cat.title">{{ cat.title }}</span>
-            @if (isRoomOwner() && !isRoomLocked()) {
-              <button type="button" class="category-icon-btn" (click)="startEditingCategory(cat)" title="Rename" aria-label="Rename category">✎</button>
-              <button type="button" class="category-icon-btn danger" (click)="deleteCategory(cat)" title="Delete" aria-label="Delete category">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
-                </svg>
-              </button>
-            }
-          }
-        </div>
-      } @empty {
-        <div class="room-ideas-empty">No categories</div>
-      }
-    </div>
-
-    @if (!isRoomLocked()) {
-      <div class="category-add">
-        <input
-          class="category-add-input"
-          placeholder="New category"
-          maxlength="40"
-          [value]="newCategoryTitle()"
-          (input)="newCategoryTitle.set($any($event.target).value)"
-          (keydown.enter)="addCategory()"
-        />
-        <button type="button" class="category-add-btn" (click)="addCategory()" aria-label="Add category">+</button>
+  <!-- Floating "ROOM IDEAS" Panel (Left Side, Collapsible) -->
+  @if (!leftPanelCollapsed()) {
+    <aside class="room-ideas-panel" aria-label="Room ideas">
+      <div class="room-ideas-header-row">
+        <div class="room-ideas-title">ROOM IDEAS</div>
+        <button
+          type="button"
+          class="collapse-panel-btn"
+          (click)="toggleLeftPanel()"
+          aria-label="Collapse ideas panel"
+          title="Collapse panel"
+        >
+          ◂
+        </button>
       </div>
-    }
-    @if (categoryError()) {
-      <p class="category-error" role="alert">{{ categoryError() }}</p>
-    }
-  </aside>
+      <div class="room-ideas-divider"></div>
+      <div class="room-ideas-list">
+        @if (ideaList().length === 0) {
+          <div class="room-ideas-empty">No ideas yet</div>
+        } @else {
+          @for (idea of ideaList(); track idea.id) {
+            <div
+              class="room-idea-chip"
+              [class.chip-read-only]="isRoomLocked()"
+              (click)="!isRoomLocked() && editIdea(idea)"
+              [title]="idea.title"
+            >
+              <span class="chip-title">{{ idea.title }}</span>
+              <button
+                type="button"
+                class="chip-vote-btn"
+                [class.voted]="idea.voted"
+                [disabled]="isRoomLocked()"
+                (click)="toggleVote($event, idea)"
+                (pointerdown)="$event.stopPropagation()"
+                [attr.aria-label]="idea.voted ? 'Remove vote' : 'Vote for idea'"
+              >
+                <span class="chip-vote-icon">&#9650;</span>
+                <span class="chip-vote-count">{{ idea.voteCount || 0 }}</span>
+              </button>
+            </div>
+          }
+        }
+      </div>
+
+      <div class="room-ideas-divider"></div>
+      <div class="room-ideas-title">CATEGORIES</div>
+      <div class="room-ideas-divider"></div>
+
+      <div class="category-list">
+        @for (cat of categories(); track cat.id) {
+          <div class="category-item">
+            @if (editingCategoryId() === cat.id) {
+              <input
+                class="category-edit-input"
+                maxlength="40"
+                [value]="editingCategoryTitle()"
+                (input)="editingCategoryTitle.set($any($event.target).value)"
+                (keydown.enter)="saveCategory()"
+                (keydown.escape)="cancelEditingCategory()"
+              />
+              <button type="button" class="category-icon-btn" (click)="saveCategory()" title="Save">✓</button>
+              <button type="button" class="category-icon-btn" (click)="cancelEditingCategory()" title="Cancel">✕</button>
+            } @else {
+              <span class="category-name" [title]="cat.title">{{ cat.title }}</span>
+              @if (isRoomOwner() && !isRoomLocked()) {
+                <button type="button" class="category-icon-btn" (click)="startEditingCategory(cat)" title="Rename" aria-label="Rename category">✎</button>
+                <button type="button" class="category-icon-btn danger" (click)="deleteCategory(cat)" title="Delete" aria-label="Delete category">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>
+                  </svg>
+                </button>
+              }
+            }
+          </div>
+        } @empty {
+          <div class="room-ideas-empty">No categories</div>
+        }
+      </div>
+
+      @if (!isRoomLocked()) {
+        <div class="category-add">
+          <input
+            class="category-add-input"
+            placeholder="New category"
+            maxlength="40"
+            [value]="newCategoryTitle()"
+            (input)="newCategoryTitle.set($any($event.target).value)"
+            (keydown.enter)="addCategory()"
+          />
+          <button type="button" class="category-add-btn" (click)="addCategory()" aria-label="Add category">+</button>
+        </div>
+      }
+      @if (categoryError()) {
+        <p class="category-error" role="alert">{{ categoryError() }}</p>
+      }
+    </aside>
+  } @else {
+    <button
+      type="button"
+      class="room-ideas-collapsed-pill"
+      (click)="toggleLeftPanel()"
+      aria-label="Expand room ideas panel"
+      title="Show ideas & categories"
+    >
+      <span class="collapsed-icon">💡</span>
+      <span class="collapsed-label">Ideas ({{ ideaList().length }})</span>
+      <span class="collapsed-expand-hint">▸</span>
+    </button>
+  }
 
   <!-- Floating Drawing Toolbar (Bottom-Right) -->
   <nav class="floating-toolbar" aria-label="Canvas drawing tools">
@@ -690,6 +956,24 @@
           <span class="tool-label">{{ tool.label }}</span>
         </button>
       }
+
+      <!-- Canvas Image Upload Tool Button (Story 26) -->
+      <button
+        type="button"
+        class="toolbar-tool-btn"
+        [class.disabled]="isRoomLocked()"
+        [disabled]="isRoomLocked()"
+        aria-label="Upload canvas image"
+        title="Add image to canvas (max 15)"
+        (click)="triggerCanvasImageUpload(canvasFileInput)"
+      >
+        <svg class="tool-svg-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        <span class="tool-label">Image</span>
+      </button>
 
       <!-- Shape Popover Menu -->
       @if (shapesOpen()) {
@@ -728,4 +1012,235 @@
       </div>
     </div>
   </nav>
+
+  <!-- AI Assistant Drawer -->
+  <app-ai-drawer
+    [isOpen]="aiDrawerOpen()"
+    [roomId]="roomId()"
+    [ideas]="ideaList()"
+    [selectedIdea]="aiSelectedIdea()"
+    [isRoomLocked]="isRoomLocked()"
+    (closeDrawer)="closeAiDrawer()"
+    (addIdeaToCanvas)="onAiAddIdeaToCanvas($event)"
+    (updateIdeaOnCanvas)="onAiUpdateIdeaOnCanvas($event)"
+  />
+
+  <!-- Save Snapshot Modal -->
+  @if (saveModalOpen()) {
+    <div class="modal-backdrop" (click)="closeSaveSnapshotModal()">
+      <div class="save-snapshot-modal" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="save-snapshot-title">
+        <div class="modal-header">
+          <h3 id="save-snapshot-title">Save Session Snapshot</h3>
+          <button type="button" class="btn-close-modal" (click)="closeSaveSnapshotModal()">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">
+            Freezes an immutable record of ideas, categories, votes, and comments in <strong>{{ room()?.name }}</strong>.
+          </p>
+          <div class="form-field">
+            <label for="snapshot-title-input">Title</label>
+            <input
+              id="snapshot-title-input"
+              type="text"
+              [ngModel]="saveSnapshotTitle()"
+              (ngModelChange)="saveSnapshotTitle.set($event)"
+              placeholder="e.g. Sprint 3 Retrospective"
+              maxlength="200"
+            />
+          </div>
+          <div class="form-field">
+            <label for="snapshot-notes-input">Notes / Summary (Optional)</label>
+            <textarea
+              id="snapshot-notes-input"
+              rows="3"
+              [ngModel]="saveSnapshotNotes()"
+              (ngModelChange)="saveSnapshotNotes.set($event)"
+              placeholder="Key decisions or action items…"
+              maxlength="2000"
+            ></textarea>
+          </div>
+          @if (availableAiSummary()) {
+            <div class="form-checkbox">
+              <label>
+                <input
+                  type="checkbox"
+                  [checked]="includeAiSummary()"
+                  (change)="includeAiSummary.set($any($event.target).checked)"
+                />
+                <span>Attach latest AI Assistant summary from drawer</span>
+              </label>
+            </div>
+          }
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-modal-cancel" (click)="closeSaveSnapshotModal()">Cancel</button>
+          <button
+            type="button"
+            class="btn-modal-confirm"
+            (click)="submitSaveSnapshot()"
+            [disabled]="isSavingSnapshot()"
+          >
+            {{ isSavingSnapshot() ? 'Saving…' : 'Save Snapshot' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Saved Notification Toast -->
+  @if (savedToast(); as toast) {
+    <div class="snapshot-saved-toast" role="status">
+      <span class="toast-icon">✅</span>
+      <span class="toast-msg">Snapshot saved: <strong>{{ toast.title }}</strong></span>
+      <a [routerLink]="['/sessions', toast.id]" class="toast-link" (click)="savedToast.set(null)">Open Report →</a>
+      <button type="button" class="toast-close" (click)="savedToast.set(null)" aria-label="Dismiss">×</button>
+    </div>
+  }
+
+  <!-- Hidden File Inputs (Story 26) -->
+  <input
+    #canvasFileInput
+    type="file"
+    accept="image/png,image/jpeg,image/webp"
+    style="display: none"
+    (change)="onCanvasImageFileSelected($event)"
+  />
+  <input
+    #ideaFileInput
+    type="file"
+    accept="image/png,image/jpeg,image/webp"
+    style="display: none"
+    (change)="onIdeaImageFileSelected($event)"
+  />
+
+  <!-- Start Vote Pool Modal (Story 37) -->
+  @if (showStartVotePoolModal()) {
+    <div class="modal-backdrop" (click)="closeStartVotePoolModal()">
+      <div class="vote-pool-modal" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="start-pool-title">
+        <div class="modal-header">
+          <h3 id="start-pool-title">Start a Vote Pool</h3>
+          <button type="button" class="btn-close-modal" (click)="closeStartVotePoolModal()">×</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">
+            Give participants a fixed budget of votes to prioritize ideas in <strong>{{ room()?.name }}</strong>.
+          </p>
+          @if (votePoolModalError()) {
+            <div class="modal-error-alert" role="alert">{{ votePoolModalError() }}</div>
+          }
+          <div class="form-field">
+            <label for="vote-pool-title-input">Pool Title</label>
+            <input
+              id="vote-pool-title-input"
+              type="text"
+              [ngModel]="votePoolTitle()"
+              (ngModelChange)="votePoolTitle.set($event)"
+              placeholder="e.g. Sprint 4 Prioritization"
+              maxlength="120"
+            />
+          </div>
+          <div class="form-field">
+            <label for="vote-pool-budget-input">Votes per Participant (1 - 20)</label>
+            <input
+              id="vote-pool-budget-input"
+              type="number"
+              min="1"
+              max="20"
+              [ngModel]="votePoolVotesPerParticipant()"
+              (ngModelChange)="votePoolVotesPerParticipant.set(+$event)"
+            />
+          </div>
+          <div class="form-checkbox">
+            <label>
+              <input
+                type="checkbox"
+                [checked]="votePoolAllowMultiple()"
+                (change)="votePoolAllowMultiple.set($any($event.target).checked)"
+              />
+              <span>Allow multiple votes per idea (participants can stack votes)</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-modal-cancel" (click)="closeStartVotePoolModal()">Cancel</button>
+          <button
+            type="button"
+            class="btn-modal-confirm"
+            (click)="submitStartVotePool()"
+            [disabled]="votePoolSubmitting() || !votePoolTitle().trim()"
+          >
+            {{ votePoolSubmitting() ? 'Starting…' : 'Start Vote Pool' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Vote Pool Results Modal (Story 37) -->
+  @if (showVotePoolResultsModal()) {
+    <div class="modal-backdrop" (click)="closeVotePoolResultsModal()">
+      <div class="vote-pool-results-modal" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="pool-results-title">
+        <div class="modal-header">
+          <div class="results-header-title">
+            <h3 id="pool-results-title">🏆 {{ (activeVotePool() || latestClosedVotePool())?.title }} — Rankings</h3>
+            <span class="pool-status-tag" [class.closed]="(activeVotePool() || latestClosedVotePool())?.status === 'CLOSED'">
+              {{ (activeVotePool() || latestClosedVotePool())?.status === 'OPEN' ? 'Live Tallies' : 'Final Results' }}
+            </span>
+          </div>
+          <button type="button" class="btn-close-modal" (click)="closeVotePoolResultsModal()">×</button>
+        </div>
+        <div class="modal-body results-body">
+          @if (((activeVotePool() || latestClosedVotePool())?.tallies?.length ?? 0) === 0) {
+            <p class="empty-tallies">No votes have been cast in this pool yet.</p>
+          } @else {
+            <ol class="results-tally-list">
+              @for (tally of (activeVotePool() || latestClosedVotePool())?.tallies; track tally.ideaId; let idx = $index) {
+                <li class="tally-item" [class.podium-gold]="idx === 0" [class.podium-silver]="idx === 1" [class.podium-bronze]="idx === 2">
+                  <span class="tally-rank">{{ idx + 1 }}</span>
+                  <div class="tally-details">
+                    <strong class="tally-idea-title">{{ tally.ideaTitle }}</strong>
+                  </div>
+                  <span class="tally-score">{{ tally.poolVotes }} {{ tally.poolVotes === 1 ? 'vote' : 'votes' }}</span>
+                </li>
+              }
+            </ol>
+          }
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-modal-confirm" (click)="closeVotePoolResultsModal()">Close</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Image Lightbox Modal (Story 26) -->
+  @if (lightboxAttachment(); as att) {
+    <div class="modal-backdrop lightbox-backdrop" (click)="closeLightbox()">
+      <div class="lightbox-dialog" (click)="$event.stopPropagation()" role="dialog" aria-label="Image preview">
+        <div class="lightbox-header">
+          <span class="lightbox-info">{{ att.width }}×{{ att.height }} · {{ att.contentType }}</span>
+          <div class="lightbox-actions">
+            @if (lightboxCanDelete()) {
+              <button
+                type="button"
+                class="lightbox-btn-delete"
+                (click)="deleteLightboxAttachment()"
+                title="Delete this image"
+              >
+                🗑️ Delete
+              </button>
+            }
+            <button type="button" class="btn-close-modal" (click)="closeLightbox()">×</button>
+          </div>
+        </div>
+        <div class="lightbox-content">
+          <img
+            [src]="mediaService.getCachedBlobUrl(roomId(), att.mediaId)"
+            class="lightbox-full-img"
+            alt="Full size attachment"
+          />
+        </div>
+      </div>
+    </div>
+  }
 </section>

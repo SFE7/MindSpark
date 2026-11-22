@@ -30,6 +30,18 @@ export class KeycloakAuth {
     return this.keycloak.token;
   }
 
+  async refreshToken(): Promise<string | undefined> {
+    if (!this.keycloak.authenticated) {
+      return undefined;
+    }
+    try {
+      await this.keycloak.updateToken(-1);
+    } catch {
+      // Gracefully handle if refresh token exchange fails
+    }
+    return this.keycloak.token;
+  }
+
   get currentToken(): string | undefined {
     return this.keycloak.token;
   }
@@ -43,12 +55,35 @@ export class KeycloakAuth {
       string | undefined;
   }
 
+  getRealmRoles(): string[] {
+    const realmAccess = this.keycloak.tokenParsed?.['realm_access'] as { roles?: string[] } | undefined;
+    const roles = realmAccess?.roles;
+    return Array.isArray(roles) ? roles : [];
+  }
+
+  hasRole(role: string): boolean {
+    if (!role) return false;
+    const target = role.toLowerCase().replace(/[-_]/g, '');
+    return this.getRealmRoles().some(r => r.toLowerCase().replace(/[-_]/g, '') === target);
+  }
+
+  isAdmin(): boolean {
+    return this.hasRole('admin') || this.hasRole('super-admin');
+  }
+
+  isSuperAdmin(): boolean {
+    return this.hasRole('super-admin');
+  }
+
   login(): Promise<void> {
     return this.keycloak.login({ prompt: 'login' });
   }
 
   register(): Promise<void> {
-    return this.keycloak.register({ redirectUri: window.location.origin });
+    if (typeof this.keycloak.register === 'function') {
+      return this.keycloak.register({ redirectUri: window.location.origin });
+    }
+    return this.login();
   }
 
   logout(): Promise<void> {

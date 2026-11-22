@@ -1,0 +1,17 @@
+=== HTTP GET http://192.168.0.3:4200/ ===
+HTTP/200 OK
+Content-Type: text/html
+Content-Length: 807 bytes
+Contains Google Fonts Link: true
+Contains Bricolage Grotesque font: true
+Contains Inter font: true
+Contains JetBrains Mono font: true
+Preconnect to fonts.googleapis.com: true
+Preconnect to fonts.gstatic.com: true
+HTML Title: MindSpark
+
+=== HTTP GET http://192.168.0.3:4200/assets/mindspark-mascot.png ===
+HTTP/200 OK
+Content-Type: image/png
+Content-Length: 1022858 bytes
+PNG Magic: PNG (Buffer length: 1022858)

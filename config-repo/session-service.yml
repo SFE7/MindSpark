@@ -1,0 +1,9 @@
+resilience4j:
+  circuitbreaker:
+    instances:
+      backendRoomExport:
+        baseConfig: default
+        waitDurationInOpenState: 15s
+        ignoreExceptions:
+          - com.mindspark.session.exception.RoomNotFoundException
+          - java.lang.IllegalArgumentException

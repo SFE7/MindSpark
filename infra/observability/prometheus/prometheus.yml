@@ -1,0 +1,43 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'api-gateway'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['api-gateway:8080']
+
+  - job_name: 'mindspark-backend'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['backend:8082']
+
+  - job_name: 'ai-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['ai-service:8081']
+
+  - job_name: 'subscription-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['subscription-service:8083']
+
+  - job_name: 'session-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['session-service:8084']
+
+  - job_name: 'media-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['media-service:8085']
+
+  - job_name: 'notification-service'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['notification-service:8086']

@@ -134,6 +134,15 @@ export class RealtimeService implements OnDestroy {
   private readonly objectUnlockedSubject = new Subject<ObjectUnlockPayload>();
   readonly objectUnlocked$: Observable<ObjectUnlockPayload> = this.objectUnlockedSubject.asObservable();
 
+  private readonly votePoolEventsSubject = new Subject<any>();
+  readonly votePoolEvents$: Observable<any> = this.votePoolEventsSubject.asObservable();
+
+  private readonly ideaAttachmentEventsSubject = new Subject<any>();
+  readonly ideaAttachmentEvents$: Observable<any> = this.ideaAttachmentEventsSubject.asObservable();
+
+  private readonly canvasImageEventsSubject = new Subject<any>();
+  readonly canvasImageEvents$: Observable<any> = this.canvasImageEventsSubject.asObservable();
+
   private readonly onlineParticipantsSignal = signal<OnlineParticipant[]>([]);
   readonly onlineParticipants = this.onlineParticipantsSignal.asReadonly();
 
@@ -328,6 +337,24 @@ export class RealtimeService implements OnDestroy {
               objectType: data.objectType,
               id: data.id,
             });
+          } else if (type === 'VOTE_POOL_UPDATED' || type === 'vote-pool-updated') {
+            this.votePoolEventsSubject.next(data);
+          } else if (
+            type === 'IDEA_ATTACHMENT_ADDED' ||
+            type === 'IDEA_ATTACHMENT_REMOVED' ||
+            type === 'idea-attachment-added' ||
+            type === 'idea-attachment-removed'
+          ) {
+            this.ideaAttachmentEventsSubject.next(data);
+          } else if (
+            type === 'CANVAS_IMAGE_ADDED' ||
+            type === 'CANVAS_IMAGE_UPDATED' ||
+            type === 'CANVAS_IMAGE_DELETED' ||
+            type === 'canvas-image-added' ||
+            type === 'canvas-image-updated' ||
+            type === 'canvas-image-deleted'
+          ) {
+            this.canvasImageEventsSubject.next(data);
           } else if (type === 'ping') {
             socket.send(JSON.stringify({ type: 'pong' }));
           }
@@ -336,9 +363,13 @@ export class RealtimeService implements OnDestroy {
         }
       };
 
-      socket.onclose = () => {
+      socket.onclose = (event: CloseEvent) => {
         if (this.socket !== socket) return;
         this.connectionStatusSignal.set('reconnecting');
+        if (event.code === 4403 || event.code === 4404) {
+          console.warn(`WebSocket closed with code ${event.code} (${event.reason}), stopping reconnect`);
+          return;
+        }
         this.scheduleReconnect();
       };
 

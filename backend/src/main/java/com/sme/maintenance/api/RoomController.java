@@ -2,6 +2,7 @@
 package com.sme.maintenance.api;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,6 +26,8 @@ import com.sme.maintenance.presence.PresenceService;
 import com.sme.maintenance.room.Room;
 import com.sme.maintenance.room.RoomService;
 import com.sme.maintenance.services.AuthenticatedUserService;
+import com.sme.maintenance.subscription.EntitlementClient;
+import com.sme.maintenance.subscription.EntitlementDto;
 
 @RestController
 @RequestMapping("/api/rooms")
@@ -33,14 +36,17 @@ public class RoomController {
     private final AuthenticatedUserService authenticatedUserService;
     private final RoomService roomService;
     private final PresenceService presenceService;
+    private final EntitlementClient entitlementClient;
 
     public RoomController(
             RoomService roomService,
             AuthenticatedUserService authenticatedUserService,
-            PresenceService presenceService) {
+            PresenceService presenceService,
+            EntitlementClient entitlementClient) {
         this.roomService = roomService;
         this.authenticatedUserService = authenticatedUserService;
         this.presenceService = presenceService;
+        this.entitlementClient = entitlementClient;
     }
 
     @PostMapping
@@ -49,10 +55,21 @@ public class RoomController {
             @RequestBody CreateRoomRequest request) {
 
         User user = authenticatedUserService.getCurrentUser(jwt);
+        // OUTSIDE DB LOCK: fetch creator entitlements
+        EntitlementDto creatorLimits = entitlementClient != null
+                ? entitlementClient.getEntitlements(user.getKeycloakId())
+                : null;
 
-        Room room = roomService.create(request.name(), user.getId());
+        Room room = roomService.create(request.name(), user.getId(), creatorLimits);
 
         return response(room, user.getId());
+    }
+
+    @GetMapping("/usage")
+    public Map<String, Object> usage(@AuthenticationPrincipal Jwt jwt) {
+        User user = authenticatedUserService.getCurrentUser(jwt);
+        long count = roomService.countActiveRooms(user.getId());
+        return Map.of("activeRoomsCount", count);
     }
 
     @PutMapping("/{roomId}")
@@ -86,11 +103,21 @@ public class RoomController {
             @RequestBody JoinRoomRequest request) {
 
         User user = authenticatedUserService.getCurrentUser(jwt);
+        Room preliminaryRoom = roomService.findForJoin(request.invitationCode());
 
-        Room room = roomService.join(
-                request.invitationCode(),
-                user.getId()
-        );
+        // Idempotent re-join: if already a member or owner, succeed immediately
+        if (preliminaryRoom.getMemberIds().contains(user.getId()) || preliminaryRoom.getOwnerId().equals(user.getId())) {
+            Room room = roomService.join(request.invitationCode(), user.getId());
+            return response(room, user.getId());
+        }
+
+        // OUTSIDE DB LOCK: resolve owner's Keycloak sub and fetch ownerLimits
+        String ownerSub = preliminaryRoom.getOwner() != null ? preliminaryRoom.getOwner().getKeycloakId() : null;
+        EntitlementDto ownerLimits = entitlementClient != null
+                ? entitlementClient.getEntitlements(ownerSub)
+                : null;
+
+        Room room = roomService.joinWithLimits(request.invitationCode(), user.getId(), ownerLimits);
 
         return response(room, user.getId());
     }

@@ -1,0 +1,278 @@
+<main class="billing-page">
+  <div class="billing-container">
+    <div class="page-top">
+      <div class="page-top-bar">
+        <a routerLink="/" class="back-link">
+          <span aria-hidden="true">&larr;</span> Back to constellations
+        </a>
+        @if (paymentConfig()) {
+          <span class="mode-badge" [class.polar]="paymentConfig()?.mode === 'POLAR_SANDBOX'" [class.simulated]="paymentConfig()?.mode === 'SIMULATED'">
+            {{ paymentConfig()?.mode === 'POLAR_SANDBOX' ? 'Polar Sandbox Checkout' : 'Simulated Billing' }}
+          </span>
+        }
+      </div>
+
+      @if (verifyingPayment()) {
+        <div class="notice info verifying" role="status">
+          <span class="spinner-small" aria-hidden="true"></span>
+          Verifying your Polar payment... Please wait.
+        </div>
+      }
+      @if (verificationError()) {
+        <div class="notice error verification-error" role="alert">
+          <span>{{ verificationError() }}</span>
+          <button type="button" class="retry-btn" (click)="retryVerification()">Retry Verification</button>
+        </div>
+      }
+      @if (actionNotice()) {
+        <div class="notice success" role="status">
+          {{ actionNotice() }}
+        </div>
+      }
+      @if (error()) {
+        <div class="notice error" role="alert">
+          {{ error() }}
+        </div>
+      }
+    </div>
+
+    <!-- Header Section -->
+    <header class="billing-header">
+      <p class="eyebrow">Plans &amp; Entitlements</p>
+      <h1>Fuel your collaboration.<br><em>Never hit a wall.</em></h1>
+      <p class="intro">Scale your active rooms, invite larger teams, and unlock enhanced AI capabilities.</p>
+    </header>
+
+    <!-- Current Plan & Usage Summary Card -->
+    <section class="current-plan-card" aria-label="Current subscription summary">
+      <div class="plan-summary-header">
+        <div>
+          <span class="plan-chip">{{ getCurrentPlanCode() }} PLAN</span>
+          <h2>Active Entitlements</h2>
+        </div>
+        @if (isPaidActive()) {
+          <button type="button" class="cancel-link-btn" (click)="openCancelModal()">
+            Cancel subscription
+          </button>
+        }
+      </div>
+
+      <div class="usage-metrics-grid">
+        <!-- Active Rooms Metric -->
+        <div class="metric-box">
+          <div class="metric-top">
+            <span class="metric-label">Active Rooms</span>
+            <span class="metric-value">{{ activeRoomsCount() }} / {{ getActiveRoomsLimit() }}</span>
+          </div>
+          <div class="progress-bar-bg" role="progressbar" [attr.aria-valuenow]="activeRoomsCount()" [attr.aria-valuemax]="getActiveRoomsLimit()">
+            <div class="progress-bar-fill" [style.width.%]="getProgressWidth()"></div>
+          </div>
+          <p class="metric-hint">Closing or deleting rooms frees slots.</p>
+        </div>
+
+        <!-- Participants Limit Metric -->
+        <div class="metric-box">
+          <div class="metric-top">
+            <span class="metric-label">Max Participants / Room</span>
+            <span class="metric-value">{{ getParticipantsLimit() }}</span>
+          </div>
+          <p class="metric-hint">Room host's plan dictates maximum attendee capacity.</p>
+        </div>
+
+        <!-- Daily AI Quota Metric -->
+        <div class="metric-box">
+          <div class="metric-top">
+            <span class="metric-label">AI Generation Quota</span>
+            <span class="metric-value">{{ getAiQuota() }}</span>
+          </div>
+          <p class="metric-hint">Resets automatically at midnight UTC.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3-Plan Comparison Grid -->
+    <section class="plans-section" aria-label="Available plans">
+      <div class="section-title">
+        <p class="eyebrow">Available Plans</p>
+        <h2>Select the right scale for your needs</h2>
+      </div>
+
+      <div class="plans-grid">
+        @for (plan of plans(); track plan.id) {
+          <article class="plan-card" [class.current]="isCurrentPlan(plan)" [class.highlighted]="plan.code === 'PREMIUM'">
+            @if (isCurrentPlan(plan)) {
+              <div class="current-badge">CURRENT PLAN</div>
+            }
+            <div class="plan-header">
+              <h3>{{ plan.name }}</h3>
+              <div class="plan-price">
+                <span class="currency">$</span>
+                <span class="amount">{{ (plan.priceCents / 100) | number:'1.0-0' }}</span>
+                <span class="interval">/ month</span>
+              </div>
+              <p class="plan-desc">{{ plan.description }}</p>
+            </div>
+
+            <ul class="plan-features">
+              <li>
+                <span class="check-icon">&#10003;</span>
+                <strong>{{ plan.maxActiveRooms }}</strong> active rooms
+              </li>
+              <li>
+                <span class="check-icon">&#10003;</span>
+                <strong>{{ plan.maxParticipantsPerRoom }}</strong> participants per room
+              </li>
+              <li>
+                <span class="check-icon">&#10003;</span>
+                <strong>{{ plan.aiDailyLimit }}</strong> AI requests per day
+              </li>
+              <li>
+                <span class="check-icon">&#10003;</span>
+                <span>{{ plan.aiTier === 'PREMIUM' ? 'High-capacity AI models' : 'Standard fast AI models' }}</span>
+              </li>
+            </ul>
+
+            <div class="plan-action">
+              <button
+                type="button"
+                class="cta-button"
+                [class.primary]="!isCurrentPlan(plan) && canTakeAction(plan)"
+                [class.current-btn]="isCurrentPlan(plan)"
+                [disabled]="!canTakeAction(plan) || loading() || submitting() || verifyingPayment()"
+                (click)="openCheckout(plan)"
+              >
+                {{ getButtonText(plan) }}
+              </button>
+            </div>
+          </article>
+        }
+      </div>
+    </section>
+
+    <!-- Billing History Section -->
+    <section class="history-section" aria-label="Billing history">
+      <div class="section-title">
+        <p class="eyebrow">Invoices &amp; Receipts</p>
+        <h2>Billing History</h2>
+      </div>
+
+      @if (billingHistory().length === 0) {
+        <div class="empty-history">
+          No invoices or transactions yet. Upgrades and subscription events will appear here.
+        </div>
+      } @else {
+        <div class="table-wrap">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Invoice #</th>
+                <th>Date</th>
+                <th>Event</th>
+                <th>Plan</th>
+                <th>Amount</th>
+                <th>Payment Method</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (rec of billingHistory(); track rec.id) {
+                <tr>
+                  <td class="font-mono">{{ rec.invoiceNumber }}</td>
+                  <td>{{ rec.createdAt | date:'MMM d, y, h:mm a' }}</td>
+                  <td>
+                    <span class="event-badge" [class]="rec.eventType.toLowerCase()">
+                      {{ rec.eventType }}
+                    </span>
+                  </td>
+                  <td>{{ rec.planName }}</td>
+                  <td class="amount-cell">{{ (rec.amountCents / 100) | currency:'USD' }}</td>
+                  <td class="subtle-cell">{{ rec.paymentMethodSummary }}</td>
+                  <td>
+                    <span class="status-badge" [class]="rec.status.toLowerCase()">
+                      {{ rec.status }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  </div>
+
+  <!-- Simulated Checkout Modal -->
+  @if (showCheckoutModal() && selectedPlan(); as plan) {
+    <div class="modal-backdrop" (click)="closeCheckout()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Confirm Subscription</h3>
+          <button type="button" class="close-btn" (click)="closeCheckout()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="checkout-summary">
+            <span class="checkout-plan">{{ plan.name }} Plan</span>
+            <span class="checkout-price">{{ (plan.priceCents / 100) | currency:'USD' }} / month</span>
+          </div>
+
+          <div class="demo-callout">
+            <strong>&#9432; Demo Environment</strong>
+            <p>This is a simulated checkout. No real payment will be charged.</p>
+          </div>
+
+          <div class="form-group">
+            <label for="payment-label">Payment Method Label</label>
+            <input
+              id="payment-label"
+              type="text"
+              [ngModel]="paymentLabel()"
+              (ngModelChange)="paymentLabel.set($event)"
+              placeholder="e.g. Corporate Card •••• 4242"
+              maxlength="60"
+            />
+            <small class="field-hint">Used purely for invoice display.</small>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" [disabled]="submitting()" (click)="closeCheckout()">
+            Cancel
+          </button>
+          <button type="button" class="btn-primary" [disabled]="submitting()" (click)="submitCheckout()">
+            {{ submitting() ? 'Processing...' : 'Confirm & Activate' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Cancel Confirmation Modal -->
+  @if (showCancelModal()) {
+    <div class="modal-backdrop" (click)="closeCancelModal()">
+      <div class="modal-card cancel-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Cancel Subscription?</h3>
+          <button type="button" class="close-btn" (click)="closeCancelModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <p>Are you sure you want to cancel your paid subscription? Your account will immediately revert to the <strong>Free Plan</strong>.</p>
+          <div class="grandfather-note">
+            <strong>&#10003; Your Rooms Are Safe</strong>
+            <p>Any rooms you have already created will remain active and intact. You will only be limited when attempting to create new rooms beyond the Free limit.</p>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" [disabled]="submitting()" (click)="closeCancelModal()">
+            Keep Subscription
+          </button>
+          <button type="button" class="btn-danger" [disabled]="submitting()" (click)="confirmCancel()">
+            {{ submitting() ? 'Canceling...' : 'Yes, Cancel Plan' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</main>

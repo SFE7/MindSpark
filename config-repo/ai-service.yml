@@ -1,0 +1,20 @@
+mindspark:
+  ai:
+    max-concurrent-upstream-calls: 8
+    concurrency-acquire-timeout-ms: 500
+    concurrency-retry-after-seconds: 60
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      aiExternalProvider:
+        baseConfig: default
+        waitDurationInOpenState: 20s
+        failureRateThreshold: 50
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        ignoreExceptions:
+          - com.mindspark.ai.common.exception.ValidationException
+          - com.mindspark.ai.common.exception.DailyLimitReachedException
+          - com.mindspark.ai.provider.exception.ProviderBadRequest
+          - com.mindspark.ai.provider.exception.ModelUnavailable
