@@ -1,0 +1,136 @@
+\documentclass[11pt,a4paper,oneside]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{geometry}
+\geometry{
+  top=2.5cm,
+  bottom=2.5cm,
+  left=2.5cm,
+  right=2.5cm,
+  headheight=14pt
+}
+
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{caption}
+\usepackage{hyperref}
+
+% --- Exact Palette matching chapter2_build_2.pdf ---
+\definecolor{mindNavy}{HTML}{1E3A5F}
+\definecolor{mindSlate}{HTML}{475569}
+\definecolor{mindBoxFill}{HTML}{F8FAFC}
+\definecolor{mindBoxBorder}{HTML}{94A3B8}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=mindNavy,
+  citecolor=mindNavy,
+  urlcolor=mindNavy
+}
+
+% --- Caption Styling (Figure 5.1. / Table 5.1.) ---
+\captionsetup{
+  font=small,
+  labelfont={bf,color=mindNavy},
+  labelsep=period,
+  justification=centering
+}
+
+% --- Chapter & Section Styling matching chapter2_build_2.pdf ---
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries\color{mindNavy}}
+  {\large\MakeUppercase{\chaptertitlename}\ \thechapter}
+  {6pt}
+  {\Huge\raggedright}
+  [\vspace{6pt}{\color{mindNavy}\titlerule[1.2pt]}]
+\titlespacing*{\chapter}{0pt}{-10pt}{22pt}
+
+\titleformat{\section}
+  {\normalfont\Large\bfseries\color{mindNavy}}
+  {\thesection}{0.8em}{}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+
+\titleformat{\subsection}
+  {\normalfont\large\bfseries\color{mindNavy}}
+  {\thesubsection}{0.8em}{}
+\titlespacing*{\subsection}{0pt}{12pt}{4pt}
+
+\titleformat{\subsubsection}
+  {\normalfont\normalsize\bfseries\color{mindSlate}}
+  {\thesubsubsection}{0.8em}{}
+\titlespacing*{\subsubsection}{0pt}{10pt}{3pt}
+
+% --- Running Headers & Footers matching chapter2_build_2.pdf ---
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textit{Chapter 5. Sprint 2 — Real-Time Collaboration \& AI Core}}
+\fancyhead[R]{\small\textit{MindSpark}}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0pt}
+
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyfoot[C]{\small\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+}
+
+% --- Styled Placeholder Box matching [fig-realtime-protocols] in chapter2_build_2.pdf ---
+\newtcolorbox{screenshotplaceholder}{
+  colback=mindBoxFill,
+  colframe=mindBoxBorder,
+  boxrule=0.8pt,
+  arc=2pt,
+  left=12pt,
+  right=12pt,
+  top=24pt,
+  bottom=24pt,
+  halign=center,
+  valign=center
+}
+
+\begin{document}
+
+% --- Chapter Title Cover Page matching Page 1 of chapter2_build_2.pdf ---
+\begin{titlepage}
+  \thispagestyle{empty}
+  \vspace*{3.5cm}
+  {\color{mindNavy}\rule{\textwidth}{1.5pt}}\\[14pt]
+  {\Huge\bfseries\color{mindNavy} Chapter 5: Sprint 2 — Real-Time Collaboration \& AI Core\par}
+  \vspace{10pt}
+  {\Large\color{mindSlate} AI-Powered Collaborative Brainstorming Platform: MindSpark\par}
+  \vspace{12pt}
+  {\color{mindNavy}\rule{\textwidth}{1.5pt}}
+  \vfill
+  {\large\bfseries\color{mindNavy} MindSpark\par}
+  \vspace{4pt}
+  {\small\color{mindSlate} Academic Integration Project — Sprint 2 Technical Report\par}
+\end{titlepage}
+
+% --- Table of Contents matching Page 2 of chapter2_build_2.pdf ---
+\pagenumbering{roman}
+\setcounter{tocdepth}{3}
+\tableofcontents
+\cleardoublepage
+
+% --- Main Chapter Content (Arabic Page Numbering starting at 1) ---
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\setcounter{chapter}{4}
+\include{chapter5_sprint2}
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
