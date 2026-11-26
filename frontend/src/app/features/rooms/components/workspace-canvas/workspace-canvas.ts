@@ -355,13 +355,17 @@ export class WorkspaceCanvasComponent implements OnDestroy {
   ];
 
   protected readonly colors: ColorOption[] = [
-    { name: 'Ink', value: '#273b3b' },
-    { name: 'Coral', value: '#ed8d74' },
-    { name: 'Butter', value: '#f3c96b' },
-    { name: 'Sage', value: '#9fc9a9' },
-    { name: 'Sky', value: '#9dc7d8' },
-    { name: 'Lilac', value: '#b9add5' },
+    { name: 'Mist', value: '#E2E8F0' },
+    { name: 'Periwinkle', value: '#6F82F2' },
+    { name: 'Coral', value: '#FF9A8F' },
+    { name: 'Gold', value: '#FFC83D' },
+    { name: 'Mint', value: '#34D399' },
+    { name: 'Lilac', value: '#A78BFA' },
   ];
+
+  protected strokeColor(color: string): string {
+    return color.toLowerCase() === '#273b3b' ? '#E2E8F0' : color;
+  }
 
   protected readonly selectedTool = signal<WorkspaceTool>('pen');
   protected readonly selectedShape = signal<WorkspaceShape>('rectangle');
@@ -1028,7 +1032,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
           id: idea.id,
           x,
           y,
-          color: idea.color || '#9fc9a9',
+          color: idea.color || '#6F82F2',
           creatorId: idea.author?.id ?? null,
           title: idea.title || idea.text || 'Untitled Idea',
           description: idea.description || '',
@@ -1603,7 +1607,7 @@ export class WorkspaceCanvasComponent implements OnDestroy {
         id: idea.id,
         x,
         y,
-        color: idea.color || '#9fc9a9',
+        color: idea.color || '#6F82F2',
         creatorId: idea.author.id,
         title: idea.title || idea.text || 'Untitled Idea',
         description: idea.description || '',

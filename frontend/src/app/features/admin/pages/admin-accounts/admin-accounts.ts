@@ -141,12 +141,14 @@ import { CreateAdminRequest } from '../../../../core/admin/admin.models';
       margin-bottom: 24px;
     }
     h1 {
-      font: 700 1.6rem Georgia, serif;
-      color: #233b3b;
+      font-family: var(--ms-font-display, 'Bricolage Grotesque', sans-serif);
+      font-size: 1.7rem;
+      font-weight: 800;
+      color: var(--ms-text, #F4F6FF);
       margin: 0 0 6px;
     }
     .subtitle {
-      color: #60736d;
+      color: var(--ms-text-muted, #9AA5CE);
       font-size: 0.9rem;
       margin: 0;
     }
@@ -154,9 +156,9 @@ import { CreateAdminRequest } from '../../../../core/admin/admin.models';
       display: flex;
       gap: 16px;
       padding: 16px 20px;
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      border-radius: 8px;
+      background: var(--ms-info-bg);
+      border: 1px solid var(--ms-info-border);
+      border-radius: 14px;
       margin-bottom: 24px;
       align-items: flex-start;
     }
@@ -164,20 +166,25 @@ import { CreateAdminRequest } from '../../../../core/admin/admin.models';
       font-size: 1.5rem;
     }
     .banner-content h3 {
-      font: 700 0.98rem Georgia, serif;
-      color: #1e40af;
+      font-family: var(--ms-font-display, 'Bricolage Grotesque', sans-serif);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--ms-info, #38BDF8);
       margin: 0 0 6px;
     }
     .banner-content p {
       font-size: 0.85rem;
-      color: #1e3a8a;
+      color: var(--ms-text-secondary, #C5CEEE);
       margin: 0 0 6px;
       line-height: 1.45;
     }
     .banner-content code {
-      background: #dbeafe;
+      background: var(--ms-surface-raised, #141D4F);
+      border: 1px solid var(--ms-border, #27316E);
+      color: var(--ms-primary-light, #B4BEFF);
       padding: 2px 6px;
-      border-radius: 4px;
+      border-radius: 6px;
+      font-family: var(--ms-font-mono, monospace);
       font-size: 0.82em;
     }
     .split-layout {
@@ -186,19 +193,21 @@ import { CreateAdminRequest } from '../../../../core/admin/admin.models';
       gap: 24px;
     }
     .card {
-      background: #ffffff;
-      border: 1px solid #e5e2dc;
-      border-radius: 10px;
+      background: var(--ms-surface, #0D1438);
+      border: 1px solid var(--ms-border, #27316E);
+      border-radius: 16px;
       padding: 28px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+      box-shadow: var(--ms-shadow-card);
     }
     .card h2 {
-      font: 700 1.15rem Georgia, serif;
-      color: #233b3b;
+      font-family: var(--ms-font-display, 'Bricolage Grotesque', sans-serif);
+      font-size: 1.18rem;
+      font-weight: 700;
+      color: var(--ms-text, #F4F6FF);
       margin: 0 0 6px;
     }
     .card-desc {
-      color: #6b7280;
+      color: var(--ms-text-muted, #9AA5CE);
       font-size: 0.85rem;
       margin: 0 0 20px;
       line-height: 1.45;
@@ -211,19 +220,27 @@ import { CreateAdminRequest } from '../../../../core/admin/admin.models';
     .form-group {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 6px;
       margin-bottom: 16px;
     }
     .form-group label {
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: #374151;
+      font-family: var(--ms-font-mono, monospace);
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--ms-text-muted, #9AA5CE);
+      text-transform: uppercase;
     }
     .form-group input {
       padding: 9px 12px;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
+      border: 1px solid var(--ms-border, #27316E);
+      border-radius: 10px;
+      background: var(--ms-surface-raised, #141D4F);
+      color: var(--ms-text, #F4F6FF);
       font-size: 0.88rem;
+      outline: none;
+    }
+    .form-group input:focus {
+      border-color: var(--ms-primary, #6F82F2);
     }
     .password-wrapper {
       position: relative;
@@ -243,26 +260,28 @@ import { CreateAdminRequest } from '../../../../core/admin/admin.models';
       font-size: 1rem;
     }
     .help-text {
-      color: #9ca3af;
+      color: var(--ms-text-subtle, #6F7AA8);
       font-size: 0.75rem;
     }
     .submit-btn {
       width: 100%;
       padding: 11px;
-      background: #233b3b;
-      color: #fffaf1;
+      background: var(--ms-primary, #6F82F2);
+      color: #FFFFFF;
       border: none;
-      border-radius: 6px;
-      font: 600 0.92rem inherit;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      font-weight: 700;
       cursor: pointer;
       margin-top: 8px;
-      transition: background 0.15s ease;
+      transition: all 0.15s ease;
     }
     .submit-btn:hover:not(:disabled) {
-      background: #e9784d;
+      background: var(--ms-primary-hover, #8294F8);
+      box-shadow: var(--ms-glow-primary);
     }
     .submit-btn:disabled {
-      opacity: 0.6;
+      opacity: 0.5;
       cursor: not-allowed;
     }
     .roster-header {
@@ -272,10 +291,11 @@ import { CreateAdminRequest } from '../../../../core/admin/admin.models';
       margin-bottom: 16px;
     }
     .refresh-roster-btn {
-      background: none;
-      border: 1px solid #e5e2dc;
-      padding: 4px 8px;
-      border-radius: 4px;
+      background: var(--ms-surface-raised, #141D4F);
+      border: 1px solid var(--ms-border, #27316E);
+      color: var(--ms-text-secondary, #C5CEEE);
+      padding: 5px 10px;
+      border-radius: 8px;
       cursor: pointer;
     }
     .admin-list {
@@ -288,16 +308,16 @@ import { CreateAdminRequest } from '../../../../core/admin/admin.models';
       align-items: center;
       gap: 12px;
       padding: 10px 14px;
-      background: #faf8f5;
-      border: 1px solid #f0ede8;
-      border-radius: 8px;
+      background: var(--ms-surface-raised, #141D4F);
+      border: 1px solid var(--ms-border, #27316E);
+      border-radius: 12px;
     }
     .admin-avatar {
       width: 36px;
       height: 36px;
       border-radius: 50%;
-      background: #233b3b;
-      color: #fff;
+      background: var(--ms-primary, #6F82F2);
+      color: #FFFFFF;
       display: grid;
       place-items: center;
       font-weight: 700;
@@ -308,51 +328,52 @@ import { CreateAdminRequest } from '../../../../core/admin/admin.models';
       overflow: hidden;
     }
     .admin-name {
-      font-weight: 600;
-      color: #111827;
+      font-weight: 700;
+      color: var(--ms-text, #F4F6FF);
       font-size: 0.88rem;
     }
     .admin-email {
       font-size: 0.78rem;
-      color: #6b7280;
+      color: var(--ms-text-muted, #9AA5CE);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
     .role-tag {
-      font-size: 0.72rem;
-      font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 12px;
+      font-family: var(--ms-font-mono, monospace);
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
       text-transform: uppercase;
       letter-spacing: 0.03em;
     }
     .role-tag.admin {
-      background: #f3e8ff;
-      color: #7e22ce;
-      border: 1px solid #e9d5ff;
+      background: rgba(139, 92, 246, 0.2);
+      color: #DDD6FE;
+      border: 1px solid rgba(139, 92, 246, 0.45);
     }
     .role-tag.super-admin {
-      background: #fef3c7;
-      color: #b45309;
-      border: 1px solid #fde68a;
+      background: rgba(255, 200, 61, 0.16);
+      color: var(--ms-gold, #FFC83D);
+      border: 1px solid rgba(255, 200, 61, 0.45);
     }
     .alert {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 16px;
-      border-radius: 6px;
+      padding: 11px 16px;
+      border-radius: 12px;
       margin-bottom: 16px;
       font-size: 0.88rem;
     }
-    .alert.danger { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; }
-    .alert.success { background: #dcfce7; border: 1px solid #86efac; color: #15803d; }
-    .alert button { background: none; border: none; cursor: pointer; }
+    .alert.danger { background: var(--ms-error-bg); border: 1px solid var(--ms-error-border); color: var(--ms-coral, #FF9A8F); }
+    .alert.success { background: var(--ms-success-bg); border: 1px solid var(--ms-success-border); color: var(--ms-mint, #34D399); }
+    .alert button { background: none; border: none; color: inherit; cursor: pointer; }
     .empty-roster {
       text-align: center;
       padding: 30px;
-      color: #9ca3af;
+      color: var(--ms-text-muted, #9AA5CE);
       font-size: 0.85rem;
     }
     @media (max-width: 860px) {

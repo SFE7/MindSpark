@@ -6,6 +6,7 @@
   margin: 0;
   padding: 0;
   overflow: hidden;
+  background: var(--ms-canvas-bg, #080D2B);
 }
 
 .room-page {
@@ -16,47 +17,23 @@
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background: #f3f6ee;
+  background: var(--ms-canvas-bg, #080D2B);
 }
 
 .workspace-error {
   position: absolute;
-  top: 72px;
+  top: 76px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
   border-radius: 999px;
-  background: #ffe7dd;
-  border: 1px solid #f2c0ad;
+  background: var(--ms-error-bg, rgba(244, 63, 94, 0.16));
+  backdrop-filter: var(--ms-backdrop-blur);
+  -webkit-backdrop-filter: var(--ms-backdrop-blur);
+  border: 1px solid var(--ms-error-border, rgba(244, 63, 94, 0.45));
   padding: 8px 20px;
-  color: #9a5846;
+  color: var(--ms-coral, #FF9A8F);
   font-size: 0.85rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(2, 5, 22, 0.55);
 }
-
-.room-page {
-  position: relative;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  background: #f3f6ee;
-}
-
-.workspace-error {
-  position: absolute;
-  top: 72px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 100;
-  border-radius: 999px;
-  background: #ffe7dd;
-  border: 1px solid #f2c0ad;
-  padding: 8px 20px;
-  color: #9a5846;
-  font-size: 0.85rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-}
-

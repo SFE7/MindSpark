@@ -49,16 +49,18 @@ import { KeycloakAuth } from '../../../../core/auth/keycloak-auth';
       align-items: center;
       justify-content: center;
       padding: 24px;
-      background: #faf8f5;
+      background: var(--ms-bg, #060A22);
+      color: var(--ms-text, #F4F6FF);
+      font-family: var(--ms-font-sans, 'Inter', sans-serif);
     }
     .login-card {
       width: 100%;
       max-width: 460px;
       padding: 40px;
-      background: #ffffff;
-      border: 1px solid #e2ded9;
-      border-radius: 12px;
-      box-shadow: 0 8px 24px rgba(35, 59, 59, 0.06);
+      background: var(--ms-surface, #0D1438);
+      border: 1px solid var(--ms-border-glass);
+      border-radius: 20px;
+      box-shadow: var(--ms-shadow-glass);
       text-align: center;
     }
     .shield-badge {
@@ -66,44 +68,49 @@ import { KeycloakAuth } from '../../../../core/auth/keycloak-auth';
       margin-bottom: 12px;
     }
     h1 {
-      font: 700 1.6rem Georgia, serif;
-      color: #233b3b;
+      font-family: var(--ms-font-display, 'Bricolage Grotesque', sans-serif);
+      font-size: 1.65rem;
+      font-weight: 800;
+      color: var(--ms-text, #F4F6FF);
       margin: 0 0 8px;
     }
     .subtitle {
-      color: #60736d;
+      color: var(--ms-text-muted, #9AA5CE);
       font-size: 0.92rem;
       margin: 0 0 28px;
-      line-height: 1.45;
+      line-height: 1.5;
     }
     .primary-btn {
       width: 100%;
       padding: 12px 20px;
-      background: #233b3b;
-      color: #fffaf1;
-      border: none;
-      border-radius: 6px;
-      font: 600 0.92rem inherit;
+      background: var(--ms-primary, #6F82F2);
+      color: #FFFFFF;
+      border: 1px solid rgba(180, 190, 255, 0.4);
+      border-radius: 12px;
+      font-size: 0.92rem;
+      font-weight: 700;
       cursor: pointer;
-      transition: background 0.15s ease;
+      transition: all 0.16s ease;
     }
     .primary-btn:hover {
-      background: #e9784d;
+      background: var(--ms-primary-hover, #8294F8);
+      box-shadow: var(--ms-glow-primary);
     }
     .secondary-btn {
       width: 100%;
       padding: 10px 16px;
-      background: transparent;
-      border: 1px solid #d9ddd5;
-      border-radius: 6px;
-      color: #233b3b;
-      font: 500 0.88rem inherit;
+      background: var(--ms-surface-raised, #141D4F);
+      border: 1px solid var(--ms-border, #27316E);
+      border-radius: 12px;
+      color: var(--ms-text-secondary, #C5CEEE);
+      font-size: 0.88rem;
+      font-weight: 600;
       cursor: pointer;
       margin-bottom: 8px;
     }
     .secondary-btn:hover {
-      border-color: #233b3b;
-      background: #f5f5f0;
+      border-color: var(--ms-primary-light, #B4BEFF);
+      color: #FFFFFF;
     }
     .status-box, .action-box {
       display: flex;
@@ -114,21 +121,23 @@ import { KeycloakAuth } from '../../../../core/auth/keycloak-auth';
     .role-badge {
       display: inline-block;
       padding: 4px 12px;
-      border-radius: 20px;
+      border-radius: 999px;
       font-size: 0.8rem;
-      font-weight: 600;
+      font-weight: 700;
     }
     .role-badge.success {
-      background: #e6f4ea;
-      color: #137333;
+      background: var(--ms-success-bg);
+      color: var(--ms-mint, #34D399);
+      border: 1px solid var(--ms-success-border);
     }
     .role-badge.warning {
-      background: #fef7e0;
-      color: #b06000;
+      background: var(--ms-warning-bg);
+      color: var(--ms-gold, #FFC83D);
+      border: 1px solid var(--ms-warning-border);
     }
     .help-text, .info-text {
       font-size: 0.84rem;
-      color: #70757a;
+      color: var(--ms-text-muted, #9AA5CE);
       margin: 0;
     }
     .actions {
@@ -138,13 +147,13 @@ import { KeycloakAuth } from '../../../../core/auth/keycloak-auth';
       gap: 8px;
     }
     .back-link, .link-btn {
-      color: #60736d;
+      color: var(--ms-primary-light, #B4BEFF);
       font-size: 0.86rem;
       text-decoration: none;
       margin-top: 8px;
     }
     .back-link:hover, .link-btn:hover {
-      color: #233b3b;
+      color: #FFFFFF;
       text-decoration: underline;
     }
   `]

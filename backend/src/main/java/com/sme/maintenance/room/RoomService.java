@@ -280,6 +280,10 @@ public class RoomService {
 
     public Room memberRoom(UUID roomId, Long userId) {
         Room room = find(roomId);
+        if (room.getOwnerId() != null && room.getOwnerId().equals(userId) && !room.getMemberIds().contains(userId)) {
+            room.getMemberIds().add(userId);
+            return roomRepository.save(room);
+        }
         requireMember(room, userId);
         return room;
     }

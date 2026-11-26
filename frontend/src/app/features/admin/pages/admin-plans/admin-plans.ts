@@ -263,61 +263,67 @@ import { AdminPlan, CreatePlanRequest, UpdatePlanRequest } from '../../../../cor
       justify-content: space-between;
       align-items: flex-start;
       margin-bottom: 24px;
+      gap: 16px;
     }
     h1 {
-      font: 700 1.6rem Georgia, serif;
-      color: #233b3b;
+      font-family: var(--ms-font-display, 'Bricolage Grotesque', sans-serif);
+      font-size: 1.7rem;
+      font-weight: 800;
+      color: var(--ms-text, #F4F6FF);
       margin: 0 0 6px;
     }
     .subtitle {
-      color: #60736d;
+      color: var(--ms-text-muted, #9AA5CE);
       font-size: 0.9rem;
       margin: 0;
     }
     .primary-btn {
-      padding: 9px 18px;
-      background: #233b3b;
-      color: #fffaf1;
-      border: none;
-      border-radius: 6px;
-      font: 600 0.88rem inherit;
+      padding: 10px 18px;
+      background: var(--ms-primary, #6F82F2);
+      color: #FFFFFF;
+      border: 1px solid rgba(180, 190, 255, 0.4);
+      border-radius: 12px;
+      font-size: 0.88rem;
+      font-weight: 700;
       cursor: pointer;
-      transition: background 0.15s ease;
+      transition: all 0.16s ease;
     }
     .primary-btn:hover {
-      background: #e9784d;
+      background: var(--ms-primary-hover, #8294F8);
+      box-shadow: var(--ms-glow-primary);
     }
     .alert {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 16px;
-      border-radius: 6px;
+      padding: 11px 16px;
+      border-radius: 12px;
       margin-bottom: 16px;
       font-size: 0.88rem;
     }
     .alert.danger {
-      background: #fee2e2;
-      border: 1px solid #fca5a5;
-      color: #991b1b;
+      background: var(--ms-error-bg);
+      border: 1px solid var(--ms-error-border);
+      color: var(--ms-coral, #FF9A8F);
     }
     .alert.success {
-      background: #dcfce7;
-      border: 1px solid #86efac;
-      color: #15803d;
+      background: var(--ms-success-bg);
+      border: 1px solid var(--ms-success-border);
+      color: var(--ms-mint, #34D399);
     }
     .alert button {
       background: none;
       border: none;
+      color: inherit;
       cursor: pointer;
       font-size: 1rem;
     }
     .table-container {
-      background: #ffffff;
-      border: 1px solid #e5e2dc;
-      border-radius: 10px;
+      background: var(--ms-surface, #0D1438);
+      border: 1px solid var(--ms-border, #27316E);
+      border-radius: 16px;
       overflow-x: auto;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+      box-shadow: var(--ms-shadow-card);
     }
     .plans-table {
       width: 100%;
@@ -326,28 +332,29 @@ import { AdminPlan, CreatePlanRequest, UpdatePlanRequest } from '../../../../cor
       text-align: left;
     }
     .plans-table th {
-      background: #fbfaf8;
-      padding: 12px 16px;
-      font-weight: 600;
-      color: #4b5563;
-      border-bottom: 1px solid #e5e2dc;
-      font-size: 0.8rem;
+      background: var(--ms-surface-raised, #141D4F);
+      padding: 13px 16px;
+      font-family: var(--ms-font-mono, monospace);
+      font-weight: 700;
+      color: var(--ms-text-muted, #9AA5CE);
+      border-bottom: 1px solid var(--ms-border, #27316E);
+      font-size: 0.75rem;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.05em;
     }
     .plans-table td {
       padding: 14px 16px;
-      border-bottom: 1px solid #f0ede8;
+      border-bottom: 1px solid var(--ms-border-subtle);
       vertical-align: middle;
+      color: var(--ms-text-secondary, #C5CEEE);
     }
     .inactive-row {
-      opacity: 0.65;
-      background: #fafaf9;
+      opacity: 0.55;
     }
     .order-col {
-      font-family: 'DM Mono', monospace;
+      font-family: var(--ms-font-mono, monospace);
       font-weight: 600;
-      color: #6b7280;
+      color: var(--ms-text-muted, #9AA5CE);
     }
     .plan-ident {
       display: flex;
@@ -356,88 +363,93 @@ import { AdminPlan, CreatePlanRequest, UpdatePlanRequest } from '../../../../cor
       margin-bottom: 3px;
     }
     .plan-name {
-      font-weight: 600;
-      color: #111827;
+      font-weight: 700;
+      color: var(--ms-text, #F4F6FF);
     }
     .plan-code-badge {
-      font-family: 'DM Mono', monospace;
+      font-family: var(--ms-font-mono, monospace);
       font-size: 0.72rem;
-      background: #e5e7eb;
-      padding: 2px 6px;
-      border-radius: 4px;
-      color: #374151;
+      background: var(--ms-surface-raised, #141D4F);
+      border: 1px solid var(--ms-border, #27316E);
+      padding: 2px 7px;
+      border-radius: 6px;
+      color: var(--ms-primary-light, #B4BEFF);
     }
     .plan-desc {
       font-size: 0.78rem;
-      color: #6b7280;
+      color: var(--ms-text-muted, #9AA5CE);
       max-width: 280px;
     }
     .price-col {
-      font-family: 'DM Mono', monospace;
+      font-family: var(--ms-font-mono, monospace);
       font-size: 0.95rem;
+      color: var(--ms-gold, #FFC83D);
     }
     .limit-badge {
       font-size: 0.8rem;
-      color: #4b5563;
+      color: var(--ms-text-secondary, #C5CEEE);
     }
     .tier-badge {
       display: inline-block;
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 4px;
-    }
-    .tier-badge.free { background: #f3f4f6; color: #4b5563; }
-    .tier-badge.premium { background: #ede9fe; color: #6d28d9; }
-    .subs-count .count-pill {
-      font-family: 'DM Mono', monospace;
+      font-family: var(--ms-font-mono, monospace);
+      font-size: 0.74rem;
       font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 12px;
-      background: #f0fdf4;
-      color: #166534;
-      border: 1px solid #bbf7d0;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .tier-badge.free { background: var(--ms-surface-raised, #141D4F); color: var(--ms-text-muted, #9AA5CE); }
+    .tier-badge.premium { background: rgba(139, 92, 246, 0.22); color: #DDD6FE; border: 1px solid rgba(139, 92, 246, 0.45); }
+    .subs-count .count-pill {
+      font-family: var(--ms-font-mono, monospace);
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 999px;
+      background: var(--ms-success-bg);
+      color: var(--ms-mint, #34D399);
+      border: 1px solid var(--ms-success-border);
     }
     .status-pill {
       display: inline-block;
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 12px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
     }
-    .status-pill.active { background: #dcfce7; color: #15803d; }
-    .status-pill.archived { background: #fee2e2; color: #991b1b; }
+    .status-pill.active { background: var(--ms-success-bg); color: var(--ms-mint, #34D399); }
+    .status-pill.archived { background: var(--ms-error-bg); color: var(--ms-coral, #FF9A8F); }
     .actions-col {
       display: flex;
       gap: 8px;
       align-items: center;
     }
     .action-btn {
-      padding: 5px 10px;
-      border-radius: 5px;
+      padding: 5px 11px;
+      border-radius: 8px;
       font-size: 0.78rem;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
-      border: 1px solid #d1d5db;
-      background: #fff;
+      border: 1px solid var(--ms-border, #27316E);
+      background: var(--ms-surface-raised, #141D4F);
+      color: var(--ms-text-secondary, #C5CEEE);
     }
-    .edit-btn:hover { background: #f3f4f6; }
-    .toggle-btn:hover { background: #fee2e2; border-color: #fca5a5; }
+    .edit-btn:hover { border-color: var(--ms-primary, #6F82F2); color: #FFFFFF; }
+    .toggle-btn:hover { background: var(--ms-error-bg); border-color: var(--ms-error-border); color: var(--ms-coral, #FF9A8F); }
     .immutable-notice {
       font-size: 0.75rem;
-      color: #9ca3af;
+      color: var(--ms-text-subtle, #6F7AA8);
       font-style: italic;
     }
     .empty-cell {
       text-align: center;
       padding: 32px;
-      color: #9ca3af;
+      color: var(--ms-text-muted, #9AA5CE);
     }
     /* Modals */
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.4);
+      background: var(--ms-modal-backdrop, rgba(4, 7, 24, 0.75));
+      backdrop-filter: blur(8px);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -445,18 +457,22 @@ import { AdminPlan, CreatePlanRequest, UpdatePlanRequest } from '../../../../cor
       padding: 20px;
     }
     .modal-card {
-      background: #ffffff;
-      border-radius: 12px;
+      background: var(--ms-surface, #0D1438);
+      border: 1px solid var(--ms-border-glass);
+      border-radius: 18px;
       width: 100%;
       max-width: 600px;
       max-height: 90vh;
       overflow-y: auto;
       padding: 30px;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+      box-shadow: var(--ms-shadow-glass);
+      color: var(--ms-text, #F4F6FF);
     }
     .modal-card h2 {
-      font: 700 1.25rem Georgia, serif;
-      color: #233b3b;
+      font-family: var(--ms-font-display, 'Bricolage Grotesque', sans-serif);
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--ms-text, #F4F6FF);
       margin: 0 0 20px;
     }
     .form-grid {
@@ -467,29 +483,37 @@ import { AdminPlan, CreatePlanRequest, UpdatePlanRequest } from '../../../../cor
     .form-group {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 6px;
     }
     .form-group.full-width {
       grid-column: 1 / -1;
     }
     .form-group label {
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: #374151;
+      font-family: var(--ms-font-mono, monospace);
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--ms-text-muted, #9AA5CE);
+      text-transform: uppercase;
     }
     .form-group input, .form-group select, .form-group textarea {
-      padding: 8px 12px;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
+      padding: 9px 12px;
+      border: 1px solid var(--ms-border, #27316E);
+      border-radius: 10px;
+      background: var(--ms-surface-raised, #141D4F);
+      color: var(--ms-text, #F4F6FF);
       font-size: 0.88rem;
+      outline: none;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color: var(--ms-primary, #6F82F2);
+      box-shadow: 0 0 0 3px rgba(111, 130, 242, 0.25);
     }
     .disabled-input {
-      background: #f3f4f6;
+      opacity: 0.6;
       cursor: not-allowed;
-      color: #6b7280;
     }
     .lock-notice {
-      color: #b45309;
+      color: var(--ms-gold, #FFC83D);
       font-size: 0.75rem;
     }
     .modal-actions {
@@ -498,26 +522,33 @@ import { AdminPlan, CreatePlanRequest, UpdatePlanRequest } from '../../../../cor
       gap: 12px;
       margin-top: 24px;
       padding-top: 16px;
-      border-top: 1px solid #f3f4f6;
+      border-top: 1px solid var(--ms-border-subtle);
     }
     .cancel-btn {
-      padding: 8px 16px;
-      border: 1px solid #d1d5db;
-      background: #fff;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    .save-btn {
-      padding: 8px 18px;
-      background: #233b3b;
-      color: #fffaf1;
-      border: none;
-      border-radius: 6px;
+      padding: 9px 16px;
+      border: 1px solid var(--ms-border, #27316E);
+      background: transparent;
+      color: var(--ms-text-muted, #9AA5CE);
+      border-radius: 10px;
       font-weight: 600;
       cursor: pointer;
     }
+    .cancel-btn:hover {
+      border-color: var(--ms-primary-light, #B4BEFF);
+      color: #FFFFFF;
+    }
+    .save-btn {
+      padding: 9px 18px;
+      background: var(--ms-primary, #6F82F2);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
     .save-btn:hover:not(:disabled) {
-      background: #e9784d;
+      background: var(--ms-primary-hover, #8294F8);
+      box-shadow: var(--ms-glow-primary);
     }
   `]
 })

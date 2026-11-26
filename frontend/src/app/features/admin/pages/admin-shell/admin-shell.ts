@@ -51,14 +51,16 @@ import { KeycloakAuth } from '../../../../core/auth/keycloak-auth';
   styles: [`
     .admin-layout {
       display: flex;
-      min-height: calc(100vh - 81px);
-      background: #faf8f5;
+      min-height: calc(100vh - 84px);
+      background: var(--ms-bg, #060A22);
+      color: var(--ms-text, #F4F6FF);
+      font-family: var(--ms-font-sans, 'Inter', sans-serif);
     }
     .admin-sidebar {
       width: 260px;
       flex-shrink: 0;
-      background: #ffffff;
-      border-right: 1px solid #e5e2dc;
+      background: var(--ms-surface, #0D1438);
+      border-right: 1px solid var(--ms-border, #27316E);
       display: flex;
       flex-direction: column;
       padding: 24px 16px;
@@ -69,24 +71,27 @@ import { KeycloakAuth } from '../../../../core/auth/keycloak-auth';
       gap: 12px;
       padding-bottom: 20px;
       margin-bottom: 16px;
-      border-bottom: 1px solid #f0ede8;
+      border-bottom: 1px solid var(--ms-border-subtle);
     }
     .admin-mark {
       font-size: 1.5rem;
     }
     .admin-title {
-      font: 700 1.05rem Georgia, serif;
-      color: #233b3b;
+      font-family: var(--ms-font-display, 'Bricolage Grotesque', sans-serif);
+      font-size: 1.08rem;
+      font-weight: 800;
+      color: var(--ms-text, #F4F6FF);
     }
     .admin-role {
-      font-size: 0.75rem;
-      color: #7c3aed;
+      font-family: var(--ms-font-mono, monospace);
+      font-size: 0.72rem;
+      color: var(--ms-primary-light, #B4BEFF);
       font-weight: 600;
     }
     .admin-nav {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 6px;
       flex: 1;
     }
     .nav-item {
@@ -94,39 +99,46 @@ import { KeycloakAuth } from '../../../../core/auth/keycloak-auth';
       align-items: center;
       gap: 10px;
       padding: 10px 14px;
-      border-radius: 8px;
-      color: #4b5563;
+      border-radius: 12px;
+      color: var(--ms-text-secondary, #C5CEEE);
       text-decoration: none;
       font-size: 0.9rem;
-      font-weight: 500;
-      transition: all 0.15s ease;
+      font-weight: 600;
+      border: 1px solid transparent;
+      transition: all 0.16s ease;
     }
     .nav-item:hover {
-      background: #f4f2ee;
-      color: #111827;
+      background: rgba(111, 130, 242, 0.16);
+      border-color: rgba(180, 190, 255, 0.28);
+      color: #FFFFFF;
     }
     .nav-item.active {
-      background: #233b3b;
-      color: #fffaf1;
+      background: var(--ms-primary, #6F82F2);
+      border-color: rgba(180, 190, 255, 0.45);
+      color: #FFFFFF;
+      box-shadow: var(--ms-glow-primary);
     }
     .nav-item.super-item.active {
-      background: #5b21b6;
-      color: #ffffff;
+      background: var(--ms-violet, #8B5CF6);
+      border-color: rgba(196, 181, 253, 0.55);
+      color: #FFFFFF;
+      box-shadow: 0 0 18px rgba(139, 92, 246, 0.45);
     }
     .nav-icon {
       font-size: 1.1rem;
     }
     .sidebar-footer {
       padding-top: 16px;
-      border-top: 1px solid #f0ede8;
+      border-top: 1px solid var(--ms-border-subtle);
     }
     .back-link {
-      color: #6b7280;
+      color: var(--ms-text-muted, #9AA5CE);
       font-size: 0.85rem;
+      font-weight: 600;
       text-decoration: none;
     }
     .back-link:hover {
-      color: #233b3b;
+      color: var(--ms-primary-light, #B4BEFF);
       text-decoration: underline;
     }
     .admin-main {
@@ -141,7 +153,7 @@ import { KeycloakAuth } from '../../../../core/auth/keycloak-auth';
       .admin-sidebar {
         width: 100%;
         border-right: none;
-        border-bottom: 1px solid #e5e2dc;
+        border-bottom: 1px solid var(--ms-border, #27316E);
       }
       .admin-main {
         padding: 20px 16px;
