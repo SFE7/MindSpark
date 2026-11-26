@@ -1,17 +1,68 @@
 :root {
+  /* Cosmic Midnight Surfaces */
   --ms-bg: #060A22;
+  --ms-canvas-bg: #080D2B;
+  --ms-canvas-dot: #1D2766;
   --ms-surface: #0D1438;
   --ms-surface-raised: #141D4F;
-  --ms-border: #27316E;
+  --ms-surface-focus: #172159;
+  --ms-surface-glass: linear-gradient(135deg, rgba(16, 24, 66, 0.72) 0%, rgba(10, 16, 48, 0.58) 50%, rgba(22, 32, 86, 0.68) 100%);
+  --ms-surface-glass-heavy: linear-gradient(135deg, rgba(16, 24, 66, 0.92) 0%, rgba(10, 16, 48, 0.88) 50%, rgba(22, 32, 86, 0.92) 100%);
+  --ms-backdrop-blur: blur(20px) saturate(180%);
+  --ms-modal-backdrop: rgba(4, 7, 24, 0.75);
+
+  /* Brand & Accent Tokens */
   --ms-primary: #6F82F2;
+  --ms-primary-hover: #8294F8;
   --ms-primary-light: #B4BEFF;
   --ms-gold: #FFC83D;
+  --ms-gold-hover: #FFE17D;
   --ms-coral: #FF9A8F;
+  --ms-coral-hover: #FFB0A7;
+  --ms-violet: #8B5CF6;
+  --ms-mint: #34D399;
+
+  /* Typography Colors */
   --ms-text: #F4F6FF;
+  --ms-text-secondary: #C5CEEE;
   --ms-text-muted: #9AA5CE;
+  --ms-text-subtle: #6F7AA8;
+
+  /* Borders & Dividers */
+  --ms-border: #27316E;
+  --ms-border-subtle: rgba(39, 49, 110, 0.5);
+  --ms-border-glass: rgba(180, 190, 255, 0.22);
+  --ms-border-glass-strong: rgba(180, 190, 255, 0.42);
+
+  /* Semantic Status Tokens */
+  --ms-success: #10B981;
+  --ms-success-bg: rgba(16, 185, 129, 0.14);
+  --ms-success-border: rgba(16, 185, 129, 0.4);
+  --ms-warning: #F59E0B;
+  --ms-warning-bg: rgba(245, 158, 11, 0.14);
+  --ms-warning-border: rgba(245, 158, 11, 0.42);
+  --ms-error: #F43F5E;
+  --ms-error-bg: rgba(244, 63, 94, 0.14);
+  --ms-error-border: rgba(244, 63, 94, 0.42);
+  --ms-info: #38BDF8;
+  --ms-info-bg: rgba(56, 189, 248, 0.14);
+  --ms-info-border: rgba(56, 189, 248, 0.4);
+
+  /* Elevation & Glows */
+  --ms-shadow-glass:
+    inset 0 1px 1px rgba(255, 255, 255, 0.22),
+    inset 0 -1px 1px rgba(111, 130, 242, 0.14),
+    0 14px 38px rgba(2, 5, 22, 0.62),
+    0 0 24px rgba(111, 130, 242, 0.14);
+  --ms-shadow-card: 0 12px 32px rgba(2, 5, 22, 0.5);
+  --ms-glow-primary: 0 0 18px rgba(111, 130, 242, 0.45);
+  --ms-glow-gold: 0 0 18px rgba(255, 200, 61, 0.42);
+  --ms-glow-coral: 0 0 18px rgba(255, 154, 143, 0.42);
+
+  /* Typography Stacks */
   --ms-font-display: 'Bricolage Grotesque', system-ui, sans-serif;
   --ms-font-sans: 'Inter', system-ui, sans-serif;
-  --ms-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --ms-font-mono: 'JetBrains Mono', 'DM Mono', ui-monospace, monospace;
 }
 
 @font-face {
@@ -30,6 +81,74 @@
   src: url('/fonts/dm-mono-1.woff2') format('woff2');
 }
 
-* { box-sizing: border-box; }
-html, body { margin: 0; min-width: 320px; background: #fffaf1; font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-button, input { font: inherit; }
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--ms-bg);
+  color: var(--ms-text);
+  font-family: var(--ms-font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+/* Custom Cosmic Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(6, 10, 34, 0.4);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(111, 130, 242, 0.35);
+  border-radius: 999px;
+
+  &:hover {
+    background: rgba(180, 190, 255, 0.55);
+  }
+}
+
+/* Shared Liquid Glass & Modal Utilities */
+.ms-glass-panel {
+  background: var(--ms-surface-glass);
+  backdrop-filter: var(--ms-backdrop-blur);
+  -webkit-backdrop-filter: var(--ms-backdrop-blur);
+  border: 1px solid var(--ms-border-glass);
+  box-shadow: var(--ms-shadow-glass);
+}
+
+.ms-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--ms-modal-backdrop);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.ms-modal-card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--ms-surface);
+  border: 1px solid var(--ms-border-glass);
+  border-radius: 18px;
+  box-shadow: var(--ms-shadow-glass);
+  color: var(--ms-text);
+  overflow: hidden;
+}

@@ -23,7 +23,7 @@
         @if (isStroke(item)) {
           <path
             [attr.d]="strokePath(item.points)"
-            [attr.stroke]="item.color"
+            [attr.stroke]="strokeColor(item.color)"
             [attr.stroke-width]="item.width"
             [attr.opacity]="item.opacity"
             [attr.transform]="(item.offsetX || item.offsetY) ? 'translate(' + (item.offsetX || 0) + ' ' + (item.offsetY || 0) + ')' : null"
@@ -38,13 +38,13 @@
               [attr.cy]="item.y + item.height / 2"
               [attr.rx]="item.width / 2"
               [attr.ry]="item.height / 2"
-              [attr.stroke]="item.color"
+              [attr.stroke]="strokeColor(item.color)"
               [attr.transform]="(item.offsetX || item.offsetY) ? 'translate(' + (item.offsetX || 0) + ' ' + (item.offsetY || 0) + ')' : null"
             />
           } @else if (item.shape === 'triangle') {
             <polygon
               [attr.points]="trianglePoints(item)"
-              [attr.stroke]="item.color"
+              [attr.stroke]="strokeColor(item.color)"
               [attr.transform]="(item.offsetX || item.offsetY) ? 'translate(' + (item.offsetX || 0) + ' ' + (item.offsetY || 0) + ')' : null"
             />
           } @else {
@@ -53,7 +53,7 @@
               [attr.y]="item.y"
               [attr.width]="item.width"
               [attr.height]="item.height"
-              [attr.stroke]="item.color"
+              [attr.stroke]="strokeColor(item.color)"
               [attr.transform]="(item.offsetX || item.offsetY) ? 'translate(' + (item.offsetX || 0) + ' ' + (item.offsetY || 0) + ')' : null"
             />
           }
@@ -64,7 +64,7 @@
         <path
           class="remote-preview"
           [attr.d]="strokePath(remotePreview.points)"
-          [attr.stroke]="remotePreview.color"
+          [attr.stroke]="strokeColor(remotePreview.color)"
           [attr.stroke-width]="remotePreview.width"
           [attr.opacity]="remotePreview.opacity"
           fill="none"
@@ -76,7 +76,7 @@
         @if (isStroke(currentPreview)) {
           <path
             [attr.d]="strokePath(currentPreview.points)"
-            [attr.stroke]="currentPreview.color"
+            [attr.stroke]="strokeColor(currentPreview.color)"
             [attr.stroke-width]="currentPreview.width"
             [attr.opacity]="currentPreview.opacity"
             fill="none"
@@ -89,17 +89,17 @@
             [attr.cy]="currentPreview.y + currentPreview.height / 2"
             [attr.rx]="currentPreview.width / 2"
             [attr.ry]="currentPreview.height / 2"
-            [attr.stroke]="currentPreview.color"
+            [attr.stroke]="strokeColor(currentPreview.color)"
           />
         } @else if (isShape(currentPreview) && currentPreview.shape === 'triangle') {
-          <polygon [attr.points]="trianglePoints(currentPreview)" [attr.stroke]="currentPreview.color" />
+          <polygon [attr.points]="trianglePoints(currentPreview)" [attr.stroke]="strokeColor(currentPreview.color)" />
         } @else if (isShape(currentPreview)) {
           <rect
             [attr.x]="currentPreview.x"
             [attr.y]="currentPreview.y"
             [attr.width]="currentPreview.width"
             [attr.height]="currentPreview.height"
-            [attr.stroke]="currentPreview.color"
+            [attr.stroke]="strokeColor(currentPreview.color)"
           />
         }
       }
