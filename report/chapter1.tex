@@ -1,0 +1,308 @@
+\chapter{Project Context and Framework}
+\label{chap:project_context}
+
+\section{Introduction}
+\label{sec:ch1_intro}
+
+Developing modern software systems requires technical competencies that extend well beyond writing localized business logic in a single framework. When applications must support concurrent users collaborating in real time, maintain continuous availability during external third-party outages, and process analytical workloads alongside transactional events, architectural discipline becomes critical to keeping the system responsive and reliable.
+
+This chapter establishes the academic and operational context of our Integration Project, \textbf{MindSpark}. We present the pedagogical motivation that shaped the project at ISET Bizerte, examine existing collaborative platforms to expose their practical limitations, and describe the features of our proposed solution. We then detail our work methodologies---specifically the Unified Modeling Language (UML) for architectural specification and Agile Scrum for iterative project management. Finally, we document the development workstation specifications and establish a comprehensive inventory of our software, libraries, and microservices ecosystem verified directly against our containerized codebase.
+
+% -----------------------------------------------------------------------------
+\section{Project Motivation and Pedagogical Framework}
+\label{sec:motivation_framework}
+
+The Integration Project (\textit{Projet d'Intégration}) serves as the capstone practical project in the curriculum of the Department of Information Technology at the \textbf{Institut Supérieur des Études Technologiques de Bizerte (ISET Bizerte)}. Throughout earlier semesters, our coursework addressed software engineering disciplines individually: object-oriented modeling, relational database design, front-end web development, enterprise Java frameworks, and network protocols.
+
+The goal of the Integration Project is to connect these different skills in a complete, realistic engineering project. Rather than writing another standalone CRUD prototype that ignores real production issues, our team set out to design, integrate, secure, and containerize a distributed architecture that handles actual operational constraints:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Decomposition into Autonomous Microservices:} Segregating domain boundaries into independently deployable services, each managing its own lifecycle, configuration, and data store, thereby putting the \textit{Database-per-Service} pattern into practice.
+    \item \textbf{Low-Latency Bi-Directional Synchronization:} Implementing stateful real-time communication channels using WebSockets to synchronize participant cursors, sticky note coordinate movements, and canvas modifications without periodic HTTP client polling.
+    \item \textbf{Resilient Event-Driven Messaging:} Decoupling non-blocking background workflows (such as audit logs and notifications) through an enterprise message broker, guaranteeing message delivery even when downstream consumer services experience temporary downtime.
+    \item \textbf{Generative AI Integration and Fault Isolation:} Integrating modern Large Language Models (LLMs) into core user workflows while isolating slow or fluctuating external AI providers behind circuit breakers to protect real-time canvas responsiveness.
+    \item \textbf{Centralized Authentication and Access Governance:} Enforcing role-based access control and OAuth2/OpenID Connect identity federation across services through a dedicated identity provider.
+    \item \textbf{Observability and Automated Containerization:} Orchestrating the entire multi-service ecosystem via container runtimes, complete with metrics collection, dashboard visualization, and distributed trace propagation.
+\end{itemize}
+
+Building MindSpark gave our team direct, hands-on experience in distributed system design, asynchronous event handling, and containerized deployment.
+
+% -----------------------------------------------------------------------------
+\section{Study of the Existing System}
+\label{sec:existing_system}
+
+To design a collaborative platform that addresses genuine collaboration bottlenecks, we conducted an empirical study of the tools currently used across academic and industrial brainstorming sessions.
+
+\subsection{Description of Existing Solutions}
+\label{subsec:existing_solutions}
+
+Ideation workflows generally rely on five dominant approaches, ranging from traditional physical media to sophisticated cloud-hosted software:
+
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Physical Whiteboards and Sticky Notes:} The traditional baseline for co-located meetings. Participants write thoughts on adhesive paper notes and place them on a whiteboard. While completely intuitive and tactile, physical boards require co-location, cannot persist history digitally without manual photography, offer zero search capabilities, and require tedious transcription into task management systems.
+    \item \textbf{Miro~\cite{miro2026}:} An enterprise visual collaboration workspace offering infinite canvases, sticky notes, diagramming shapes, and pre-built brainstorming templates. Miro provides rich multi-user drawing tools and video chat integrations, making it a market leader for hybrid enterprise workshops.
+    \item \textbf{Mural~\cite{mural2026}:} A digital whiteboard platform centered on design thinking facilitation, structured meeting timers, anonymous voting sessions, and guided sticky note exercises.
+    \item \textbf{Klaxoon~\cite{klaxoon2026}:} A collaborative suite focused on interactive training, team meetings, quizzes, word clouds, and structured boards designed to boost participant engagement during presentations.
+    \item \textbf{Trello~\cite{trello2026}:} A lightweight Kanban board based on columns and cards. While widely used to collect ideas during project kickoffs, its rigid tabular structure lacks the free-form spatial freedom required during early divergent brainstorming.
+\end{enumerate}
+
+\subsection{Critique of Existing Solutions}
+\label{subsec:critique_solutions}
+
+Despite their visual polish and commercial success, existing digital collaboration boards reveal severe technical and practical limitations when analyzed through an engineering lens:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{The Blank-Canvas Bottleneck:} Platforms like Miro and Mural present users with an empty grid. When a facilitator prompts a team with a complex prompt, inexperienced participants frequently freeze. Existing tools provide no integrated analytical agent to jumpstart divergent ideation with contextual seed suggestions.
+    \item \textbf{Information Sprawl and Cognitive Overload:} When a session involves 10 to 15 active participants, 80 to 120 sticky notes can accumulate within twenty minutes. In tools like Mural or Klaxoon, these notes remain scattered across arbitrary coordinates. Participants lose track of discussions, duplicates proliferate, and manual alignment wastes valuable meeting time.
+    \item \textbf{The Manual Synthesis Chasm:} After an intensive ideation session ends, the hardest cognitive work begins. Someone must manually cluster related notes, extract action items, detect conflicting propositions, and compose a summary report. In commercial tools, this synthesis is performed outside the platform or requires costly enterprise AI add-ons that offer generic text completion rather than board-aware semantic clustering.
+    \item \textbf{Absence of Structured Decision Mechanics:} Standard digital whiteboards allow users to place dot stickers on notes, but they lack formal vote pool governance (e.g., allocating an exact budget of 5 non-transferable votes per participant with atomic decrementing), leading to informal, unverified voting tallies.
+    \item \textbf{Prohibitive Commercial Licensing:} Commercial platforms enforce aggressive per-seat recurring subscription models (\$8 to \$16 per user per month). For educational institutions like ISET Bizerte, deploying such platforms across an entire student cohort is financially unsustainable.
+\end{itemize}
+
+\subsection{Proposed Solution: MindSpark}
+\label{subsec:proposed_solution}
+
+\textbf{MindSpark} was conceived to eliminate the friction between divergent creative thinking and convergent decision-making. MindSpark is a real-time, AI-assisted collaborative brainstorming platform designed as an accessible web application. It combines low-latency spatial collaboration with deep semantic intelligence and rigorous resource governance. 
+
+\noindent MindSpark implements the following core features:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Invitation-Code Room Governance:} Brainstorming sessions occur inside isolated rooms protected by unique 8-character invitation codes, allowing quick participant onboarding without cumbersome administrative configurations.
+    \item \textbf{Interactive Canvas and Free-Form Collaboration:} Participants create, drag, color-code, and format sticky notes in real time. The canvas supports free-hand pen drawing, shape annotations, threaded comments on individual ideas, and categorization tags.
+    \item \textbf{Low-Latency Spatial Presence:} Active contributors broadcast live cursor coordinates, selection bounding boxes, and online status across the room, providing immediate spatial awareness.
+    \item \textbf{Formal Vote Pools and Prioritization:} Facilitators can configure structured vote pools with predefined allowances, enabling teams to vote on proposals with automatic tallying and instant visual heatmaps.
+    \item \textbf{Decoupled Multi-Model AI Assistant:} Rather than a generic chatbot, MindSpark embeds an AI assistant capable of executing structured operations directly on board content:
+    \begin{itemize}[leftmargin=1.2em]
+        \item \textit{Idea Generation \& Expansion:} Generating novel propositions based on room context or expanding brief notes into elaborated concepts.
+        \item \textit{Semantic Clustering:} Automatically grouping scattered sticky notes into thematic clusters based on semantic similarity.
+        \item \textit{Action Plan Conversion:} Synthesizing selected ideas into sequential, phased implementation roadmaps with ownership recommendations.
+        \item \textit{Risk and Feasibility Analysis:} Evaluating proposed concepts against potential operational, technical, and resource hazards.
+        \item \textit{Idea Comparison:} Performing side-by-side trade-off evaluations between competing proposals.
+        \item \textit{Executive Summarization:} Compiling the entire room's content into an executive briefing document.
+    \end{itemize}
+    \item \textbf{Tiered Quota and Rate Governance:} An integrated subscription engine manages user tiers (Free, Premium, Team), enforcing daily AI request quotas and concurrency rate limits to guarantee system stability and cost predictability.
+    \item \textbf{Asynchronous Notifications and Event Audit:} Room invitations, idea mentions, vote openings, and plan upgrades publish domain events to an Apache Kafka pipeline, which a dedicated notification microservice consumes, records into SQLite, and exposes to clients.
+    \item \textbf{Administrative and Operational Dashboard:} A dedicated administrative interface allows platform managers to monitor system health, inspect user activity, review billing states, and evaluate AI usage metrics.
+\end{itemize}
+
+% -----------------------------------------------------------------------------
+\section{Work Methodologies}
+\label{sec:work_methodologies}
+
+Building a distributed platform with a six-developer team requires formal modeling to prevent design ambiguities and an adaptive project management framework to coordinate incremental development.
+
+\subsection{Modeling Language: Unified Modeling Language (UML)}
+\label{subsec:uml_methodology}
+
+We adopted the \textbf{Unified Modeling Language (UML 2.5)}~\cite{omg2015uml} as the standard visual modeling notation for MindSpark. Because our team operated across both front-end and back-end services, relying solely on informal verbal descriptions would inevitably produce conflicting REST endpoint contracts, data model mismatches, and race conditions during real-time event handling. 
+
+UML provided an unambiguous blueprint across the entire engineering lifecycle:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Use Case Diagrams:} Formalized functional requirements, actor boundaries (Room Creator / Teacher / Facilitator, Participant, Administrator / Super-Admin, and AI System), and access privileges before implementation.
+    \item \textbf{Class Diagrams:} Defined domain entity structures, JPA associations, data types, and service contracts across our relational database schemas.
+    \item \textbf{Sequence Diagrams:} Mapped temporal interactions, capturing the exact choreography between the Angular client, API Gateway, Keycloak, WebSocket handlers, domain microservices, and asynchronous Kafka topics.
+    \item \textbf{Activity and State Diagrams:} Specified state machines, including room lifecycle states (Draft, Active, Voting, Closed) and the circuit breaker transition states (Closed, Open, Half-Open).
+\end{itemize}
+
+Diagrams were authored using \textbf{PlantUML}~\cite{plantuml2026}, allowing us to maintain model specifications as version-controlled plain text alongside our source code.
+
+\subsection{Project Management Methodology: Agile Scrum}
+\label{subsec:scrum_methodology}
+
+To manage technical uncertainty and deliver functional increments rapidly, our team implemented the \textbf{Agile Scrum} framework~\cite{schwaber2020scrum}. Scrum's iterative nature suited our project structure, allowing us to validate core architectural choices early (such as WebSocket routing and JWT validation) before building advanced capabilities (such as AI grouping and automated billing).
+
+\subsubsection{Scrum Roles}
+Within our six-student engineering squad, responsibilities were structured as follows:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Product Owner (PO):} Managed the global Product Backlog, prioritized user stories according to pedagogical and technical value, defined acceptance criteria, and validated sprint increments during reviews.
+    \item \textbf{Scrum Master (SM):} Facilitated Scrum ceremonies, resolved technical and environmental blockers, ensured adherence to sprint timeboxes, and maintained sprint burndown velocity.
+    \item \textbf{Development Team:} Six developers collaborating cross-functionally across the full stack: Angular front-end UI, Spring Boot microservices, Node.js event processing, Keycloak identity management, and Docker DevOps orchestration.
+\end{itemize}
+
+\subsubsection{Scrum Ceremonies}
+We maintained four disciplined Scrum ceremonies throughout the project:
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Sprint Planning:} Held at the start of each sprint to select user stories from the Product Backlog, decompose them into technical tasks, estimate complexity in story points, and commit to a shared Sprint Goal.
+    \item \textbf{Daily Standup:} Conducted three times weekly as 15-minute syncs where each developer answered three questions: \textit{What did I accomplish since the last standup? What will I work on next? What technical blockers are impeding my progress?}
+    \item \textbf{Sprint Review:} Held at the end of each sprint with our academic supervisor, Mrs.~Khaoula Jridi, to demonstrate a live deployable increment and gather direct feedback.
+    \item \textbf{Sprint Retrospective:} Conducted immediately following the review to evaluate team dynamics, examine build and testing bottlenecks, and agree on actionable process improvements for the subsequent sprint.
+\end{enumerate}
+
+\subsubsection{Product Backlog and Sprint Breakdown}
+Our global Product Backlog comprises \textbf{64 User Stories}, prioritized using the \textbf{MoSCoW} method (\textit{Must have}, \textit{Should have}, \textit{Could have}, \textit{Won't have})~\cite{clegg1994case}. Development was executed across three sequential two-week sprints:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Sprint 1 (Working Demo --- 18 User Stories):} Focused on baseline infrastructure and initial collaboration. Key deliverables included the Angular shell with Keycloak authentication, room creation via invitation codes, basic sticky note CRUD operations, Spring Cloud Gateway routing, and database persistence.
+    \item \textbf{Sprint 2 (Real-Time Collaboration and AI Core --- 21 User Stories):} Centered on high-concurrency real-time features and analytical intelligence. Key deliverables included native WebSocket live cursors, shape drawing synchronization, the dedicated \texttt{ai-service} integrating Google Gemini and Groq, concurrency rate limiting, and Resilience4j circuit breaker protection.
+    \item \textbf{Sprint 3 (Full Product, Administration and Quality --- 25 User Stories):} Completed the platform with commercial and operational capabilities. Key deliverables included the \texttt{subscription-service} with Polar billing checkout, media image uploads, room export sessions, Kafka-driven asynchronous notifications, OpenTelemetry/Tempo distributed tracing, and end-to-end integration verification.
+\end{itemize}
+
+\placeholderfig{fig1_1_scrum_process.png}{Scrum Iterative Process Adopted for MindSpark}{fig:scrum-process}
+
+% -----------------------------------------------------------------------------
+\section{Hardware and Software Environment}
+\label{sec:env_hardware_software}
+
+To ensure reproducible builds and reliable local execution across our distributed microservices, development and testing environments were standardized across the team.
+
+\subsection{Hardware Environment}
+\label{subsec:hardware_env}
+
+Because MindSpark runs 21 distinct Docker services simultaneously (including multiple JVM instances, PostgreSQL databases, an Apache Kafka broker, and an observability stack), development workstations required substantial memory capacity and multi-core processing power. Development was conducted on team laptops equipped with Intel Core i5 processors and 16~GB of RAM.
+
+\noindent The primary development, testing, and continuous integration workstation featured the hardware specifications detailed in Table~\ref{tab:hardware_specs}:
+
+\begin{table}[H]
+\centering
+\caption{Primary Development Workstation Hardware Specifications}
+\label{tab:hardware_specs}
+\small
+\begin{tabularx}{\textwidth}{@{}l>{\raggedright}p{4.2cm}>{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Component} & \textbf{Model / Specification} & \textbf{Engineering Role / Justification} \\
+\midrule
+\textbf{Machine} & ASUS TUF Gaming F15 (FX506HE) & Host platform for full Docker Compose stack orchestration \\
+\textbf{Processor} & Intel Core i5-11400H (11th Gen) & 6 Cores, 12 Threads, 2.70 GHz base (up to 4.50 GHz turbo), supporting concurrent JVM and container compilation \\
+\textbf{System Memory} & 16.0 GB DDR4 (3200 MHz) & Sufficient heap allocation across 8 Spring Boot services, Node.js, databases, and Docker Desktop \\
+\textbf{Storage} & 512 GB NVMe M.2 PCIe SSD & High I/O throughput for container layers, Maven caches, and PostgreSQL write-ahead logs \\
+\textbf{Graphics} & NVIDIA GeForce RTX 3050 Ti Laptop GPU & Dedicated GPU memory for hardware-accelerated 3D WebGL rendering in Three.js \\
+\textbf{Operating System} & Microsoft Windows 11 Home (64-bit) & WSL 2 (Windows Subsystem for Linux) backend hosting the Docker daemon \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\placeholderfig{fig1_2_hardware_specs.png}{Primary Development Workstation Specifications (ASUS TUF Gaming F15)}{fig:hardware-specs}
+
+\subsection{Development and DevOps Tools}
+\label{subsec:dev_tools}
+
+Table~\ref{tab:dev_tools} catalogs the primary software engineering, development, testing, and documentation tools utilized throughout the lifecycle of MindSpark:
+
+\begin{table}[H]
+\centering
+\caption{Development, DevOps, and Quality Assurance Tools}
+\label{tab:dev_tools}
+\small
+\begin{tabularx}{\textwidth}{@{}l>{\raggedright}p{3.2cm}>{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Tool} & \textbf{Category} & \textbf{Usage and Justification in MindSpark} \\
+\midrule
+\textbf{Visual Studio Code}~\cite{vscode2026} & IDE & Primary editor for Angular front-end, TypeScript, SCSS, Node.js microservice, and Docker Compose files. \\
+\textbf{IntelliJ IDEA}~\cite{intellij2026} & IDE & Enterprise Java IDE utilized for Spring Boot microservices, refactoring, dependency analysis, and JUnit test runs. \\
+\textbf{Git \& GitHub}~\cite{git2026} & Version Control & Distributed source control, branch-based feature workflows, peer pull-request code reviews, and issue tracking. \\
+\textbf{Docker Desktop}~\cite{docker2026} & Container Engine & Local container runtime enabling reproducible execution of all microservices, databases, and infrastructure. \\
+\textbf{Docker Compose}~\cite{docker2026} & Orchestration & Declarative multi-container configuration defining services, isolated virtual networks, volumes, and healthchecks. \\
+\textbf{Postman}~\cite{postman2026} & API Testing & Construction, execution, and validation of REST API endpoints, JWT headers, and collection-based regression tests. \\
+\textbf{pgAdmin 4}~\cite{pgadmin2026} & Database GUI & Web-based administrative console for inspecting PostgreSQL table schemas, executing SQL queries, and verifying data isolation. \\
+\textbf{PlantUML}~\cite{plantuml2026} & UML Modeling & Text-based generation of use case, sequence, class, and state diagrams directly version-controlled in Git. \\
+\textbf{Vitest}~\cite{vitest2026} & Front-end Testing & High-speed unit and component test runner for the Angular single-page application with jsdom. \\
+\textbf{Overleaf / LaTeX}~\cite{latex2026} & Documentation & Collaborative cloud-based typesetting platform utilized for authoring this academic report with strict styling. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Software and Technology Stack}
+\label{subsec:tech_stack}
+
+The architecture of MindSpark is constructed upon modern, open-source technologies organized across four architectural tiers: client, service infrastructure, domain microservices, and persistence/messaging.
+
+\subsubsection{Frontend Architecture}
+The client application is built on \textbf{Angular 22.2.2}~\cite{angular2026}, configured using modern standalone components and the latest reactivity primitives:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Angular Signals and Reactivity:} The UI utilizes fine-grained Angular Signals (\texttt{signal}, \texttt{computed}, \texttt{effect}) alongside \textbf{RxJS 7.8.0}~\cite{rxjs2026} (\texttt{Subject}, \texttt{Observable}) for component state management, avoiding the performance overhead of full-tree change detection cycles.
+    \item \textbf{Custom SCSS Design System:} Rather than introducing heavy external UI frameworks (such as Bootstrap or Tailwind), the interface is styled with a custom SCSS design system. The visual identity is governed through CSS custom properties (\texttt{-{}-ms-bg: \#060A22}, \texttt{-{}-ms-surface: \#0D1438}, \texttt{-{}-ms-primary: \#6F82F2}, \texttt{-{}-ms-gold: \#FFC83D}) and typography pairings (\textit{Bricolage Grotesque}, \textit{Inter}, \textit{DM Mono}).
+    \item \textbf{3D Graphics with Three.js:} We incorporated \textbf{Three.js 0.186.1}~\cite{threejs2026} to render dynamic WebGL 3D visualizations on the landing and lobby surfaces.
+    \item \textbf{Real-Time Networking:} A dedicated Angular service (\texttt{RealtimeService}) wraps the browser's native \textbf{WebSocket API}, establishing bi-directional communication with the backend gateway on \texttt{ws://localhost:8080/ws/rooms/\{roomId\}}.
+    \item \textbf{Client Security:} Integrated via \textbf{keycloak-js 26.2.4}~\cite{keycloak2026}, implementing OpenID Connect with PKCE (Proof Key for Code Exchange) to secure single-page application token exchange.
+\end{itemize}
+
+\subsubsection{Backend Microservices and Service Infrastructure}
+MindSpark's backend is decomposed into nine autonomous services: eight developed with \textbf{Spring Boot}~\cite{springboot2026} on \textbf{Java 21}~\cite{java2026} and one built on \textbf{Node.js 24}~\cite{nodejs2026} with \textbf{Express 4.21.2}~\cite{express2026}.
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Service Infrastructure Tier:}
+    \begin{itemize}[leftmargin=1.2em]
+        \item \textbf{API Gateway (\texttt{api-gateway}, Port 8080):} Built on Spring Boot 3.4.3 and Spring Cloud 2024.0.0 Gateway~\cite{springcloud2026}. It operates as a reactive Netty reverse proxy, routing incoming client requests to downstream microservices discovered via Eureka. It handles global CORS policies, strips duplicate headers, applies route-level timeouts, and executes Resilience4j circuit breaker fallbacks (\texttt{/fallback/*}).
+        \item \textbf{Service Discovery (\texttt{discovery-server}, Port 8761):} Built on Netflix Eureka Server~\cite{eureka2026}. It maintains an active registry of all microservice instances, enabling dynamic client-side load balancing and failover without hardcoded network hostnames.
+        \item \textbf{Configuration Server (\texttt{config-server}, Port 8888):} Built on Spring Cloud Config Server~\cite{springcloud2026}. Operating with a \texttt{native} search path profile, it serves centralized YAML configurations from \texttt{./config-repo} to client services upon startup.
+    \end{itemize}
+    
+    \item \textbf{Domain Microservices Tier:}
+    \begin{itemize}[leftmargin=1.2em]
+        \item \textbf{Core Backend (\texttt{mindspark-backend}, Port 8082):} Built on Spring Boot 4.1.1 and Spring Cloud 2025.1.4. Manages the core brainstorming domain: room lifecycles, user profiles, sticky note cards, threaded comments, voting mechanics, categories, and canvas drawing coordinates. It hosts the native Spring WebSocket server (\texttt{WebSocketConfigurer} and \texttt{TextWebSocketHandler}) and publishes domain events to Kafka.
+        \item \textbf{AI Service (\texttt{ai-service}, Port 8081):} Built on Spring Boot 4.1.1. Executes multi-model Generative AI operations. It features a concurrency rate limiter (permitting up to 8 concurrent upstream calls with queued wait times), tracks user daily request limits against a dedicated database, and isolates upstream provider calls behind Resilience4j circuit breakers.
+        \item \textbf{Subscription Service (\texttt{subscription-service}, Port 8083):} Built on Spring Boot 4.1.1. Governs user subscription tiers (Free, Premium, Team), manages checkout sessions via Polar, processes payment webhooks, synchronizes customer roles with Keycloak via the Keycloak Admin API, and publishes plan events to Kafka.
+        \item \textbf{Session Service (\texttt{session-service}, Port 8084):} Built on Spring Boot 4.1.1. Persists room session snapshots, records historical activity timelines, and generates downloadable session exports.
+        \item \textbf{Media Service (\texttt{media-service}, Port 8085):} Built on Spring Boot 4.1.1. Handles multipart file uploads (images up to 5~MB), validates caller room permissions by contacting the core backend, and manages local disk storage on persistent Docker volumes.
+        \item \textbf{Notification Service (\texttt{notification-service}, Port 8086):} Built on Node.js 24 and Express 4.21.2. Operates as an asynchronous event consumer utilizing \textbf{KafkaJS 2.2.4}~\cite{kafkajs2026}. It records incoming notifications in an embedded SQLite database, validates incoming JWT tokens via \textbf{jose 5.9.6}~\cite{jose2026}, registers itself with Eureka, and exposes Prometheus metrics.
+    \end{itemize}
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{MindSpark Microservices Inventory and Runtime Responsibilities}
+\label{tab:microservices_inventory}
+\small
+\begin{tabularx}{\textwidth}{@{}l>{\raggedright}p{4.0cm}c>{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Service Name} & \textbf{Framework \& Version} & \textbf{Port} & \textbf{Primary Engineering Responsibility} \\
+\midrule
+\texttt{api-gateway} & Spring Boot 3.4.3 / Cloud 2024.0.0 & 8080 & Reactive routing, CORS deduplication, circuit breakers \\
+\texttt{discovery-server} & Spring Boot 3.4.3 / Eureka Server & 8761 & Dynamic service registry, heartbeats, client load balancing \\
+\texttt{config-server} & Spring Boot 3.4.3 / Config Server & 8888 & Centralized external configuration repository management \\
+\texttt{backend} & Spring Boot 4.1.1 / Cloud 2025.1.4 & 8082 & Rooms, ideas, comments, votes, WebSockets, Kafka events \\
+\texttt{ai-service} & Spring Boot 4.1.1 / Cloud 2025.1.4 & 8081 & Multi-model LLM workflows, daily quotas, concurrency limits \\
+\texttt{subscription-service} & Spring Boot 4.1.1 / Cloud 2025.1.4 & 8083 & Tier entitlements, Polar billing, Keycloak role sync \\
+\texttt{session-service} & Spring Boot 4.1.1 / Cloud 2025.1.4 & 8084 & Room snapshots, session export generation, history logs \\
+\texttt{media-service} & Spring Boot 4.1.1 / Cloud 2025.1.4 & 8085 & Multipart image uploads (5MB max), room access validation \\
+\texttt{notification-service} & Node.js 24 / Express 4.21.2 & 8086 & Kafka consumer, SQLite persistence, notification REST API \\
+\texttt{frontend} & Angular 22.2.2 / Node 24 & 4200 & Single-page application, Signals state, native WebSockets \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Data Persistence, Messaging, and Security}
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Database-per-Service (PostgreSQL 16)~\cite{postgresql2026}:} To prevent monolithic coupling, services operate isolated database instances hosted in individual containers:
+    \begin{itemize}[leftmargin=1.2em]
+        \item \texttt{db} (\texttt{mindspark}): Core backend data store (Host Port: 5433, Internal: 5432).
+        \item \texttt{ai-db} (\texttt{ai\_db}): Dedicated quota and usage log store (Host Port: 5434, Internal: 5432).
+        \item \texttt{subscription-db} (\texttt{subscription\_db}): Customer plans and subscription store (Host Port: 5435, Internal: 5432).
+        \item \texttt{session-db} (\texttt{session\_db}): Session snapshots and archive store (Host Port: 5436, Internal: 5432).
+        \item \texttt{keycloak-db} (\texttt{keycloak}): Identity provider schema store (Internal: 5432).
+    \end{itemize}
+    \item \textbf{Embedded SQLite~\cite{sqlite2026}:} Utilized by \texttt{notification-service} via Node's native \texttt{DatabaseSync} (\texttt{node:sqlite}), persisted to a dedicated Docker volume (\texttt{/data/notifications.db}).
+    \item \textbf{Event Broker (Apache Kafka 3.9.0)~\cite{kafka2026}:} MindSpark deploys Kafka in modern \textbf{KRaft mode} (Kafka Raft Metadata mode), eliminating the legacy dependency on Apache ZooKeeper. The broker listens on port 9092, handling decoupled event topics such as user registrations, subscription state changes, and room notification triggers.
+    \item \textbf{Identity and Access Management (Keycloak 26.4.0)~\cite{keycloak2026}:} Manages the \texttt{mindspark} authentication realm on port 8180. Microservices validate incoming Bearer tokens using Spring Security's OAuth2 Resource Server by pulling cryptographic public keys directly from Keycloak's JWKS endpoint (\texttt{/protocol/openid-connect/certs}). Inter-service communication between internal microservices is secured through a pre-shared cryptographic header (\texttt{INTERNAL\_SERVICE\_SECRET}).
+\end{itemize}
+
+\subsubsection{External AI and Billing Integrations}
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Google Gemini API~\cite{gemini2026}:} Powers Free-tier AI assistance via REST endpoints, utilizing high-efficiency models (\texttt{gemini-3.5-flash-lite} and \texttt{gemini-3.1-flash-lite}) to provide near-instantaneous responses with low token consumption.
+    \item \textbf{Groq API~\cite{groq2026}:} Powers Premium and Team tier analytical workflows using high-performance open-weights models (\texttt{openai/gpt-oss-120b} and \texttt{qwen/qwen3.8-27b}) hosted on Groq's high-speed LPU (Language Processing Unit) inference infrastructure.
+    \item \textbf{Polar API~\cite{polar2026}:} Provides checkout session generation, hosted payment forms, and asynchronous webhook delivery for user subscription lifecycle management.
+\end{itemize}
+
+\subsubsection{Observability and Container Orchestration}
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Prometheus (v2.55.1)~\cite{prometheus2026}:} Scrapes application performance metrics from Spring Boot Actuator endpoints (\texttt{/actuator/prometheus}) and the Express metrics endpoint at 5-second intervals.
+    \item \textbf{Grafana Tempo (v2.6.1)~\cite{tempo2026}:} Ingests distributed trace spans via OpenTelemetry HTTP OTLP endpoints on port 4318, enabling visual root-cause latency analysis across microservice boundaries.
+    \item \textbf{Grafana (v11.3.0)~\cite{grafana2026}:} Centralized visualization portal exposing dashboards for JVM memory utilization, HTTP request latency histograms, circuit breaker states, and tracing waterfall graphs.
+    \item \textbf{Docker Compose Ecosystem:} The entire MindSpark platform is codified within \texttt{docker-compose.yml} (which includes \texttt{infra/auth/compose.yaml}). The deployment manages \textbf{exactly 21 Docker services} connected across three isolated virtual networks:
+    \begin{itemize}[leftmargin=1.2em]
+        \item \texttt{frontend\_net}: Bridges client traffic between the Angular SPA, API Gateway, and backend.
+        \item \texttt{backend\_net}: Encloses all internal microservices, databases, Kafka, and telemetry tools.
+        \item \texttt{auth\_net}: Isolates Keycloak, its dedicated database, and the gateway.
+    \end{itemize}
+    State is persisted across container recycles using 12 named Docker volumes (including \texttt{app\_db\_data}, \texttt{ai\_db\_data}, \texttt{kafka\_data}, and \texttt{media\_uploads}).
+\end{itemize}
+
+\placeholderfig{fig1_3_tech_stack.png}{Overview of the MindSpark Technology Stack and Microservices Ecosystem}{fig:tech-stack}
+
+% -----------------------------------------------------------------------------
+\section{Conclusion}
+\label{sec:ch1_conclusion}
+
+This chapter established the foundational framework of our Integration Project. We highlighted the pedagogical motivation at ISET Bizerte, analyzed existing digital whiteboards, and introduced MindSpark as an AI-powered collaborative platform engineered to resolve cognitive bottlenecks during brainstorming. We articulated our adoption of UML 2.5 for architectural precision and Agile Scrum for our 64-story development backlog. Finally, we documented our primary development hardware and established the comprehensive technical inventory of our 21-container microservices ecosystem.
+
+With the project foundation defined, Chapter~\ref{chap:state_of_the_art} examines the state of the art, exploring the cognitive psychology of ideation, real-time web synchronization architectures, modern Large Language Model paradigms, and SaaS resource governance models.

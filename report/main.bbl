@@ -1,0 +1,192 @@
+\begin{thebibliography}{10}
+
+\bibitem{miro2026}
+{RealtimeBoard Inc.}, ``{Miro: Visual Workspace for Innovation}.''
+  \url{https://miro.com/}, 2026.
+\newblock Accessed November 2026.
+
+\bibitem{mural2026}
+{Tactivos Inc.}, ``{Mural: Digital Collaborative Whiteboard and Visual
+  Workspace}.'' \url{https://www.mural.co/}, 2026.
+\newblock Accessed November 2026.
+
+\bibitem{klaxoon2026}
+{Klaxoon Inc.}, ``{Klaxoon: The All-in-One Collaboration Platform}.''
+  \url{https://klaxoon.com/}, 2026.
+\newblock Accessed November 2026.
+
+\bibitem{trello2026}
+{Atlassian Corporation}, ``{Trello: Flexible Work Management and Kanban Board
+  Platform}.'' \url{https://trello.com/}, 2026.
+\newblock Accessed November 2026.
+
+\bibitem{omg2015uml}
+{Object Management Group}, {\em {Unified Modeling Language (OMG UML)
+  Specification, Version 2.5}}, 2015.
+\newblock Standard OMG Document.
+
+\bibitem{plantuml2026}
+A.~Roques and {PlantUML Contributors}, ``{PlantUML: Open-Source Component to
+  Create Diagrams from Plain Text}.'' \url{https://plantuml.com/}, 2026.
+\newblock Official Documentation, Accessed November 2026.
+
+\bibitem{schwaber2020scrum}
+K.~Schwaber and J.~Sutherland, {\em {The Scrum Guide: The Definitive Guide to
+  Scrum: The Rules of the Game}}.
+\newblock Scrum.org, 2020.
+\newblock November 2020 Edition.
+
+\bibitem{clegg1994case}
+D.~Clegg and R.~Barker, {\em {CASE Method Fast-Track: A Rad Approach}}.
+\newblock Boston, MA, USA: Addison-Wesley Professional, 1994.
+
+\bibitem{vscode2026}
+{Microsoft Corporation}, ``{Visual Studio Code: Code Editing Redefined}.''
+  \url{https://code.visualstudio.com/}, 2026.
+\newblock Documentation \& Release Notes, Accessed November 2026.
+
+\bibitem{intellij2026}
+{JetBrains s.r.o.}, ``{IntelliJ IDEA: The Capable and Ergonomic Java IDE}.''
+  \url{https://www.jetbrains.com/idea/}, 2026.
+\newblock Documentation \& Developer Guides, Accessed November 2026.
+
+\bibitem{git2026}
+L.~Torvalds, J.~C. Hamano, and {Git Contributors}, ``{Git: Fast Version Control
+  System}.'' \url{https://git-scm.com/}, 2026.
+\newblock Official Documentation, Accessed November 2026.
+
+\bibitem{docker2026}
+{Docker Inc.}, ``{Docker Desktop and Docker Compose Specification}.''
+  \url{https://docs.docker.com/}, 2026.
+\newblock Official Documentation, Accessed November 2026.
+
+\bibitem{postman2026}
+{Postman Inc.}, ``{Postman API Platform: Build and Test APIs}.''
+  \url{https://www.postman.com/}, 2026.
+\newblock API Documentation \& Guides, Accessed November 2026.
+
+\bibitem{pgadmin2026}
+{The pgAdmin Development Team}, ``{pgAdmin 4: PostgreSQL Administration and
+  Development Platform}.'' \url{https://www.pgadmin.org/}, 2026.
+\newblock Documentation, Accessed November 2026.
+
+\bibitem{vitest2026}
+{Vitest Team}, ``{Vitest: Next Generation Testing Framework}.''
+  \url{https://vitest.dev/}, 2026.
+\newblock Version 5 Documentation, Accessed November 2026.
+
+\bibitem{latex2026}
+{The LaTeX Project Team}, ``{The LaTeX Project and Overleaf Typesetting
+  Engine}.'' \url{https://www.latex-project.org/}, 2026.
+\newblock Official Documentation, Accessed November 2026.
+
+\bibitem{angular2026}
+{Angular Team}, ``{Angular 22 Documentation: The Web Development Framework}.''
+  \url{https://angular.dev/}, 2026.
+\newblock Angular Version 22 Developer Reference, Accessed November 2026.
+
+\bibitem{rxjs2026}
+{RxJS Contributors}, ``{RxJS: Reactive Extensions Library for JavaScript}.''
+  \url{https://rxjs.dev/}, 2026.
+\newblock RxJS 7 Documentation, Accessed November 2026.
+
+\bibitem{threejs2026}
+R.~Cabello and {Three.js Contributors}, ``{Three.js: JavaScript 3D WebGL
+  Library}.'' \url{https://threejs.org/}, 2026.
+\newblock Release r186, Accessed November 2026.
+
+\bibitem{keycloak2026}
+{Keycloak Team and Red Hat}, ``{Keycloak 26 Documentation: Open Source Identity
+  and Access Management}.'' \url{https://www.keycloak.org/documentation}, 2026.
+\newblock Keycloak 26.4 Server Guide, Accessed November 2026.
+
+\bibitem{springboot2026}
+{Spring Team}, ``{Spring Boot Reference Documentation}.''
+  \url{https://docs.spring.io/spring-boot/}, 2026.
+\newblock Spring Boot Reference Guide, Accessed November 2026.
+
+\bibitem{java2026}
+{Oracle Corporation}, ``{Java Platform, Standard Edition (Java SE) 21
+  Specification}.'' \url{https://docs.oracle.com/en/java/javase/21/}, 2026.
+\newblock Long Term Support (LTS) Reference, Accessed November 2026.
+
+\bibitem{nodejs2026}
+{OpenJS Foundation}, ``{Node.js 24 Documentation: JavaScript Runtime Built on
+  Chrome's V8 Engine}.'' \url{https://nodejs.org/docs/latest-v24.x/}, 2026.
+\newblock Official Documentation, Accessed November 2026.
+
+\bibitem{express2026}
+{Express Team}, ``{Express 4: Fast, Unopinionated, Minimalist Web Framework for
+  Node.js}.'' \url{https://expressjs.com/}, 2026.
+\newblock Version 4.21 Reference, Accessed November 2026.
+
+\bibitem{springcloud2026}
+{Spring Cloud Team}, ``{Spring Cloud Gateway and Centralized Configuration
+  Documentation}.'' \url{https://docs.spring.io/spring-cloud/}, 2026.
+\newblock Spring Cloud Release Trains 2024.0 and 2025.1, Accessed November
+  2026.
+
+\bibitem{eureka2026}
+{Netflix Inc.}, ``{Netflix Eureka: Service Discovery Server and Client}.''
+  \url{https://github.com/Netflix/eureka}, 2026.
+\newblock Spring Cloud Netflix Documentation, Accessed November 2026.
+
+\bibitem{kafkajs2026}
+T.~Ornelas and {KafkaJS Contributors}, ``{KafkaJS: Modern Apache Kafka Client
+  for Node.js}.'' \url{https://kafka.js.org/}, 2026.
+\newblock KafkaJS 2.2 Documentation, Accessed November 2026.
+
+\bibitem{jose2026}
+F.~Skokan, ``{jose: JavaScript Object Signing and Encryption}.''
+  \url{https://github.com/panva/jose}, 2026.
+\newblock Library Version 5.9, Accessed November 2026.
+
+\bibitem{postgresql2026}
+{The PostgreSQL Global Development Group}, ``{PostgreSQL 16: The World's Most
+  Advanced Open Source Relational Database}.''
+  \url{https://www.postgresql.org/docs/16/}, 2026.
+\newblock PostgreSQL 16 Documentation, Accessed November 2026.
+
+\bibitem{sqlite2026}
+D.~R. Hipp, D.~Kennedy, and J.~Mistachkin, ``{SQLite: Small, Fast,
+  Self-Contained, High-Reliability SQL Database Engine}.''
+  \url{https://www.sqlite.org/}, 2026.
+\newblock SQLite Documentation, Accessed November 2026.
+
+\bibitem{kafka2026}
+{The Apache Software Foundation}, ``{Apache Kafka 3.9 Documentation:
+  Distributed Event Streaming Platform with KRaft}.''
+  \url{https://kafka.apache.org/39/documentation/}, 2026.
+\newblock Apache Kafka 3.9 Release Notes, Accessed November 2026.
+
+\bibitem{gemini2026}
+{Google DeepMind}, ``{Google Gemini Models API Documentation}.''
+  \url{https://ai.google.dev/docs}, 2026.
+\newblock Gemini 3.5 and 3.1 Flash-Lite APIs, Accessed November 2026.
+
+\bibitem{groq2026}
+{Groq Inc.}, ``{Groq LPU Inference Engine and Cloud API Documentation}.''
+  \url{https://groq.com/}, 2026.
+\newblock Developer API Documentation, Accessed November 2026.
+
+\bibitem{polar2026}
+{Polar Software Inc.}, ``{Polar Developer API and Billing Integration
+  Reference}.'' \url{https://docs.polar.sh/}, 2026.
+\newblock Polar Billing API v1, Accessed November 2026.
+
+\bibitem{prometheus2026}
+{The Prometheus Authors}, ``{Prometheus: An Open-Source Monitoring System and
+  Time Series Database}.'' \url{https://prometheus.io/docs/}, 2026.
+\newblock Version 2.55 Documentation, Accessed November 2026.
+
+\bibitem{tempo2026}
+{Grafana Labs}, ``{Grafana Tempo: Distributed High-Volume Tracing Backend}.''
+  \url{https://grafana.com/docs/tempo/latest/}, 2026.
+\newblock Version 2.6 Documentation, Accessed November 2026.
+
+\bibitem{grafana2026}
+{Grafana Labs}, ``{Grafana 11 Documentation: Operational Dashboards and
+  Observability}.'' \url{https://grafana.com/docs/grafana/latest/}, 2026.
+\newblock Grafana 11.3 Reference, Accessed November 2026.
+
+\end{thebibliography}

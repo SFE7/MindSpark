@@ -1,0 +1,211 @@
+\documentclass[11pt,a4paper]{report}
+
+% -----------------------------------------------------------------------------
+% Character Encoding, Fonts & Typographical Micro-adjustments
+% -----------------------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% -----------------------------------------------------------------------------
+% Page Geometry & Spacing
+% -----------------------------------------------------------------------------
+\usepackage[top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm, headheight=14pt]{geometry}
+\usepackage{setspace}
+\setstretch{1.2}
+\usepackage{parskip}
+
+% -----------------------------------------------------------------------------
+% Math, Graphics & Tables
+% -----------------------------------------------------------------------------
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\graphicspath{{figures/}{./}}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{ragged2e}
+\usepackage{float}
+\usepackage{enumitem}
+\setlist{topsep=4pt, itemsep=3pt, parsep=0pt}
+\usepackage[dvipsnames,table]{xcolor}
+\usepackage{caption}
+\captionsetup{font=small, labelfont=bf, labelsep=period}
+
+% -----------------------------------------------------------------------------
+% Color Palette (Matching chapter2_draft exactly)
+% -----------------------------------------------------------------------------
+\definecolor{PrimaryNavy}{HTML}{1B365D}
+\definecolor{SlateGray}{HTML}{4A5568}
+
+% -----------------------------------------------------------------------------
+% Academic Chapter & Section Styling (titlesec)
+% -----------------------------------------------------------------------------
+\usepackage{titlesec}
+
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\color{PrimaryNavy}}
+  {\filleft\Large\textsc{\chaptertitlename}~\thechapter}
+  {6pt}
+  {\titlerule[1.2pt]\vspace{10pt}\filright}
+  [\vspace{6pt}\titlerule]
+\titlespacing*{\chapter}{0pt}{-15pt}{25pt}
+
+\titleformat{name=\chapter,numberless}[block]
+  {\color{PrimaryNavy}\hrule height 1.5pt\vspace{10pt}\normalfont\huge\bfseries}
+  {}
+  {0pt}
+  {}
+  [\vspace{8pt}\hrule height 0.8pt]
+\titlespacing*{name=\chapter,numberless}{0pt}{10pt}{25pt}
+
+\titleformat{\section}
+  {\normalfont\Large\bfseries\color{PrimaryNavy}}
+  {\thesection}{0.8em}{}
+\titleformat{\subsection}
+  {\normalfont\large\bfseries\color{SlateGray}}
+  {\thesubsection}{0.8em}{}
+\titleformat{\subsubsection}
+  {\normalfont\normalsize\bfseries}
+  {\thesubsubsection}{0.8em}{}
+
+% -----------------------------------------------------------------------------
+% Running Headers & Footers (fancyhdr - ISET Bizerte Style)
+% -----------------------------------------------------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textit{\nouppercase{\leftmark}}}
+\fancyhead[R]{\small\textbf{MindSpark}}
+\fancyfoot[L]{\small\textit{ISET Bizerte}}
+\fancyfoot[R]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyfoot[L]{\small\textit{ISET Bizerte}}
+  \fancyfoot[R]{\small\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0.4pt}
+}
+
+% -----------------------------------------------------------------------------
+% URLs & Clickable Hyperlinks (Loaded last)
+% -----------------------------------------------------------------------------
+\usepackage[hyphens]{url}
+\usepackage[
+  colorlinks=true,
+  linkcolor=PrimaryNavy,
+  citecolor=PrimaryNavy,
+  urlcolor=PrimaryNavy,
+  pdftitle={Design and Implementation of an AI-Powered Collaborative Brainstorming Platform: MindSpark},
+  pdfauthor={Ahmed Trabelsi, Yahia Chokri, Ilyes Belkahia, Rim Mnasser, Asma Loudhaief, Ghaida Farhaoui}
+]{hyperref}
+
+\setlength{\emergencystretch}{2em}
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{2}
+
+% -----------------------------------------------------------------------------
+% Styled Placeholders for Diagrams & Figures
+% -----------------------------------------------------------------------------
+% Raw box placeholder for inline diagram stubs (matching chapter2_build.tex)
+\providecommand{\figplaceholder}[1]{%
+  \fcolorbox{PrimaryNavy!50}{PrimaryNavy!4}{%
+    \parbox[c][5.2cm][c]{0.88\textwidth}{%
+      \centering\color{PrimaryNavy}\texttt{[\detokenize{#1}]}\\[6pt]
+      \small\textit{\color{SlateGray}(Insert diagram file: \texttt{\detokenize{#1}.png} / \texttt{\detokenize{#1}.pdf})}%
+    }%
+  }%
+}
+
+% Reusable figure macro wrapping caption and label for automated List of Figures
+\newcommand{\placeholderfig}[3]{%
+  \begin{figure}[H]
+    \centering
+    \IfFileExists{#1}{%
+      \includegraphics[width=0.88\textwidth]{#1}%
+    }{%
+      \IfFileExists{figures/#1}{%
+        \includegraphics[width=0.88\textwidth]{figures/#1}%
+      }{%
+        \fcolorbox{PrimaryNavy!50}{PrimaryNavy!4}{%
+          \parbox[c][4.2cm][c]{0.88\textwidth}{%
+            \centering\color{PrimaryNavy}\textbf{\Large [ Figure Placeholder ]}\\[6pt]
+            \texttt{\small \detokenize{#1}}\\[4pt]
+            \small\textit{\color{SlateGray}(Insert graphic file: \texttt{\detokenize{#1}} or \texttt{figures/\detokenize{#1}})}%
+          }%
+        }%
+      }%
+    }%
+    \caption{#2}
+    \label{#3}
+  \end{figure}
+}
+
+% -----------------------------------------------------------------------------
+% Document Structure
+% -----------------------------------------------------------------------------
+\begin{document}
+
+% -----------------------------------------------------------------------------
+% Cover Page Placeholder (To be designed separately)
+% -----------------------------------------------------------------------------
+\begin{titlepage}
+  \vspace*{\fill}
+  \begin{center}
+    {\Huge\bfseries\color{PrimaryNavy}MindSpark}\\[1.5em]
+    {\Large\textit{\color{SlateGray}Design and Implementation of an AI-Powered Collaborative Brainstorming Platform}}\\[3em]
+    {\normalsize\itshape [Cover Page Placeholder --- To be added later]}
+  \end{center}
+  \vspace*{\fill}
+\end{titlepage}
+
+% -----------------------------------------------------------------------------
+% Front Matter (Roman numerals)
+% -----------------------------------------------------------------------------
+\pagenumbering{roman}
+
+\include{dedications}
+\include{acknowledgments}
+
+\begingroup
+  \setlength{\parskip}{0pt}
+  \tableofcontents
+\endgroup
+\clearpage
+
+\addcontentsline{toc}{chapter}{List of Figures}
+\listoffigures
+\clearpage
+
+\addcontentsline{toc}{chapter}{List of Tables}
+\listoftables
+\clearpage
+
+% -----------------------------------------------------------------------------
+% Main Matter (Arabic numerals)
+% -----------------------------------------------------------------------------
+\pagenumbering{arabic}
+
+\include{intro}
+\include{chapter1}
+\include{chapter2}
+\include{chapter3}
+\include{chapter4}
+\include{chapter5}
+\include{chapter6}
+\include{conclusion}
+
+% -----------------------------------------------------------------------------
+% Bibliography (IEEE Transactions style)
+% -----------------------------------------------------------------------------
+\clearpage
+\addcontentsline{toc}{chapter}{Bibliography}
+\bibliographystyle{ieeetr}
+\bibliography{references}
+
+\end{document}

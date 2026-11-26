@@ -1,0 +1,87 @@
+% =============================================================================
+% Chapter 4: Sprint 1 --- Working Demo
+% Assigned to: Rim Mnasser
+% =============================================================================
+
+\chapter{Sprint 1 --- Working Demo}
+\label{chap:sprint1}
+
+% TODO: Assigned to Rim Mnasser
+% This chapter covers Sprint 1 (18 User Stories), delivering the initial working demo:
+% authentication, room lifecycle, basic sticky note CRUD, and baseline service setup.
+
+\section{Introduction}
+\label{sec:ch4_intro}
+The objective of Sprint 1 was to deliver an end-to-end working demo of MindSpark, validating core authentication, room management, and sticky note operations.
+
+\section{Sprint Goal \& Backlog}
+\label{sec:ch4_goal_backlog}
+\subsection{Sprint Goal Definition}
+\label{subsec:ch4_sprint_goal}
+% Formal statement of the Sprint 1 Goal agreed upon during sprint planning.
+
+\subsection{Sprint 1 Backlog}
+\label{subsec:ch4_sprint_backlog}
+% Table of the 18 user stories selected for Sprint 1 with story points and assigned developers.
+
+\section{Sprint Analysis}
+\label{sec:ch4_analysis}
+\subsection{Sprint Use Case Diagram}
+\label{subsec:ch4_use_case_diag}
+% UML Use Case diagram for Sprint 1 scope (Authentication, Room Management, Sticky Note CRUD).
+\placeholderfig{fig4_1_sprint1_use_case.png}{Sprint 1 Use Case Diagram}{fig:sprint1-use-case}
+
+\subsection{Textual Use Case Descriptions}
+\label{subsec:ch4_use_case_specs}
+% Detailed operational specifications for primary use cases:
+% - UC01: Authenticate via Keycloak
+% - UC02: Create Brainstorming Room
+% - UC03: Join Room via Invitation Code
+% - UC04: Manage Sticky Notes (Create, Read, Update, Delete)
+
+\section{Sprint Design}
+\label{sec:ch4_design}
+\subsection{Sprint Class Diagram}
+\label{subsec:ch4_class_diag}
+% UML Class Diagram for Sprint 1 domain entities (User, Room, Idea, Category).
+\placeholderfig{fig4_2_sprint1_class_diagram.png}{Sprint 1 Domain Class Diagram}{fig:sprint1-class-diagram}
+
+\subsection{Design Sequence Diagrams}
+\label{subsec:ch4_sequence_diags}
+% Sequence diagrams detailing runtime execution:
+% 1. Keycloak PKCE Authentication and JWT Issuance
+% 2. Room Creation and Invitation Code Generation
+% 3. Sticky Note Creation and Database Persistence
+\placeholderfig{fig4_3_seq_room_creation.png}{Sequence Diagram: Room Creation Flow}{fig:seq-room-creation}
+
+\subsection{Activity and State-Transition Diagrams}
+\label{subsec:ch4_activity_state}
+% Activity diagram for room joining flow and state machine for room lifecycle (Draft -> Active).
+
+\section{Implementation \& Screenshots}
+\label{sec:ch4_implementation}
+\subsection{Technical Realization}
+\label{subsec:ch4_tech_realization}
+% Keycloak OIDC integration in Angular and Spring Security, REST controllers, and JPA repositories.
+
+\subsection{User Interface Demonstration}
+\label{subsec:ch4_ui_screenshots}
+% Visual demonstration of working demo interfaces:
+% - Landing page and Keycloak login screen
+% - Room dashboard and room creation modal
+% - Brainstorming canvas with interactive sticky notes
+\placeholderfig{fig4_4_demo_screenshot.png}{Sprint 1 Working Demo Interface}{fig:sprint1-demo-screenshot}
+
+\section{Sprint Review \& Retrospective}
+\label{sec:ch4_review_retro}
+\subsection{Sprint Review Outcomes}
+\label{subsec:ch4_review}
+% Evaluation of completed user stories demonstrated to supervisor Mrs. Khaoula Jridi.
+
+\subsection{Sprint Retrospective Takeaways}
+\label{subsec:ch4_retro}
+% Team reflection: technical hurdles with gateway routing, lessons learned, and action items for Sprint 2.
+
+\section{Conclusion}
+\label{sec:ch4_conclusion}
+% Summary of Sprint 1 contributions and transition to Sprint 2.

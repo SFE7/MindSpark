@@ -1,0 +1,102 @@
+% =============================================================================
+% Chapter 6: Sprint 3 --- Full Product, Administration and Quality
+% Assigned to: Ghaida Farhaoui
+% =============================================================================
+
+\chapter{Sprint 3 --- Full Product, Administration and Quality}
+\label{chap:sprint3}
+
+% TODO: Assigned to Ghaida Farhaoui
+% This chapter covers Sprint 3 (25 User Stories), completing the platform with
+% subscription billing via Polar, media uploads, session exports, Kafka notifications,
+% distributed tracing via OpenTelemetry/Tempo, automated testing, and administrative dashboards.
+
+\section{Introduction}
+\label{sec:ch6_intro}
+Sprint 3 brought MindSpark to full commercial and operational maturity, implementing subscription billing, media storage, asynchronous event-driven messaging, end-to-end observability, and automated quality hardening.
+
+\section{Sprint Goal \& Backlog}
+\label{sec:ch6_goal_backlog}
+\subsection{Sprint Goal Definition}
+\label{subsec:ch6_sprint_goal}
+% Formal statement of the Sprint 3 Goal completing the remaining 25 user stories of the Product Backlog.
+
+\subsection{Sprint 3 Backlog}
+\label{subsec:ch6_sprint_backlog}
+% Table of the 25 user stories completing the 64-story scope, with story points and allocations.
+
+\section{Sprint Analysis}
+\label{sec:ch6_analysis}
+\subsection{Sprint Use Case Diagram}
+\label{subsec:ch6_use_case_diag}
+% UML Use Case diagram for subscription billing, media uploads, session export, and administration.
+\placeholderfig{fig6_1_sprint3_use_case.png}{Sprint 3 Use Case Diagram}{fig:sprint3-use-case}
+
+\subsection{Textual Use Case Descriptions}
+\label{subsec:ch6_use_case_specs}
+% Operational specifications for:
+% - UC11: Upgrade Subscription Tier via Polar Checkout
+% - UC12: Process Asynchronous Billing Webhooks
+% - UC13: Upload and Attach Media Images to Sticky Notes
+% - UC14: Export Room History and Activity Snapshots
+% - UC15: Receive Asynchronous Notifications via Kafka
+% - UC16: Supervise Platform Metrics and Users via Admin Portal
+
+\section{Sprint Design}
+\label{sec:ch6_design}
+\subsection{Sprint Class Diagram}
+\label{subsec:ch6_class_diag}
+% Global class diagram incorporating Subscription, Media, SessionExport, and Notification models.
+\placeholderfig{fig6_2_sprint3_class_diagram.png}{Sprint 3 Domain Class Diagram}{fig:sprint3-class-diagram}
+
+\subsection{Design Sequence Diagrams}
+\label{subsec:ch6_sequence_diags}
+% Sequence diagrams detailing:
+% 1. Polar checkout creation, customer payment, and webhook role promotion in Keycloak
+% 2. Domain event publication to Kafka and asynchronous consumption by notification-service
+\placeholderfig{fig6_3_seq_polar_billing.png}{Sequence Diagram: Polar Checkout and Role Sync Flow}{fig:seq-polar-billing}
+
+\subsection{Activity and State-Transition Diagrams}
+\label{subsec:ch6_activity_state}
+% State-transition diagram for subscription lifecycles (Trial, Active, Past_Due, Cancelled)
+% and activity diagram for media file validation and upload.
+
+\section{Implementation \& Screenshots}
+\label{sec:ch6_implementation}
+\subsection{Technical Realization}
+\label{subsec:ch6_tech_realization}
+% Implementation of subscription-service, media-service, session-service,
+% notification-service with KafkaJS, and distributed tracing with OpenTelemetry and Tempo.
+
+\subsection{User Interface Demonstration}
+\label{subsec:ch6_ui_screenshots}
+% Screenshots demonstrating:
+% - Pricing plans and Polar checkout modal
+% - Notification bell dropdown with unread counter
+% - Image attachments on canvas sticky notes
+% - Platform Administrator dashboard with Grafana telemetry embeds
+\placeholderfig{fig6_4_sprint3_screenshots.png}{Full Product Interface: Billing, Notifications, and Admin Dashboard}{fig:sprint3-ui-screenshots}
+
+\section{Automated Testing \& Hardening}
+\label{sec:ch6_testing_hardening}
+\subsection{Unit and Integration Test Suites}
+\label{subsec:ch6_test_suites}
+% Front-end test coverage with Vitest and jsdom; Spring Boot integration tests with H2.
+
+\subsection{End-to-End System Verification}
+\label{subsec:ch6_e2e_verification}
+% Execution of automated PowerShell regression suites across all 21 Docker services.
+
+\section{Sprint Review \& Retrospective}
+\label{sec:ch6_review_retro}
+\subsection{Sprint Review Outcomes}
+\label{subsec:ch6_review}
+% Final sprint review with supervisor Mrs. Khaoula Jridi demonstrating the complete 64-story platform.
+
+\subsection{Final Project Retrospective}
+\label{subsec:ch6_retro}
+% Team evaluation of the full project lifecycle, velocity trends, and key engineering lessons.
+
+\section{Conclusion}
+\label{sec:ch6_conclusion}
+% Summary of Sprint 3 deliverables and transition to the General Conclusion.

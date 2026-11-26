@@ -1,0 +1,121 @@
+\babel@toc {english}{}\relax 
+\contentsline {chapter}{Dedications}{i}{chapter*.1}%
+\contentsline {chapter}{Acknowledgments}{ii}{chapter*.2}%
+\contentsline {chapter}{List of Figures}{vi}{chapter*.3}%
+\contentsline {chapter}{List of Tables}{vii}{chapter*.4}%
+\contentsline {chapter}{General Introduction}{1}{chapter*.6}%
+\contentsline {chapter}{\numberline {1}Project Context and Framework}{4}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Introduction}{4}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Project Motivation and Pedagogical Framework}{4}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Study of the Existing System}{5}{section.1.3}%
+\contentsline {subsection}{\numberline {1.3.1}Description of Existing Solutions}{5}{subsection.1.3.1}%
+\contentsline {subsection}{\numberline {1.3.2}Critique of Existing Solutions}{6}{subsection.1.3.2}%
+\contentsline {subsection}{\numberline {1.3.3}Proposed Solution: MindSpark}{6}{subsection.1.3.3}%
+\contentsline {section}{\numberline {1.4}Work Methodologies}{7}{section.1.4}%
+\contentsline {subsection}{\numberline {1.4.1}Modeling Language: Unified Modeling Language (UML)}{7}{subsection.1.4.1}%
+\contentsline {subsection}{\numberline {1.4.2}Project Management Methodology: Agile Scrum}{8}{subsection.1.4.2}%
+\contentsline {subsubsection}{\numberline {1.4.2.1}Scrum Roles}{8}{subsubsection.1.4.2.1}%
+\contentsline {subsubsection}{\numberline {1.4.2.2}Scrum Ceremonies}{8}{subsubsection.1.4.2.2}%
+\contentsline {subsubsection}{\numberline {1.4.2.3}Product Backlog and Sprint Breakdown}{9}{subsubsection.1.4.2.3}%
+\contentsline {section}{\numberline {1.5}Hardware and Software Environment}{10}{section.1.5}%
+\contentsline {subsection}{\numberline {1.5.1}Hardware Environment}{10}{subsection.1.5.1}%
+\contentsline {subsection}{\numberline {1.5.2}Development and DevOps Tools}{11}{subsection.1.5.2}%
+\contentsline {subsection}{\numberline {1.5.3}Software and Technology Stack}{12}{subsection.1.5.3}%
+\contentsline {subsubsection}{\numberline {1.5.3.1}Frontend Architecture}{12}{subsubsection.1.5.3.1}%
+\contentsline {subsubsection}{\numberline {1.5.3.2}Backend Microservices and Service Infrastructure}{13}{subsubsection.1.5.3.2}%
+\contentsline {subsubsection}{\numberline {1.5.3.3}Data Persistence, Messaging, and Security}{14}{subsubsection.1.5.3.3}%
+\contentsline {subsubsection}{\numberline {1.5.3.4}External AI and Billing Integrations}{15}{subsubsection.1.5.3.4}%
+\contentsline {subsubsection}{\numberline {1.5.3.5}Observability and Container Orchestration}{15}{subsubsection.1.5.3.5}%
+\contentsline {section}{\numberline {1.6}Conclusion}{16}{section.1.6}%
+\contentsline {chapter}{\numberline {2}State of the Art}{17}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Introduction}{17}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Collaborative Platforms and Ideation Dynamics}{17}{section.2.2}%
+\contentsline {subsection}{\numberline {2.2.1}Principles of Collaborative Ideation}{17}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}Architectures for Real-Time Web Synchronization}{17}{subsection.2.2.2}%
+\contentsline {subsection}{\numberline {2.2.3}Comparative Analysis of Existing Collaborative Tools}{17}{subsection.2.2.3}%
+\contentsline {section}{\numberline {2.3}Generative AI in Creative Problem Solving}{17}{section.2.3}%
+\contentsline {subsection}{\numberline {2.3.1}Large Language Model Architectures}{17}{subsection.2.3.1}%
+\contentsline {subsection}{\numberline {2.3.2}AI-Assisted Brainstorming Capabilities}{17}{subsection.2.3.2}%
+\contentsline {subsection}{\numberline {2.3.3}Prompt Engineering and Context Optimization}{17}{subsection.2.3.3}%
+\contentsline {section}{\numberline {2.4}SaaS Resource Governance and Monetization Models}{17}{section.2.4}%
+\contentsline {subsection}{\numberline {2.4.1}Multi-Tenant Isolation and Tier Entitlements}{17}{subsection.2.4.1}%
+\contentsline {subsection}{\numberline {2.4.2}Rate Limiting and LLM Cost Control}{17}{subsection.2.4.2}%
+\contentsline {section}{\numberline {2.5}Synthesis and Architectural Deductions}{17}{section.2.5}%
+\contentsline {section}{\numberline {2.6}Conclusion}{17}{section.2.6}%
+\contentsline {chapter}{\numberline {3}Requirements Analysis and Specification}{18}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Introduction}{18}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Identification of Actors}{18}{section.3.2}%
+\contentsline {section}{\numberline {3.3}Functional Requirements}{18}{section.3.3}%
+\contentsline {section}{\numberline {3.4}Non-Functional Requirements}{18}{section.3.4}%
+\contentsline {section}{\numberline {3.5}Global Use Case Diagram}{18}{section.3.5}%
+\contentsline {section}{\numberline {3.6}Adopted Software Architecture}{18}{section.3.6}%
+\contentsline {subsection}{\numberline {3.6.1}Global Architecture and Microservice Topology}{18}{subsection.3.6.1}%
+\contentsline {subsection}{\numberline {3.6.2}Backend and AI Wrapper Architecture}{18}{subsection.3.6.2}%
+\contentsline {subsection}{\numberline {3.6.3}Frontend Architecture and Reactivity}{18}{subsection.3.6.3}%
+\contentsline {section}{\numberline {3.7}Scrum Approach, Team Composition, Backlog \& Roadmap}{18}{section.3.7}%
+\contentsline {subsection}{\numberline {3.7.1}Team Organization and Responsibilities}{18}{subsection.3.7.1}%
+\contentsline {subsection}{\numberline {3.7.2}64-Story Product Backlog and MoSCoW Prioritization}{19}{subsection.3.7.2}%
+\contentsline {subsection}{\numberline {3.7.3}Three-Sprint Development Roadmap}{19}{subsection.3.7.3}%
+\contentsline {section}{\numberline {3.8}Conclusion}{19}{section.3.8}%
+\contentsline {chapter}{\numberline {4}Sprint 1 --- Working Demo}{20}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Introduction}{20}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Sprint Goal \& Backlog}{20}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}Sprint Goal Definition}{20}{subsection.4.2.1}%
+\contentsline {subsection}{\numberline {4.2.2}Sprint 1 Backlog}{20}{subsection.4.2.2}%
+\contentsline {section}{\numberline {4.3}Sprint Analysis}{20}{section.4.3}%
+\contentsline {subsection}{\numberline {4.3.1}Sprint Use Case Diagram}{20}{subsection.4.3.1}%
+\contentsline {subsection}{\numberline {4.3.2}Textual Use Case Descriptions}{20}{subsection.4.3.2}%
+\contentsline {section}{\numberline {4.4}Sprint Design}{20}{section.4.4}%
+\contentsline {subsection}{\numberline {4.4.1}Sprint Class Diagram}{21}{subsection.4.4.1}%
+\contentsline {subsection}{\numberline {4.4.2}Design Sequence Diagrams}{21}{subsection.4.4.2}%
+\contentsline {subsection}{\numberline {4.4.3}Activity and State-Transition Diagrams}{21}{subsection.4.4.3}%
+\contentsline {section}{\numberline {4.5}Implementation \& Screenshots}{21}{section.4.5}%
+\contentsline {subsection}{\numberline {4.5.1}Technical Realization}{21}{subsection.4.5.1}%
+\contentsline {subsection}{\numberline {4.5.2}User Interface Demonstration}{21}{subsection.4.5.2}%
+\contentsline {section}{\numberline {4.6}Sprint Review \& Retrospective}{22}{section.4.6}%
+\contentsline {subsection}{\numberline {4.6.1}Sprint Review Outcomes}{22}{subsection.4.6.1}%
+\contentsline {subsection}{\numberline {4.6.2}Sprint Retrospective Takeaways}{22}{subsection.4.6.2}%
+\contentsline {section}{\numberline {4.7}Conclusion}{22}{section.4.7}%
+\contentsline {chapter}{\numberline {5}Sprint 2 --- Real-Time Collaboration and AI Core}{23}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Introduction}{23}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Sprint Goal \& Backlog}{23}{section.5.2}%
+\contentsline {subsection}{\numberline {5.2.1}Sprint Goal Definition}{23}{subsection.5.2.1}%
+\contentsline {subsection}{\numberline {5.2.2}Sprint 2 Backlog}{23}{subsection.5.2.2}%
+\contentsline {section}{\numberline {5.3}Sprint Analysis}{23}{section.5.3}%
+\contentsline {subsection}{\numberline {5.3.1}Sprint Use Case Diagram}{23}{subsection.5.3.1}%
+\contentsline {subsection}{\numberline {5.3.2}Textual Use Case Descriptions}{23}{subsection.5.3.2}%
+\contentsline {section}{\numberline {5.4}Sprint Design}{23}{section.5.4}%
+\contentsline {subsection}{\numberline {5.4.1}Sprint Class Diagram}{24}{subsection.5.4.1}%
+\contentsline {subsection}{\numberline {5.4.2}Design Sequence Diagrams}{24}{subsection.5.4.2}%
+\contentsline {subsection}{\numberline {5.4.3}Activity and State-Transition Diagrams}{24}{subsection.5.4.3}%
+\contentsline {section}{\numberline {5.5}Implementation \& Screenshots}{24}{section.5.5}%
+\contentsline {subsection}{\numberline {5.5.1}Technical Realization}{24}{subsection.5.5.1}%
+\contentsline {subsection}{\numberline {5.5.2}User Interface Demonstration}{24}{subsection.5.5.2}%
+\contentsline {section}{\numberline {5.6}Sprint Review \& Retrospective}{25}{section.5.6}%
+\contentsline {subsection}{\numberline {5.6.1}Sprint Review Outcomes}{25}{subsection.5.6.1}%
+\contentsline {subsection}{\numberline {5.6.2}Sprint Retrospective Takeaways}{25}{subsection.5.6.2}%
+\contentsline {section}{\numberline {5.7}Conclusion}{25}{section.5.7}%
+\contentsline {chapter}{\numberline {6}Sprint 3 --- Full Product, Administration and Quality}{26}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Introduction}{26}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Sprint Goal \& Backlog}{26}{section.6.2}%
+\contentsline {subsection}{\numberline {6.2.1}Sprint Goal Definition}{26}{subsection.6.2.1}%
+\contentsline {subsection}{\numberline {6.2.2}Sprint 3 Backlog}{26}{subsection.6.2.2}%
+\contentsline {section}{\numberline {6.3}Sprint Analysis}{26}{section.6.3}%
+\contentsline {subsection}{\numberline {6.3.1}Sprint Use Case Diagram}{26}{subsection.6.3.1}%
+\contentsline {subsection}{\numberline {6.3.2}Textual Use Case Descriptions}{26}{subsection.6.3.2}%
+\contentsline {section}{\numberline {6.4}Sprint Design}{26}{section.6.4}%
+\contentsline {subsection}{\numberline {6.4.1}Sprint Class Diagram}{27}{subsection.6.4.1}%
+\contentsline {subsection}{\numberline {6.4.2}Design Sequence Diagrams}{27}{subsection.6.4.2}%
+\contentsline {subsection}{\numberline {6.4.3}Activity and State-Transition Diagrams}{27}{subsection.6.4.3}%
+\contentsline {section}{\numberline {6.5}Implementation \& Screenshots}{27}{section.6.5}%
+\contentsline {subsection}{\numberline {6.5.1}Technical Realization}{27}{subsection.6.5.1}%
+\contentsline {subsection}{\numberline {6.5.2}User Interface Demonstration}{27}{subsection.6.5.2}%
+\contentsline {section}{\numberline {6.6}Automated Testing \& Hardening}{28}{section.6.6}%
+\contentsline {subsection}{\numberline {6.6.1}Unit and Integration Test Suites}{28}{subsection.6.6.1}%
+\contentsline {subsection}{\numberline {6.6.2}End-to-End System Verification}{28}{subsection.6.6.2}%
+\contentsline {section}{\numberline {6.7}Sprint Review \& Retrospective}{28}{section.6.7}%
+\contentsline {subsection}{\numberline {6.7.1}Sprint Review Outcomes}{28}{subsection.6.7.1}%
+\contentsline {subsection}{\numberline {6.7.2}Final Project Retrospective}{28}{subsection.6.7.2}%
+\contentsline {section}{\numberline {6.8}Conclusion}{28}{section.6.8}%
+\contentsline {chapter}{General Conclusion}{29}{chapter*.26}%
+\contentsline {chapter}{Bibliography}{32}{chapter*.26}%

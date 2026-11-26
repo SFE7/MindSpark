@@ -1,0 +1,79 @@
+% =============================================================================
+% Chapter 3: Requirements Analysis and Specification
+% Assigned to: Ilyes Belkahia
+% =============================================================================
+
+\chapter{Requirements Analysis and Specification}
+\label{chap:requirements}
+
+% TODO: Assigned to Ilyes Belkahia
+% This chapter details the functional and non-functional requirements,
+% actor identification, global use case modeling, adopted software architecture,
+% and the Scrum roadmap across 64 user stories.
+
+\section{Introduction}
+\label{sec:ch3_intro}
+Before embarking on incremental development, software systems require formal requirement analysis to guarantee that the architecture faithfully addresses stakeholder needs. This chapter establishes the complete functional and architectural specification of MindSpark.
+
+\section{Identification of Actors}
+\label{sec:ch3_actors}
+% Detailed profiles for:
+% 1. Room Creator (Teacher / Facilitator)
+% 2. Participant (Student / Team Member)
+% 3. Administrator / Super-Admin
+% 4. AI System (Autonomous Secondary Actor)
+
+\section{Functional Requirements}
+\label{sec:ch3_functional_reqs}
+% Detailed breakdown of functional capabilities:
+% - Room creation, invitation codes, and participant admission
+% - Real-time sticky notes, canvas free-hand drawing, and threaded comments
+% - Structured voting sessions and vote pool allowances
+% - Generative AI operations (generation, expansion, clustering, risk, action plans)
+% - Subscription tier governance and billing checkout
+% - Administrative management and audit logging
+
+\section{Non-Functional Requirements}
+\label{sec:ch3_non_functional_reqs}
+% Specification of system constraints:
+% - Performance & real-time latency (<100ms WebSocket broadcasts)
+% - Security & OAuth2 token validation (Keycloak OIDC / RS256 JWT)
+% - Fault tolerance & resilience (circuit breakers, rate limiting)
+% - Scalability & service autonomy (database-per-service topology)
+
+\section{Global Use Case Diagram}
+\label{sec:ch3_global_use_case}
+% Presentation of the global UML Use Case Diagram capturing all system actors and packages.
+\placeholderfig{fig3_1_global_use_case.png}{Global UML Use Case Diagram for MindSpark}{fig:global-use-case}
+
+\section{Adopted Software Architecture}
+\label{sec:ch3_software_architecture}
+\subsection{Global Architecture and Microservice Topology}
+\label{subsec:ch3_global_arch}
+% Decomposition into 8 Spring Boot services, 1 Node Express service, and supporting containers.
+
+\subsection{Backend and AI Wrapper Architecture}
+\label{subsec:ch3_backend_ai_arch}
+% Spring Cloud Gateway, Eureka discovery, Spring Boot domain services, and the decoupled AI wrapper.
+
+\subsection{Frontend Architecture and Reactivity}
+\label{subsec:ch3_frontend_arch}
+% Angular 22 standalone components, Angular Signals, RxJS streams, and native WebSockets.
+
+\section{Scrum Approach, Team Composition, Backlog \& Roadmap}
+\label{sec:ch3_scrum_roadmap}
+\subsection{Team Organization and Responsibilities}
+\label{subsec:ch3_team_org}
+% Allocation of Product Owner, Scrum Master, and developer roles across the 6 squad members.
+
+\subsection{64-Story Product Backlog and MoSCoW Prioritization}
+\label{subsec:ch3_backlog_table}
+% Complete Product Backlog cataloging all 64 user stories with MoSCoW priorities and story points.
+
+\subsection{Three-Sprint Development Roadmap}
+\label{subsec:ch3_sprint_roadmap}
+% Roadmap breakdown: Sprint 1 (18 stories), Sprint 2 (21 stories), and Sprint 3 (25 stories).
+
+\section{Conclusion}
+\label{sec:ch3_conclusion}
+% Summary of requirements analysis and transition to Chapter 4 (Sprint 1).

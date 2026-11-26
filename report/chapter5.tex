@@ -1,0 +1,91 @@
+% =============================================================================
+% Chapter 5: Sprint 2 --- Real-Time Collaboration and AI Core
+% Assigned to: Asma Loudhaief
+% =============================================================================
+
+\chapter{Sprint 2 --- Real-Time Collaboration and AI Core}
+\label{chap:sprint2}
+
+% TODO: Assigned to Asma Loudhaief
+% This chapter covers Sprint 2 (21 User Stories), focusing on low-latency WebSockets,
+% live cursor tracking, the decoupled ai-service, multi-model LLM workflows,
+% rate limiting, and Resilience4j circuit breaking.
+
+\section{Introduction}
+\label{sec:ch5_intro}
+Sprint 2 introduced the two defining technological capabilities of MindSpark: bi-directional multi-user real-time interaction and an integrated Generative AI assistance engine.
+
+\section{Sprint Goal \& Backlog}
+\label{sec:ch5_goal_backlog}
+\subsection{Sprint Goal Definition}
+\label{subsec:ch5_sprint_goal}
+% Formal statement of the Sprint 2 Goal centered on real-time synchronization and AI integration.
+
+\subsection{Sprint 2 Backlog}
+\label{subsec:ch5_sprint_backlog}
+% Table of the 21 user stories selected for Sprint 2 with story points and assigned developers.
+
+\section{Sprint Analysis}
+\label{sec:ch5_analysis}
+\subsection{Sprint Use Case Diagram}
+\label{subsec:ch5_use_case_diag}
+% UML Use Case diagram for real-time collaboration and AI operations.
+\placeholderfig{fig5_1_sprint2_use_case.png}{Sprint 2 Use Case Diagram}{fig:sprint2-use-case}
+
+\subsection{Textual Use Case Descriptions}
+\label{subsec:ch5_use_case_specs}
+% Operational specifications for core scenarios:
+% - UC05: Broadcast Live Cursors and Online Presence
+% - UC06: Synchronize Sticky Note Drag and Object Locking
+% - UC07: Free-Hand Canvas Drawing Broadcast
+% - UC08: Execute AI Idea Generation & Expansion
+% - UC09: Execute AI Semantic Clustering & Grouping
+% - UC10: Conduct Structured Voting Sessions
+
+\section{Sprint Design}
+\label{sec:ch5_design}
+\subsection{Sprint Class Diagram}
+\label{subsec:ch5_class_diag}
+% Updated class diagram showing Vote, VotePool, Drawing, and AI Service entity models.
+\placeholderfig{fig5_2_sprint2_class_diagram.png}{Sprint 2 Domain Class Diagram}{fig:sprint2-class-diagram}
+
+\subsection{Design Sequence Diagrams}
+\label{subsec:ch5_sequence_diags}
+% Sequence diagrams detailing:
+% 1. WebSocket bi-directional handshake and message broadcast
+% 2. AI request flow: Gateway -> AI-Service -> Gemini/Groq -> Circuit Breaker fallback
+\placeholderfig{fig5_3_seq_ai_generation.png}{Sequence Diagram: AI Generation and Circuit Breaker Flow}{fig:seq-ai-generation}
+
+\subsection{Activity and State-Transition Diagrams}
+\label{subsec:ch5_activity_state}
+% State-transition diagram for Resilience4j Circuit Breaker (Closed, Open, Half-Open)
+% and activity diagram for voting session execution.
+
+\section{Implementation \& Screenshots}
+\label{sec:ch5_implementation}
+\subsection{Technical Realization}
+\label{subsec:ch5_tech_realization}
+% Native Spring WebSocket handler, Angular RealtimeService with Signals,
+% ai-service dual-provider REST clients (Gemini, Groq), and concurrency rate limiter.
+
+\subsection{User Interface Demonstration}
+\label{subsec:ch5_ui_screenshots}
+% Screenshots demonstrating:
+% - Real-time multi-cursor collaboration with participant name tags
+% - AI Assistant panel executing semantic idea grouping
+% - Voting heatmap on sticky notes
+\placeholderfig{fig5_4_realtime_ai_screenshot.png}{Real-Time Multi-User Collaboration and AI Assistant Panel}{fig:sprint2-ui-screenshot}
+
+\section{Sprint Review \& Retrospective}
+\label{sec:ch5_review_retro}
+\subsection{Sprint Review Outcomes}
+\label{subsec:ch5_review}
+% Review meeting results demonstrating live WebSocket collaboration and AI workflows.
+
+\subsection{Sprint Retrospective Takeaways}
+\label{subsec:ch5_retro}
+% Reflection on managing slow upstream LLM responses, concurrency tuning, and team action items.
+
+\section{Conclusion}
+\label{sec:ch5_conclusion}
+% Summary of Sprint 2 achievements and transition to Sprint 3.
