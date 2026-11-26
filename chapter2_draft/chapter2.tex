@@ -69,9 +69,7 @@ Figure~\ref{fig:rt-protocols} contrasts the message flow of these four paradigms
 
 \begin{figure}[htbp]
     \centering
-    \figplaceholder{fig-realtime-protocols}
-    % Replace the line above with:
-    % \includegraphics[width=0.9\textwidth]{fig-realtime-protocols}
+    \includegraphics[width=0.96\textwidth]{fig-realtime-protocols}
     \caption{Message flow of short polling, long polling, Server-Sent Events, and WebSocket between a client and a server.}
     \label{fig:rt-protocols}
 \end{figure}
@@ -83,9 +81,7 @@ This room-scoped dispatching is illustrated in Figure~\ref{fig:pubsub-rooms}.
 
 \begin{figure}[htbp]
     \centering
-    \figplaceholder{fig-pubsub-room-isolation}
-    % Replace the line above with:
-    % \includegraphics[width=0.9\textwidth]{fig-pubsub-room-isolation}
+    \includegraphics[width=0.95\textwidth]{fig-pubsub-room-isolation}
     \caption{Publish-Subscribe room-level channel isolation: mutations are dispatched only to clients subscribed to the originating room.}
     \label{fig:pubsub-rooms}
 \end{figure}
@@ -271,9 +267,7 @@ The overall request path is depicted in Figure~\ref{fig:ai-service-arch}.
 
 \begin{figure}[htbp]
     \centering
-    \figplaceholder{fig-ai-service-architecture}
-    % Replace the line above with:
-    % \includegraphics[width=0.9\textwidth]{fig-ai-service-architecture}
+    \includegraphics[width=0.96\textwidth]{fig-ai-service-architecture}
     \caption{Target architecture of the \texttt{ai-service} microservice within the MindSpark backend, including gateway routing, authentication, provider tiers, and quota storage.}
     \label{fig:ai-service-arch}
 \end{figure}
@@ -310,9 +304,7 @@ Figure~\ref{fig:prompt-pipeline} summarizes the complete pipeline from user acti
 
 \begin{figure}[htbp]
     \centering
-    \figplaceholder{fig-prompt-pipeline}
-    % Replace the line above with:
-    % \includegraphics[width=0.9\textwidth]{fig-prompt-pipeline}
+    \includegraphics[width=0.96\textwidth]{fig-prompt-pipeline}
     \caption{Prompt engineering pipeline: system prompt, context injection, and user prompt feed the LLM, whose output is schema-validated before persistence and broadcast.}
     \label{fig:prompt-pipeline}
 \end{figure}
